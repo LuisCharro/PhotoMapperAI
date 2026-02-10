@@ -1,0 +1,15 @@
+# Database Connection String Template
+# Copy this file and replace with your actual connection string
+# DO NOT commit real connection strings to GitHub!
+
+# SQL Server example
+Server=localhost;Database=SportsDB;User Id=sa;Password=YourPassword;TrustServerCertificate=True;
+
+# PostgreSQL example (using Npgsql)
+Host=localhost;Database=sportsdb;Username=postgres;Password=YourPassword;
+
+# MySQL example
+Server=localhost;Database=sportsdb;User=root;Password=YourPassword;SslMode=None;
+
+# SQLite example
+Data Source=/path/to/database.db;
