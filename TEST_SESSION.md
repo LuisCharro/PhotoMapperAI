@@ -27,11 +27,17 @@
 
 1. ~~Remove tracked build artifacts~~ ✅ DONE (Commit 4852c62)
 2. ~~Create synthetic database~~ ✅ DONE (players_test.csv generated)
-3. Test extract command (database → CSV)
-4. Test map command (AI name matching)
-5. Test generatephotos command (Ollama Vision face detection)
-6. Compare outputs
-7. Document results
+### Step 4: Full Workflow Test (Spain + Switzerland)
+**Status:** In Progress
+- Map command: Successfully matched 49/49 players using temporary flat directory and renamed files.
+- GeneratePhotos command: Running with `-faceDetection qwen3-vl`.
+- Batch 1 (1-5): Processing.
+- Resource Monitoring: Memory is tight (~23GB used, 99MB unused), CPU usage is low.
+
+### Step 5: Portability Scripts
+**Status:** Complete
+- Created `scripts/download-opencv-models.ps1` for Windows users.
+- Uses `Invoke-WebRequest` and supports same model options as `.sh` version.
 
 ## Work Log
 
