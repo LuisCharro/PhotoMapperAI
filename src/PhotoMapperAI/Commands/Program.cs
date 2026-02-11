@@ -222,22 +222,46 @@ public class GeneratePhotosCommand
 
     public async Task<int> OnExecuteAsync()
     {
-        Console.WriteLine("Generate Photos Command");
-        Console.WriteLine("======================");
-        Console.WriteLine($"CSV File: {InputCsvPath}");
-        Console.WriteLine($"Output Dir: {ProcessedPhotosOutputPath}");
-        Console.WriteLine($"Format: {Format}");
-        Console.WriteLine($"Face Detection: {FaceDetection}");
-        Console.WriteLine($"Crop Method: {Crop}");
-        Console.WriteLine($"Portrait Only: {PortraitOnly}");
-        Console.WriteLine($"Portrait Size: {FaceWidth}x{FaceHeight}");
-        Console.WriteLine();
-        Console.WriteLine("TODO: Implement GeneratePhotos command logic");
+        // Create face detection service
+        var faceDetectionService = CreateFaceDetectionService(FaceDetection);
 
-        // TODO: Implement portrait generation logic
-        await Task.CompletedTask;
+        // Initialize OpenCV service if needed
+        if (faceDetectionService is OpenCVDNNFaceDetectionService cvService)
+        {
+            await cvService.InitializeAsync();
+        }
 
-        return 0;
+        // Create image processor
+        var imageProcessor = new Services.Image.ImageProcessor();
+
+        // Create generate photos command logic handler
+        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor);
+
+        // Execute generate photos command
+        return await logic.ExecuteAsync(
+            InputCsvPath,
+            ProcessedPhotosOutputPath,
+            Format,
+            FaceDetection,
+            Crop,
+            PortraitOnly,
+            FaceWidth,
+            FaceHeight
+        );
+    }
+
+    /// <summary>
+    /// Creates the appropriate face detection service based on model name.
+    /// </summary>
+    private IFaceDetectionService CreateFaceDetectionService(string model)
+    {
+        return model.ToLower() switch
+        {
+            "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
+            "yolov8-face" => new OpenCVDNNFaceDetectionService(), // TODO: Implement YOLOv8
+            _ when model.Contains("llava") or model.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
+            _ => throw new ArgumentException($"Unknown face detection model: {model}")
+        };
     }
 }
 
