@@ -157,27 +157,27 @@ public class MapCommand
 
     public async Task<int> OnExecuteAsync()
     {
-        Console.WriteLine("Map Command");
-        Console.WriteLine("============");
-        Console.WriteLine($"CSV File: {InputCsvPath}");
-        Console.WriteLine($"Photos Dir: {PhotosDir}");
-        Console.WriteLine($"Name Model: {NameModel}");
-        Console.WriteLine($"Confidence Threshold: {ConfidenceThreshold}");
-        Console.WriteLine();
+        // Create Ollama name matching service
+        var nameMatchingService = new Services.AI.OllamaNameMatchingService(
+            modelName: NameModel,
+            confidenceThreshold: ConfidenceThreshold
+        );
 
-        if (!string.IsNullOrEmpty(FilenamePattern))
-            Console.WriteLine($"Filename Pattern: {FilenamePattern}");
+        // Create image processor
+        var imageProcessor = new Services.Image.ImageProcessor();
 
-        if (!string.IsNullOrEmpty(PhotoManifest))
-            Console.WriteLine($"Photo Manifest: {PhotoManifest}");
+        // Create map command logic handler
+        var logic = new MapCommandLogic(nameMatchingService, imageProcessor);
 
-        Console.WriteLine();
-        Console.WriteLine("TODO: Implement Map command logic");
-
-        // TODO: Implement photo mapping logic
-        await Task.CompletedTask;
-
-        return 0;
+        // Execute map command
+        return await logic.ExecuteAsync(
+            InputCsvPath,
+            PhotosDir,
+            FilenamePattern,
+            PhotoManifest,
+            NameModel,
+            ConfidenceThreshold
+        );
     }
 }
 
