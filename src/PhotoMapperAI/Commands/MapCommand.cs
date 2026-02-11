@@ -82,8 +82,12 @@ public class MapCommandLogic
             Console.WriteLine("Matching photos to players...");
             var results = new List<MappingResult>();
 
+            var progress = new ProgressIndicator("Progress", photos.Count, useBar: true);
+
             foreach (var photo in photos)
             {
+                progress.Update(Path.GetFileName(photo));
+                
                 var result = await MatchPhotoToPlayerAsync(
                     photo,
                     players,
@@ -107,19 +111,10 @@ public class MapCommandLogic
                         player.Confidence = result.Confidence;
                     }
                 }
-
-                // Show progress
-                var confidenceStr = result.Confidence > 0 ? result.Confidence.ToString("P1") : "N/A";
-                var methodStr = result.ModelUsed == "StringMatching" ? "String" : 
-                               result.ModelUsed == "DirectIdMatch" ? "ID" : "AI";
-
-                Console.WriteLine(
-                    $"  {Path.GetFileName(photo)} -> " +
-                    (result.IsValidMatch ? $"Player {result.PlayerId} ({confidenceStr}, {methodStr})" : "No match")
-                );
             }
 
-            Console.WriteLine();
+            progress.Complete();
+
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Matched {results.Count(r => r.IsValidMatch)} / {results.Count} photos");
             Console.WriteLine($"✓ ID matches: {results.Count(r => r.Method == MatchMethod.DirectIdMatch)}");
@@ -241,16 +236,19 @@ public class MapCommandLogic
         {
             var matchResults = new List<Models.MatchResult>();
             
-            // Compare against all players
-            foreach (var player in players)
+            using (var spinner = ProgressIndicator.CreateSpinner($"  AI matching for {photoName}"))
             {
-                var matchResult = await _nameMatchingService.CompareNamesAsync(
-                    player.FullName,
-                    metadata.FullName ?? string.Empty
-                );
+                // Compare against all players
+                foreach (var player in players)
+                {
+                    var matchResult = await _nameMatchingService.CompareNamesAsync(
+                        player.FullName,
+                        metadata.FullName ?? string.Empty
+                    );
 
-                matchResult.PlayerId = player.PlayerId;
-                matchResults.Add(matchResult);
+                    matchResult.PlayerId = player.PlayerId;
+                    matchResults.Add(matchResult);
+                }
             }
 
             // Get best match (highest confidence)

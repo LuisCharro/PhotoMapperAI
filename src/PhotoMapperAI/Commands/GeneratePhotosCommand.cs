@@ -2,6 +2,7 @@ using PhotoMapperAI.Models;
 using PhotoMapperAI.Services;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Image;
+using PhotoMapperAI.Utils;
 using CsvHelper.Configuration;
 using CsvHelper;
 
@@ -68,13 +69,27 @@ public class GeneratePhotosCommandLogic
             Directory.CreateDirectory(processedPhotosOutputPath);
 
             // Step 3: Process each player
+            var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.ExternalId)).ToList();
+            var totalPlayers = playersToProcess.Count;
             var successCount = 0;
             var failedCount = 0;
 
-            foreach (var player in players.Where(p => !string.IsNullOrEmpty(p.ExternalId)))
+            if (totalPlayers == 0)
             {
-                Console.WriteLine();
-                Console.WriteLine($"Processing: {player.FullName} (ID: {player.ExternalId})");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("⚠ No players with ExternalId found to process");
+                Console.ResetColor();
+                return 0;
+            }
+
+            Console.WriteLine($"Processing {totalPlayers} players...");
+            Console.WriteLine();
+
+            var progress = new ProgressIndicator("Progress", totalPlayers, useBar: true);
+
+            foreach (var player in playersToProcess)
+            {
+                progress.Update($"{player.FullName} (ID: {player.ExternalId})");
 
                 // Construct input photo path - search in photosDir
                 var photoFiles = Directory.GetFiles(photosDir, $"{player.ExternalId}.*")
@@ -92,6 +107,7 @@ public class GeneratePhotosCommandLogic
 
                 if (photoFiles.Count == 0)
                 {
+                    Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine($"  ⚠ No photo found for player {player.ExternalId}");
                     Console.ResetColor();
@@ -100,7 +116,6 @@ public class GeneratePhotosCommandLogic
                 }
 
                 var photoPath = photoFiles[0];
-                Console.WriteLine($"  Found: {Path.GetFileName(photoPath)}");
 
                 try
                 {
@@ -109,41 +124,17 @@ public class GeneratePhotosCommandLogic
                     // Step 4a: Detect faces (unless portrait-only mode)
                     if (!portraitOnly)
                     {
-                        Console.WriteLine($"  Detecting faces using: {faceDetectionModel}");
-
-                        landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
-
-                        if (landmarks.FaceDetected)
+                        using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
                         {
-                            Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine($"  ✓ Face detected (confidence: {landmarks.FaceConfidence:P1})");
-                            Console.ResetColor();
-
-                            if (landmarks.BothEyesDetected)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.WriteLine($"  ✓ Both eyes detected");
-                                Console.ResetColor();
-                            }
+                            landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
                         }
-                        else
-                        {
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine($"  ⚠ No face detected, using center crop");
-                            Console.ResetColor();
-                        }
-
-                        Console.WriteLine($"  Processing time: {landmarks.ProcessingTimeMs}ms");
                     }
                     else
                     {
-                        Console.WriteLine("  Skipping face detection (portrait-only mode)");
+                        landmarks = new FaceLandmarks { FaceDetected = false };
                     }
 
                     // Step 5: Generate portrait
-                    var strategy = portraitOnly ? "Manual" : (landmarks?.FaceDetected == true ? "AI" : "Center Crop");
-                    Console.WriteLine($"  Generating portrait ({strategy})...");
-
                     var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
 
                     // Load and crop image
@@ -159,20 +150,19 @@ public class GeneratePhotosCommandLogic
                     var outputPath = Path.Combine(processedPhotosOutputPath, $"{player.PlayerId}.{format}");
                     await _imageProcessor.SaveImageAsync(cropped, outputPath, format);
 
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"  ✓ Saved: {Path.GetFileName(outputPath)}");
-                    Console.ResetColor();
-
                     successCount++;
                 }
                 catch (Exception ex)
                 {
+                    Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"  ✗ Error: {ex.Message}");
                     Console.ResetColor();
                     failedCount++;
                 }
             }
+
+            progress.Complete();
 
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;

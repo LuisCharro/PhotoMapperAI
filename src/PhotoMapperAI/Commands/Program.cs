@@ -1,6 +1,7 @@
 using McMaster.Extensions.CommandLineUtils;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Commands;
+using PhotoMapperAI.Utils;
 using System.Reflection;
 
 namespace PhotoMapperAI;
@@ -96,12 +97,16 @@ public class ExtractCommand
 
             // Extract data
             Console.WriteLine("Extracting player data...");
-            var playerCount = await extractor.ExtractPlayersToCsvAsync(
-                connectionString,
-                sqlQuery,
-                parameters,
-                outputCsvPath
-            );
+            int playerCount;
+            using (var spinner = ProgressIndicator.CreateSpinner("  Reading from database"))
+            {
+                playerCount = await extractor.ExtractPlayersToCsvAsync(
+                    connectionString,
+                    sqlQuery,
+                    parameters,
+                    outputCsvPath
+                );
+            }
 
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;
