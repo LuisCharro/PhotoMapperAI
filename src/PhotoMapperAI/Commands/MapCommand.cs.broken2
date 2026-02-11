@@ -58,7 +58,7 @@ public class MapCommandLogic
             // Step 2: Load photos
             Console.WriteLine("Loading photos...");
             var photoFiles = Directory.GetFiles(photosDir, "*.*", SearchOption.AllDirectories);
-            var photos = photoFiles.ToList();
+            var photos = photoFiles.Select(f => Path.GetFileName(f)).ToList();
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Loaded {photos.Count} photos");
@@ -110,21 +110,16 @@ public class MapCommandLogic
 
                 // Show progress
                 var confidenceStr = result.Confidence > 0 ? result.Confidence.ToString("P1") : "N/A";
-                var methodStr = result.ModelUsed == "StringMatching" ? "String" : 
-                               result.ModelUsed == "DirectIdMatch" ? "ID" : "AI";
-
                 Console.WriteLine(
                     $"  {Path.GetFileName(photo)} -> " +
-                    (result.IsValidMatch ? $"Player {result.PlayerId} ({confidenceStr}, {methodStr})" : "No match")
+                    (result.IsValidMatch ? $"Player {result.PlayerId} ({confidenceStr})" : "No match")
                 );
             }
 
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Matched {results.Count(r => r.IsValidMatch)} / {results.Count} photos");
-            Console.WriteLine($"✓ ID matches: {results.Count(r => r.Method == MatchMethod.DirectIdMatch)}");
-            Console.WriteLine($"✓ String matches: {results.Count(r => r.ModelUsed == "StringMatching")}");
-            Console.WriteLine($"✓ AI matches: {results.Count(r => r.ModelUsed == nameModel && r.IsValidMatch)}");
+            Console.WriteLine($"✓ Direct ID matches: {results.Count(r => r.Method == MatchMethod.DirectIdMatch)}, String matches: {results.Count(r => r.ModelUsed == \"StringMatching\")}, AI matches: {results.Count(r => r.ModelUsed == nameModel)}");
             Console.ResetColor();
 
             // Step 5: Write updated CSV
@@ -210,21 +205,26 @@ public class MapCommandLogic
         // Step 2: Try simple string matching (fast, no API call)
         if (metadata.FullName != null && players.Count > 0)
         {
-            var bestSimpleMatch = FindBestSimpleMatch(
+            var bestPlayer = FindBestSimpleMatch(
                 metadata.FullName,
                 players,
                 confidenceThreshold
             );
 
-            if (bestSimpleMatch != null)
+            if (bestPlayer != null)
             {
+                var similarity = StringSimilarity.CompareNames(
+                    StringSimilarity.NormalizeName(metadata.FullName),
+                    StringSimilarity.NormalizeName(bestPlayer.FullName)
+                );
+
                 return new MappingResult
                 {
                     PhotoFileName = photoName,
                     ExternalId = metadata.ExternalId,
-                    PlayerId = bestSimpleMatch.Value.Player.PlayerId,
-                    Method = MatchMethod.AiNameMatching, // Treated as name match
-                    Confidence = bestSimpleMatch.Value.Confidence,
+                    PlayerId = bestPlayer.PlayerId,
+                    Method = MatchMethod.AiNameMatching,
+                    Confidence = similarity,
                     ConfidenceThreshold = confidenceThreshold,
                     ModelUsed = "StringMatching",
                     ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
@@ -239,6 +239,7 @@ public class MapCommandLogic
         // Step 3: Fall back to AI name matching (slow, but accurate)
         if (metadata.FullName != null && players.Count > 0)
         {
+            Console.WriteLine($"    Using AI matching for: {photoName}");
             var matchResults = new List<Models.MatchResult>();
             
             // Compare against all players
@@ -293,20 +294,29 @@ public class MapCommandLogic
     /// <summary>
     /// Finds the best matching player using simple string similarity.
     /// </summary>
-    private static (PlayerRecord Player, double Confidence)? FindBestSimpleMatch(
-        string name,
+    private static PlayerRecord? FindBestSimpleMatch(
+        string photoName,
         List<PlayerRecord> players,
         double confidenceThreshold)
     {
         if (players.Count == 0)
             return null;
 
+        var normPhotoName = StringSimilarity.NormalizeName(photoName);
+        
+        // Normalize all player names
+        var normPlayerNames = players
+            .Select(p => StringSimilarity.NormalizeName(p.FullName))
+            .ToList();
+
+        // Find best match
         PlayerRecord? bestPlayer = null;
-        double bestSimilarity = 0;
+        double bestSimilarity = confidenceThreshold - 0.1; // Slightly below threshold
 
         foreach (var player in players)
         {
-            var similarity = StringMatching.CompareNames(name, player.FullName);
+            var normPlayerName = normPlayerNames[players.IndexOf(player)];
+            var similarity = StringSimilarity.CompareNames(normPhotoName, normPlayerName);
 
             if (similarity > bestSimilarity)
             {
@@ -315,12 +325,7 @@ public class MapCommandLogic
             }
         }
 
-        if (bestPlayer != null && bestSimilarity >= confidenceThreshold)
-        {
-            return (bestPlayer, bestSimilarity);
-        }
-
-        return null;
+        return bestPlayer;
     }
 
     /// <summary>

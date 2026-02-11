@@ -1,6 +1,7 @@
 using PhotoMapperAI.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Globalization;
 
 namespace PhotoMapperAI.Services.AI;
 
@@ -38,7 +39,6 @@ public class OllamaNameMatchingService : INameMatchingService
     /// </summary>
     public async Task<MatchResult> CompareNamesAsync(string name1, string name2)
     {
-        Console.WriteLine($"    Comparing: '{name1}' vs '{name2}'...");
         var prompt = BuildNameComparisonPrompt(name1, name2);
         
         try
@@ -79,9 +79,10 @@ Names can have different orders (First Last vs Last First), missing middle names
 Name 1: {name1}
 Name 2: {name2}
 
-Return a JSON object with:
+Return ONLY a JSON object with:
 {{
   ""confidence"": 0.0 to 1.0,
+  ""isMatch"": true/false,
   ""reason"": ""short explanation""
 }}";
     }
@@ -93,20 +94,32 @@ Return a JSON object with:
             // Simple JSON extraction (handles markdown blocks too)
             var start = response.IndexOf('{');
             var end = response.LastIndexOf('}');
+            
             if (start >= 0 && end > start)
             {
                 var json = response.Substring(start, end - start + 1);
-                Console.WriteLine($"    Extracted JSON: {json}");
                 var data = JsonSerializer.Deserialize<NameComparisonResponse>(json, _jsonOptions);
+                
                 if (data != null)
                 {
                     return new MatchResult
                     {
                         Confidence = data.Confidence,
-                        IsMatch = data.Confidence >= _confidenceThreshold,
+                        IsMatch = data.IsMatch || data.Confidence >= _confidenceThreshold,
                         Metadata = new Dictionary<string, string> { { "reason", data.Reason } }
                     };
                 }
+            }
+            
+            // Fallback: search for confidence number in text
+            var confidenceMatch = System.Text.RegularExpressions.Regex.Match(response, @"""confidence"":\s*([0-9\.]+)");
+            if (confidenceMatch.Success && double.TryParse(confidenceMatch.Groups[1].Value, CultureInfo.InvariantCulture, out var confidence))
+            {
+                return new MatchResult
+                {
+                    Confidence = confidence,
+                    IsMatch = confidence >= _confidenceThreshold
+                };
             }
         }
         catch { }
@@ -116,7 +129,13 @@ Return a JSON object with:
 
     private class NameComparisonResponse
     {
+        [JsonPropertyName("confidence")]
         public double Confidence { get; set; }
+
+        [JsonPropertyName("isMatch")]
+        public bool IsMatch { get; set; }
+
+        [JsonPropertyName("reason")]
         public string Reason { get; set; } = string.Empty;
     }
 }
