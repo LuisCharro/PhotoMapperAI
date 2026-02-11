@@ -356,6 +356,16 @@ Test Data (local, not in repo):
 
 None. All Phase 3 critical issues have been resolved.
 
+### Planned Improvements
+
+See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) for upcoming enhancements:
+
+- **Haar Cascade Eye Detection** - More reliable eye detection for consistent centering
+- **Face-Based Crop Dimensions** - Crop size based on detected face, not image size
+- **Multiple Output Sizes** - Generate multiple portrait sizes in one run
+- **Portrait Photo Detection** - Skip cropping for photos that are already portraits
+- **Debug Visualization** - Save intermediate images with detected regions highlighted
+
 ### Recent Commits (feature/phase1-implementation)
 
 - `8c9ba8f` - Fix face detection initialization logic
