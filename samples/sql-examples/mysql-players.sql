@@ -1,0 +1,27 @@
+-- PhotoMapperAI - MySQL Example Query
+-- Extracts player data for photo mapping from MySQL database
+-- Usage: photomapperai extract -inputSqlPath mysql-players.sql -teamId 10 -outputName team.csv
+
+-- Parameters: {teamId}
+-- Expected output columns (in order):
+--   PlayerId (internal system ID)
+--   TeamId
+--   FamilyName
+--   SurName (first name)
+--   ExternalId (empty - will be filled by mapping)
+--   ValidMapping (0/False - will be updated by mapping)
+--   Confidence (0 - will be updated by mapping)
+--   FullName (generated column for display)
+
+SELECT
+    p.player_id AS `PlayerId`,
+    p.team_id AS `TeamId`,
+    p.family_name AS `FamilyName`,
+    p.first_name AS `SurName`,
+    '' AS `ExternalId`,
+    0 AS `ValidMapping`,
+    0.0 AS `Confidence`,
+    CONCAT(p.first_name, ' ', p.family_name) AS `FullName`
+FROM players p
+WHERE p.team_id = {teamId}
+ORDER BY p.family_name, p.first_name;
