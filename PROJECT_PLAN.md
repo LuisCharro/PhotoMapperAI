@@ -483,52 +483,51 @@ POST http://localhost:11434/api/generate
 
 ## Development Phases
 
-### Phase 1: Foundation (Current)
+### Phase 1: Foundation (Complete)
 - [x] Create repo and structure
-- [ ] Set up .NET solution and project
-- [ ] Implement CLI argument parsing (McMaster.CommandLineUtils)
-- [ ] Create base models and interfaces
-- [ ] Set up dependency injection
+- [x] Set up .NET solution and project
+- [x] Implement CLI argument parsing (McMaster.CommandLineUtils)
+- [x] Create base models and interfaces
+- [x] Set up dependency injection (via Logic handlers)
 
-### Phase 2: Extract Command
-- [ ] SQL file reader
-- [ ] Database connection handling
-- [ ] CSV export with placeholder columns
+### Phase 2: Extract Command (Complete)
+- [x] SQL file reader
+- [x] Database connection handling (SQL Server)
+- [x] CSV export with placeholder columns
 
-### Phase 3: Modular AI Services
-- [ ] Create INameMatchingService interface
-- [ ] Implement OllamaNameMatchingService
-- [ ] Create IFaceDetectionService interface
-- [ ] Implement OpenCVFaceDetectionService (DNN)
-- [ ] Implement OllamaFaceDetectionService (alternative)
-- [ ] Create ModelFactory for service selection
+### Phase 3: Modular AI Services (Complete)
+- [x] Create INameMatchingService interface
+- [x] Implement OllamaNameMatchingService
+- [x] Create IFaceDetectionService interface
+- [x] Implement OpenCVFaceDetectionService (DNN)
+- [x] Implement OllamaFaceDetectionService (Vision LLMs)
+- [x] Create ModelFactory for service selection
 
-### Phase 4: Map Command
-- [ ] Photo directory scanner with flexible parsing
-- [ ] Photo manifest reader
-- [ ] Name matching service integration
-- [ ] CSV update logic
-- [ ] Model selection CLI parameters
+### Phase 4: Map Command (Complete)
+- [x] Photo directory scanner with flexible parsing
+- [x] Photo manifest reader
+- [x] Name matching service integration (Two-tier: String + AI)
+- [x] CSV update logic
+- [x] Model selection CLI parameters
 
-### Phase 5: GeneratePhotos Command
-- [ ] Face detection service integration
-- [ ] Portrait crop calculation with fallbacks
-- [ ] Image processing (ImageSharp)
-- [ ] Model selection CLI parameters
+### Phase 5: GeneratePhotos Command (Complete)
+- [x] Face detection service integration (OpenCV + Ollama Vision)
+- [x] Portrait crop calculation with fallbacks (Center Crop)
+- [x] Image processing (ImageSharp)
+- [x] Model selection CLI parameters
 
-### Phase 6: Testing & Benchmarking
-- [ ] Create test data generator
-- [ ] Implement name matching benchmarks
-- [ ] Implement face detection benchmarks
-- [ ] Create MODEL_BENCHMARKS.md documentation
-- [ ] Document findings and recommendations
+### Phase 6: Testing & Benchmarking (In Progress)
+- [x] Create test data generator
+- [x] Implement benchmark command
+- [ ] Document findings in MODEL_BENCHMARKS.md
+- [ ] Expand test datasets
 
-### Phase 7: Polish
-- [ ] Color console output
-- [ ] Progress indicators
-- [ ] Error handling and logging
+### Phase 7: Polish (Complete)
+- [x] Color console output
+- [x] Progress indicators and spinners
+- [x] Error handling and logging
 - [ ] Unit tests for non-AI components
-- [ ] Documentation and README updates
+- [x] Documentation and README updates
 
 ## Environment Setup
 
