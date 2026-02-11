@@ -15,10 +15,6 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
     private readonly double _confidenceThreshold;
 
     private Net? _faceNet;
-    private CascadeClassifier? _faceCascade;
-    private CascadeClassifier? _eyeCascade;
-    private CascadeClassifier? _leftEyeCascade;
-    private CascadeClassifier? _rightEyeCascade;
 
     private bool _initialized = false;
 
@@ -66,12 +62,15 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
                 if (File.Exists(_modelPath) && File.Exists(_weightsPath))
                 {
                     _faceNet = CvDnn.ReadNetFromCaffe(_modelPath, _weightsPath);
-                    _faceNet.SetPreferableBackend(Backend.OPENCV);
-                    _faceNet.SetPreferableTarget(Target.CPU);
+                    if (_faceNet != null)
+                    {
+                        _faceNet.SetPreferableBackend(Backend.OPENCV);
+                        _faceNet.SetPreferableTarget(Target.CPU);
+                    }
                 }
 
-                _initialized = true;
-                return true;
+                _initialized = _faceNet != null;
+                return _initialized;
             }
             catch (Exception ex)
             {
@@ -124,9 +123,17 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
             _faceNet.SetInput(blob);
 
             var detections = _faceNet.Forward();
-            if (detections == null)
+            if (detections == null || detections.Empty())
             {
-                return new FaceLandmarks { FaceDetected = false, ModelUsed = ModelName };
+                return new FaceLandmarks 
+                { 
+                    FaceDetected = false, 
+                    ModelUsed = ModelName,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "error", "No detections returned" }
+                    }
+                };
             }
 
             // Detections shape: [1, 1, N, 7]
@@ -203,9 +210,5 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
     public void Dispose()
     {
         _faceNet?.Dispose();
-        _faceCascade?.Dispose();
-        _eyeCascade?.Dispose();
-        _leftEyeCascade?.Dispose();
-        _rightEyeCascade?.Dispose();
     }
 }

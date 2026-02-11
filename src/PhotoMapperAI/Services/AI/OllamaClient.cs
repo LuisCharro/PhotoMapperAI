@@ -10,13 +10,12 @@ public class OllamaClient
 {
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
-    private readonly TimeSpan _timeout;
 
     /// <summary>
     /// Creates a new Ollama client.
     /// </summary>
     /// <param name="baseUrl">Ollama base URL (default: http://localhost:11434)</param>
-    /// <param name="timeout">Request timeout (default: 5 minutes)</param>
+    /// <param name="timeoutMinutes">Request timeout in minutes (default: 5)</param>
     public OllamaClient(string baseUrl = "http://localhost:11434", int timeoutMinutes = 5)
     {
         _baseUrl = baseUrl.TrimEnd('/');
