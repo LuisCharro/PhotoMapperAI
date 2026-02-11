@@ -72,6 +72,19 @@ local-test-settings.json
 appsettings.local.json
 appsettings.json
 
+# Test outputs and generated files
+*.csv
+!test-*.csv
+!sample*.csv
+photo_manifest.json
+portraits*/
+portraits-*
+
+# Photo directory (test photos)
+photos/*.png
+photos/*.jpg
+photos/*.jpeg
+
 # Benchmark results (may contain internal metrics)
 benchmark-results/*.md
 
