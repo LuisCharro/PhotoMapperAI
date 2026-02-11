@@ -15,16 +15,19 @@ public class GeneratePhotosCommandLogic
 {
     private readonly IFaceDetectionService _faceDetectionService;
     private readonly IImageProcessor _imageProcessor;
+    private readonly FaceDetectionCache? _cache;
 
     /// <summary>
     /// Creates a new generate photos command logic handler.
     /// </summary>
     public GeneratePhotosCommandLogic(
         IFaceDetectionService faceDetectionService,
-        IImageProcessor imageProcessor)
+        IImageProcessor imageProcessor,
+        FaceDetectionCache? cache = null)
     {
         _faceDetectionService = faceDetectionService;
         _imageProcessor = imageProcessor;
+        _cache = cache;
     }
 
     /// <summary>
@@ -109,7 +112,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitWidth,
                         portraitHeight,
-                        portraitOnly
+                        portraitOnly,
+                        faceDetectionModel
                     );
 
                     if (result.IsSuccess)
@@ -142,7 +146,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitWidth,
                         portraitHeight,
-                        portraitOnly
+                        portraitOnly,
+                        faceDetectionModel
                     );
 
                     if (result.IsSuccess)
@@ -163,6 +168,18 @@ public class GeneratePhotosCommandLogic
             progress.Complete();
 
             Console.WriteLine();
+
+            // Save cache if modified
+            if (_cache != null)
+            {
+                _cache.SaveCache();
+                var (totalEntries, validEntries) = _cache.GetStatistics();
+                if (totalEntries > 0)
+                {
+                    Console.WriteLine($"📦 Cache: {validEntries}/{totalEntries} entries");
+                }
+            }
+
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Generated {successCount} portraits ({failedCount} failed)");
             Console.ResetColor();
@@ -220,7 +237,8 @@ public class GeneratePhotosCommandLogic
         string format,
         int portraitWidth,
         int portraitHeight,
-        bool portraitOnly)
+        bool portraitOnly,
+        string faceDetectionModel)
     {
         // Construct input photo path - search in photosDir
         var photoFiles = Directory.GetFiles(photosDir, $"{player.ExternalId}.*")
@@ -245,14 +263,39 @@ public class GeneratePhotosCommandLogic
 
         try
         {
-            FaceLandmarks? landmarks = null;
+            FaceLandmarks landmarks;
 
             // Step 4a: Detect faces (unless portrait-only mode)
             if (!portraitOnly)
             {
-                using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
+                // Check cache first
+                if (_cache != null)
                 {
-                    landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                    var cached = _cache.GetCachedLandmarks(photoPath, faceDetectionModel);
+                    if (cached != null)
+                    {
+                        landmarks = cached;
+                        Console.WriteLine("  ✓ Using cached face detection");
+                    }
+                    else
+                    {
+                        // Cache miss - detect faces
+                        using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
+                        {
+                            landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                        }
+
+                        // Cache the result
+                        _cache.CacheLandmarks(photoPath, landmarks, faceDetectionModel);
+                    }
+                }
+                else
+                {
+                    // No cache - detect faces directly
+                    using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
+                    {
+                        landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                    }
                 }
             }
             else

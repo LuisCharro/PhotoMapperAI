@@ -98,3 +98,6 @@ models/
 *.onnx
 *.pb
 *.params
+
+# Face detection cache
+.face-detection-cache.json

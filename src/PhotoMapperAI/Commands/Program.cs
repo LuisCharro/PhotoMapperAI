@@ -242,6 +242,12 @@ public class GeneratePhotosCommand
     [Option(ShortName = "pd", LongName = "parallelDegree", Description = "Max parallel tasks (default: 4)")]
     public int ParallelDegree { get; set; } = 4;
 
+    [Option(ShortName = "cache", LongName = "cachePath", Description = "Path to face detection cache file (default: .face-detection-cache.json)")]
+    public string? CachePath { get; set; }
+
+    [Option(ShortName = "nc", LongName = "noCache", Description = "Disable face detection caching")]
+    public bool NoCache { get; set; } = false;
+
     public async Task<int> OnExecuteAsync()
     {
         // Create face detection service
@@ -253,11 +259,19 @@ public class GeneratePhotosCommand
             await cvService.InitializeAsync();
         }
 
+        // Create cache if enabled
+        FaceDetectionCache? cache = null;
+        if (!NoCache)
+        {
+            var cachePath = CachePath ?? Path.Combine(Directory.GetCurrentDirectory(), ".face-detection-cache.json");
+            cache = new FaceDetectionCache(cachePath);
+        }
+
         // Create image processor
         var imageProcessor = new Services.Image.ImageProcessor();
 
         // Create generate photos command logic handler
-        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor);
+        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache);
 
         // Execute generate photos command
         return await logic.ExecuteAsync(
