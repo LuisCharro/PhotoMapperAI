@@ -706,5 +706,289 @@ This test data setup enables thorough validation of all application stages once 
 
 ---
 
-*Report Generated: February 11, 2026*  
-*Status: Environment setup required before functional testing can begin*
+## Synthetic Data Generation Insights 🧪
+
+### Real Data Analysis Summary (for Developer Reference)
+
+**Context**: External developer working without access to real test data. These insights from analyzing **real sports photo data** can guide synthetic data generation for more realistic testing.
+
+### Real Data Patterns Discovered 📊
+
+#### 1. **Filename Pattern Consistency (CRITICAL FOR PARSING LOGIC)**
+**Real Pattern**: `FirstName_LastName_PlayerID.jpg`
+```
+Alexander_Prass_250114170.jpg
+Andreas_Weimann_106914.jpg  
+Christoph_Baumgartner_250089289.jpg
+```
+
+**⚠️ CRITICAL UNKNOWN**: External developer's synthetic photo naming patterns
+- **Risk**: If synthetic patterns don't match real-world patterns, filename parsing logic won't be tested
+- **Impact**: PhotoMapperAI's auto-detection and pattern matching could fail in production
+
+**Filename Parsing Logic Analysis** (from codebase):
+PhotoMapperAI supports **3-tier filename parsing**:
+1. **Auto-detect patterns**: Uses regex to detect common patterns automatically
+2. **User-specified templates**: `{id}_{family}_{surname}.jpg` format
+3. **Photo manifest files**: JSON mapping when patterns are complex
+
+**Common Patterns Handled** (from code analysis):
+```csharp
+// Likely supported auto-detect patterns:
+// {id}_{family}_{sur}.png
+// {sur}-{family}-{id}.jpg  
+// {family}, {sur} - {id}.png
+```
+
+**Synthetic Data Recommendations**:
+- ✅ **Test Known Good Pattern**: Use `FirstName_LastName_PlayerID.jpg` (matches real data)
+- ✅ **Test Auto-Detection**: Create multiple pattern variations to test regex detection
+- ✅ **Test Pattern Legacy**: Include some files with different separators (`-`, `,`, spaces)
+- ✅ **Test Edge Cases**: Files with no parseable pattern (should fall back gracefully)
+- ❌ **Avoid**: Completely random patterns that real photo providers wouldn't use
+
+**Pattern Testing Strategy for Synthetic Data**:
+```bash
+# Recommended synthetic filename mix:
+Team1/
+├── Player1_Name1_123456.jpg         # Main pattern (80% of files)
+├── Name2-Player2-789012.jpg        # Alternative separator (10%)  
+├── Player3, Name3 - 345678.jpg     # Complex pattern (5%)
+├── UnparseableFile.jpg             # No pattern - fallback test (5%)
+└── manifest.json                   # For unparseable files
+```
+
+This ensures the **filename parsing logic gets comprehensive testing** across all supported pattern types.
+
+#### 2. **File Size Distribution (Critical for Performance Testing)**
+**Real Full-Body Photos**: `42-50KB average` (Range: 31-55KB)
+```bash
+# Real data analysis:
+Lars_Kornetka_250074386.jpg     31,852 bytes (smallest)
+Niklas_Hedl_250116096.jpg        55,256 bytes (largest)  
+Average:                         ~45,000 bytes
+```
+
+**Real Portrait Outputs**: `13-15KB average` (Range: 13-15KB)
+```bash
+# Generated portraits:
+82292.jpg                        13,972 bytes
+63533.jpg                        15,234 bytes
+Average:                         ~14,000 bytes
+```
+
+**Synthetic Data Recommendations**:
+- ✅ **Match File Sizes**: Generate images in 40-50KB range for full-body
+- ✅ **Compression Levels**: Use similar JPEG quality to match real file sizes
+- ⚠️ **Size Variation**: Include size variation (30-55KB) to test edge cases
+
+#### 3. **ID Mapping Complexity Patterns**
+**Real External→Internal ID Mapping**:
+```bash
+# External IDs (from filenames):
+250114170, 106914, 250089289, 54600, 1903428
+
+# Internal IDs (from portrait outputs):  
+1039537, 128490, 55041, 63533, 74436
+```
+
+**Key Pattern**: **No obvious correlation** between external and internal IDs
+- External: Mix of 5-9 digits
+- Internal: Mix of 5-7 digits  
+- **Challenge**: Requires AI/fuzzy matching, not simple numeric mapping
+
+**Synthetic Data Recommendations**:
+- ✅ **Realistic ID Gaps**: Don't use sequential IDs (real data has large gaps)
+- ✅ **ID Length Variation**: Mix different ID lengths like real data
+- ✅ **No Simple Mapping**: Avoid obvious external→internal correlations  
+- ✅ **Test Edge Cases**: Include short IDs (`54600`) and long IDs (`250089289`)
+
+#### 4. **Database Query Complexity (From Real SQL)**
+**Real Query Insights** (from `CesimFootballPlayers.sql`):
+- Uses **3-table joins** with filtering
+- **Parameterized queries** with `@TeamId`  
+- **Complex WHERE clauses** with multiple conditions
+- **Real field names**: `sprtId`, `cmptId`, `compName1`, `compName2`, `ctryCd`
+
+**Synthetic Data Recommendations**:
+- ✅ **Complex Table Structure**: Don't use simple single-table designs
+- ✅ **Realistic Field Names**: Use sports-domain field names
+- ✅ **Multi-table Relationships**: Include joins and foreign keys
+- ✅ **Parameter Filtering**: Support team/competition filtering
+
+#### 5. **Multi-Team Dataset Structure**
+**Current Real Data**: Austria, Spain, Switzerland teams
+**Team Variations Observed**:
+- Different naming patterns per team/league
+- Varying external ID formats by source
+- Different photo provider styles
+
+**Synthetic Data Recommendations**:
+- ✅ **Multiple Teams**: Create 3+ synthetic teams like real data
+- ✅ **Naming Variations**: Slight pattern variations per team
+- ✅ **Regional Names**: German (Austria), Spanish, others for realism
+- ✅ **Provider Simulation**: Simulate different photo source naming styles
+
+### Database Configuration Insights 🗄️
+
+**Real Database Structure Complexity**:
+```sql
+-- Real query complexity from CesimFootballPlayers.sql
+select c.sprtId, cmptId, created, c.compId, compName1, compName2, compSName, fullName, ctryCd, compSex
+from cesim.dbo.CompetitorRelation cr
+    left join cesim.dbo.Competitor c on cr.compIdMember = c.compId and cr.comrToDate is null
+    inner join cesim.dbo.CompetitorMapCode m on cr.compIdMember = m.compId	
+where c.sprtId = 7 and c.cmptId in (1, 3) and m.MapType = 'Infostrada'
+```
+
+**Synthetic Data Database Recommendations**:
+- ✅ **Multi-table Design**: Don't use simple flat CSV approach
+- ✅ **Real Sport Terminology**: Use authentic sports data field names
+- ✅ **Complex Relationships**: Include proper foreign keys and joins
+- ✅ **Filtering Capability**: Support team, sport, competition filtering
+
+### Critical Testing Gap: Filename Pattern Compatibility ⚠️
+
+**MAJOR CONCERN**: External developer creating synthetic photos with **unknown filename patterns**.
+
+**Why This Matters**:
+- **Core Functionality**: PhotoMapperAI's primary job is parsing photo filenames to extract player metadata
+- **Auto-Detection Logic**: Must test if the regex patterns can handle various naming schemes  
+- **Fallback Systems**: Need to verify manifest file handling when patterns fail
+- **Production Readiness**: Real sports photo providers use varied but predictable patterns
+
+**Filename Parser Code Analysis** (from `FilenameParser.cs`):
+```csharp
+// Three-tier parsing approach:
+1. ExtractPhotoMetadata() → manifest lookup (if provided)
+2. ParseWithTemplate() → user-specified pattern matching  
+3. ParseAutoDetect() → regex pattern auto-detection
+4. Fallback → metadata with filename only, Source = Unknown
+```
+
+**Testing Strategy Recommendations for External Developer**:
+
+#### **Pattern Compatibility Testing**:
+```bash
+# Essential pattern variations to test:
+├── standard/                    # 80% - Main real-world pattern
+│   ├── John_Smith_123456.jpg
+│   └── Maria_Garcia_789012.jpg
+├── alternative-separators/      # 10% - Test regex flexibility  
+│   ├── Smith-John-123456.jpg
+│   └── Garcia, Maria - 789012.jpg
+├── edge-cases/                  # 5% - Stress test parser
+│   ├── VeryLongSurname_ComplexFirstName_987654321.jpg
+│   └── O'Connor_MacPherson_555.jpg
+└── unparseable/                # 5% - Test fallback systems
+    ├── IMG_001.jpg
+    ├── photo.jpeg  
+    └── manifest.json           # JSON mapping for these files
+```
+
+#### **Key Pattern Elements to Include**:
+- ✅ **Separators**: Test `_`, `-`, `,`, spaces
+- ✅ **ID Lengths**: 3-9 digits (real range: `555` to `250089289`)
+- ✅ **Special Characters**: `ü`, `ö`, `ä`, `'`, `-` in names
+- ✅ **Case Variations**: MixedCase, lowercase, UPPERCASE
+- ✅ **File Extensions**: `.jpg`, `.jpeg`, `.png`, `.bmp`
+
+#### **Manifest File Testing**:
+```json
+// For unparseable files, test manifest.json:
+{
+  "IMG_001.jpg": {
+    "id": "123456", 
+    "fullName": "John Smith"
+  },
+  "photo.jpeg": {
+    "id": "789012",
+    "fullName": "Maria Garcia" 
+  }
+}
+```
+
+**Without proper filename pattern testing, the external developer might**:
+- ❌ **Miss parser bugs**: Auto-detection fails on valid patterns
+- ❌ **Skip fallback logic**: Manifest system never tested
+- ❌ **Create unrealistic patterns**: Use programmer-friendly but unrealistic naming
+- ❌ **Miss edge cases**: Special characters, long names, short IDs
+
+**Recommendation**: **Share real filename examples** with external developer OR ensure synthetic patterns closely match real sports photo provider conventions.
+
+### Key Testing Scenarios From Real Data 🎯
+
+#### **Name Matching Edge Cases Found**:
+1. **Accented Characters**: `Grüll`, `Arnautović` (test Unicode handling)
+2. **Complex Names**: `Christoph_Baumgartner` (long compound names)
+3. **Short Names**: `Ralf_Rangnick` (staff vs players)
+4. **Number Variations**: Mix of 5-9 digit player IDs
+
+#### **Face Detection Challenges**:
+1. **File Size Range**: 31KB-55KB requires robust processing
+2. **Professional Sports Photos**: Consistent lighting and backgrounds
+3. **Full-body Format**: Head-to-knees crop area for portrait extraction
+4. **Portrait Size Target**: ~14KB output files
+
+#### **Filename Parser Testing Requirements**:
+1. **Pattern Recognition**: Auto-detect common sports photo naming schemes
+2. **Separator Handling**: Handle `_`, `-`, `,`, and space separators
+3. **Special Characters**: Parse names with accents and punctuation
+4. **Fallback Logic**: Graceful handling of unparseable filenames
+5. **Manifest Integration**: JSON mapping for complex/irregular files
+
+#### **Name Matching Edge Cases Found**:
+1. **Accented Characters**: `Grüll`, `Arnautović` (test Unicode handling)
+2. **Complex Names**: `Christoph_Baumgartner` (long compound names)
+3. **Short Names**: `Ralf_Rangnick` (staff vs players)
+4. **Number Variations**: Mix of 5-9 digit player IDs
+
+#### **Face Detection Challenges**:
+1. **File Size Range**: 31KB-55KB requires robust processing
+2. **Professional Sports Photos**: Consistent lighting and backgrounds
+3. **Full-body Format**: Head-to-knees crop area for portrait extraction
+4. **Portrait Size Target**: ~14KB output files
+
+### Synthetic Data Generation Strategy 💡
+
+**Recommended Approach for External Developer**:
+
+```bash
+# Suggested synthetic data structure
+synthetic-data/
+├── teams/
+│   ├── TeamA/           # 20-25 photos per team
+│   ├── TeamB/  
+│   └── TeamC/
+├── database/
+│   ├── sports.db        # SQLite with complex schema
+│   └── queries/
+└── expected-outputs/
+    ├── portraits/       # Expected portrait dimensions
+    └── mappings.csv     # Expected mapping results
+```
+
+**Image Generation Tips**:
+- Use **consistent background** (sports photography style)
+- **Head-to-knees framing** for realistic full-body shots
+- **40-50KB file size target** (JPEG quality ~85-90%)
+- **Professional sports photo aesthetic**
+- **CRITICAL**: Use realistic filename patterns that match real sports photo providers
+
+**Filename Pattern Strategy** (HIGHEST PRIORITY):
+- **Primary Pattern**: `FirstName_LastName_PlayerID.jpg` (80% of synthetic files)
+- **Alternative Patterns**: Test different separators and formats (20% of synthetic files)  
+- **Create Manifest Examples**: For edge cases that don't fit standard patterns
+- **Test Parser Robustness**: Include some unparseable files to test fallback logic
+
+**Database Generation Tips**:  
+- **Multiple tables** with proper relationships
+- **Realistic sports field names** from real SQL examples
+- **Complex ID patterns** (non-sequential, varying lengths)
+- **Support for team/competition filtering**
+
+**⚠️ KEY RECOMMENDATION**: **Coordinate filename patterns** between synthetic data generation and PhotoMapperAI testing. Mismatched patterns will result in incomplete testing of the core parsing functionality.
+
+This real-data analysis provides a **blueprint for realistic synthetic data** that will test the same challenges found in production sports photo systems.
+
+---
