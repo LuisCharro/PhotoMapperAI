@@ -59,3 +59,27 @@ $RECYCLE.BIN/
 
 # Mac crap
 .DS_Store
+
+# Test data and configs (local only)
+data/
+test-configs/
+test-config.local.json
+*.test-config.json
+test-data-path.txt
+local-test-settings.json
+
+# App settings with local paths
+appsettings.local.json
+appsettings.json
+
+# Benchmark results (may contain internal metrics)
+benchmark-results/*.md
+
+# OpenCV models (binary files, large)
+models/
+*.xml
+*.caffemodel
+*.prototxt
+*.onnx
+*.pb
+*.params

@@ -1,0 +1,33 @@
+{
+  "description": "Test configuration file - COPY THIS and configure with your local paths",
+  "note": "This file is gitignored. Create your own copy (e.g., test-config.local.json) and update the paths below.",
+  "testData": {
+    "rootPath": "/path/to/your/local/test/data",
+    "dataExtraction": {
+      "sqlQueries": "sql_queries/",
+      "database": "database.db",
+      "expectedOutput": "expected_output/"
+    },
+    "nameMatch": {
+      "photoNames": "photo_names/",
+      "photoManifest": "photo_manifest.json",
+      "testCases": "test_cases.csv",
+      "expectedOutput": "expected_output/"
+    },
+    "faceRecognition": {
+      "playersCsv": "players.csv",
+      "photos": "photos/",
+      "expectedOutput": "expected_output/"
+    },
+    "portraitExtraction": {
+      "portraitInputs": "portrait_inputs.csv",
+      "photos": "photos/",
+      "expectedOutput": "expected_output/"
+    }
+  },
+  "benchmark": {
+    "outputPath": "benchmark-results/",
+    "iterations": 10,
+    "warmupIterations": 3
+  }
+}
