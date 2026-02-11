@@ -65,15 +65,61 @@ public class ExtractCommand
         Console.WriteLine("Extract Command");
         Console.WriteLine("================");
         Console.WriteLine($"SQL File: {InputSqlPath}");
+        Console.WriteLine($"Connection String: {ConnectionStringPath}");
         Console.WriteLine($"Team ID: {TeamId}");
         Console.WriteLine($"Output: {OutputName}");
         Console.WriteLine();
-        Console.WriteLine("TODO: Implement Extract command logic");
 
-        // TODO: Implement database extraction logic
-        await Task.CompletedTask;
+        try
+        {
+            // Read SQL query
+            var sqlQuery = await File.ReadAllTextAsync(InputSqlPath);
 
-        return 0;
+            // Read connection string
+            var connectionString = await File.ReadAllTextAsync(ConnectionStringPath);
+
+            // Build parameters
+            var parameters = new Dictionary<string, object>
+            {
+                { "TeamId", TeamId }
+            };
+
+            // Create database extractor
+            var extractor = new Services.Database.DatabaseExtractor();
+
+            // Determine output path
+            var outputCsvPath = Path.Combine(Directory.GetCurrentDirectory(), OutputName);
+
+            // Extract data
+            Console.WriteLine("Extracting player data...");
+            var playerCount = await extractor.ExtractPlayersToCsvAsync(
+                connectionString,
+                sqlQuery,
+                parameters,
+                outputCsvPath
+            );
+
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"✓ Extracted {playerCount} players to {OutputName}");
+            Console.ResetColor();
+
+            return 0;
+        }
+        catch (FileNotFoundException ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ File not found: {ex.FileName}");
+            Console.ResetColor();
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: {ex.Message}");
+            Console.ResetColor();
+            return 1;
+        }
     }
 }
 
