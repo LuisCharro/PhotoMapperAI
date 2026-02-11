@@ -271,7 +271,14 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 #### Benchmark
 ```bash
 # Compare name matching models
-dotnet run -- benchmark -nameModels qwen2.5:7b,qwen3:8b,llava:7b -testDataPath tests/Data/
+dotnet run -- benchmark -nameModels qwen2.5:7b,qwen3:8b,llava:7b -testDataPath ./tests/Data
+
+# Compare face detection models
+dotnet run -- benchmark -faceModels opencv-dnn,yolov8-face,llava:7b,qwen3-vl -testDataPath ./tests/Data
+
+# Compare both name matching and face detection
+dotnet run -- benchmark -nameModels qwen2.5:7b,qwen3:8b -faceModels opencv-dnn,llava:7b -testDataPath ./tests/Data
+```
 
 # Compare face detection approaches
 dotnet run -- benchmark -faceModels opencv-dnn,yolov8-face,llava:7b,qwen3-vl -testDataPath tests/Data/
