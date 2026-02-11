@@ -119,9 +119,11 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
 
             // Detect faces using DNN
             var blob = CvDnn.BlobFromImage(image, 1.0, new OpenCvSharp.Size(300, 300), new Scalar(104.0, 177.0, 123.0), false, false);
-            _faceNet?.SetInput(blob);
+            if (_faceNet == null) return new FaceLandmarks { FaceDetected = false, ModelUsed = ModelName };
+            
+            _faceNet.SetInput(blob);
 
-            var detections = _faceNet?.Forward();
+            var detections = _faceNet.Forward();
             if (detections == null)
             {
                 return new FaceLandmarks { FaceDetected = false, ModelUsed = ModelName };

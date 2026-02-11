@@ -131,12 +131,16 @@ public class FilenameParser
         MetadataSource source,
         string? patternUsed = null)
     {
+        var familyName = match.Groups["family"].Value;
+        var surName = match.Groups["sur"].Value;
+
         return new PhotoMetadata
         {
             FileName = filename,
             ExternalId = match.Groups["id"].Value,
-            FamilyName = match.Groups["family"].Value,
-            SurName = match.Groups["sur"].Value,
+            FamilyName = familyName,
+            SurName = surName,
+            FullName = $"{familyName} {surName}".Trim(),
             Source = source,
             PatternUsed = patternUsed
         };

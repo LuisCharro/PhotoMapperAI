@@ -1,0 +1,4 @@
+PlayerId,TeamId,FamilyName,SurName,ExternalId,ValidMapping,Confidence,FullName
+1,1,Rodríguez,Sánchez,,False,0,Rodríguez Sánchez
+2,1,Ramos,Sergio,,False,0,Ramos Sergio
+3,1,Iniesta,Andrés,,False,0,Iniesta Andrés

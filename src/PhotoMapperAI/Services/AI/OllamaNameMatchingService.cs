@@ -1,5 +1,6 @@
 using PhotoMapperAI.Models;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace PhotoMapperAI.Services.AI;
 
@@ -11,6 +12,7 @@ public class OllamaNameMatchingService : INameMatchingService
     private readonly OllamaClient _client;
     private readonly string _modelName;
     private readonly double _confidenceThreshold;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     /// <summary>
     /// Creates a new Ollama name matching service.
@@ -23,6 +25,10 @@ public class OllamaNameMatchingService : INameMatchingService
         _client = new OllamaClient(ollamaBaseUrl);
         _modelName = modelName;
         _confidenceThreshold = confidenceThreshold;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
     }
 
     public string ModelName => _modelName;
@@ -32,6 +38,7 @@ public class OllamaNameMatchingService : INameMatchingService
     /// </summary>
     public async Task<MatchResult> CompareNamesAsync(string name1, string name2)
     {
+        Console.WriteLine($"    Comparing: '{name1}' vs '{name2}'...");
         var prompt = BuildNameComparisonPrompt(name1, name2);
         
         try
@@ -83,13 +90,14 @@ Return a JSON object with:
     {
         try
         {
-            // Simple JSON extraction
+            // Simple JSON extraction (handles markdown blocks too)
             var start = response.IndexOf('{');
             var end = response.LastIndexOf('}');
             if (start >= 0 && end > start)
             {
                 var json = response.Substring(start, end - start + 1);
-                var data = JsonSerializer.Deserialize<NameComparisonResponse>(json);
+                Console.WriteLine($"    Extracted JSON: {json}");
+                var data = JsonSerializer.Deserialize<NameComparisonResponse>(json, _jsonOptions);
                 if (data != null)
                 {
                     return new MatchResult

@@ -224,6 +224,7 @@ public class MapCommandLogic
                 metadata.FullName ?? string.Empty
             );
 
+            matchResult.PlayerId = player.PlayerId;
             matchResults.Add(matchResult);
         }
 
@@ -231,6 +232,11 @@ public class MapCommandLogic
         var bestMatch = matchResults
             .OrderByDescending(r => r.Confidence)
             .FirstOrDefault();
+
+        if (bestMatch != null)
+        {
+            Console.WriteLine($"    Best match: Player {bestMatch.PlayerId} (Confidence: {bestMatch.Confidence:P1})");
+        }
 
         if (bestMatch == null || bestMatch.Confidence < confidenceThreshold)
         {

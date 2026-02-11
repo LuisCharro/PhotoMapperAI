@@ -17,6 +17,8 @@ namespace PhotoMapperAI;
 [VersionOptionFromMember(MemberName = nameof(GetVersion))]
 public class Program
 {
+    public static Task<int> Main(string[] args) => CommandLineApplication.ExecuteAsync<Program>(args);
+
     public static int OnExecute(CommandLineApplication app)
     {
         Console.WriteLine("PhotoMapperAI - AI-powered photo mapping tool");
