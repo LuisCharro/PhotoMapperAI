@@ -303,6 +303,7 @@ public class GeneratePhotosCommand
         {
             "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
             "yolov8-face" => new OpenCVDNNFaceDetectionService(),
+            "haar-cascade" or "haar" => new HaarCascadeFaceDetectionService(),
             "center" => new CenterCropFallbackService(),
             var ollamaModel when ollamaModel.Contains("llava") || ollamaModel.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
             _ => throw new ArgumentException($"Unknown face detection model: {model}")

@@ -134,6 +134,7 @@ public class FallbackFaceDetectionService : IFaceDetectionService
         {
             "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
             "yolov8-face" => new OpenCVDNNFaceDetectionService(),
+            "haar-cascade" or "haar" => new HaarCascadeFaceDetectionService(),
             var ollamaModel when ollamaModel.Contains("llava") => new OllamaFaceDetectionService(modelName: ollamaModel),
             var ollamaModel when ollamaModel.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: ollamaModel),
             "center" => new CenterCropFallbackService(),

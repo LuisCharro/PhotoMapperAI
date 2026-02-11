@@ -93,6 +93,7 @@ public class ImageProcessor : IImageProcessor
 
     /// <summary>
     /// Calculates portrait crop rectangle based on face landmarks.
+    /// Uses face-based dimensions for consistent portrait composition.
     /// </summary>
     private static PhotoMapperAI.Models.Rectangle CalculatePortraitCrop(
         FaceLandmarks landmarks,
@@ -103,26 +104,24 @@ public class ImageProcessor : IImageProcessor
     {
         // Target aspect ratio is portrait (e.g., 200:300 = 2:3)
         var targetAspectRatio = (double)portraitWidth / portraitHeight; // e.g., 0.667
-        
-        // Calculate crop size based on source image dimensions
-        // We want head + neck + upper chest (proper portrait)
-        // For a typical portrait, the face should occupy ~45-50% of the height
-        var cropHeight = (int)(imageHeight * 0.35); // 35% of source = head + neck + chest
-        var cropWidth = (int)(cropHeight * targetAspectRatio);
-        
-        // Ensure crop doesn't exceed image bounds
-        if (cropWidth > imageWidth)
-        {
-            cropWidth = imageWidth;
-            cropHeight = (int)(cropWidth / targetAspectRatio);
-        }
 
-        // Determine the center point for cropping
+        int cropWidth, cropHeight;
         int centerX, eyeY;
-        
+        bool isAlreadyPortrait = false;
+
         // Case 1: Both eyes detected (best centering)
-        if (landmarks.BothEyesDetected && landmarks.EyeMidpoint != null)
+        if (landmarks.BothEyesDetected && landmarks.EyeMidpoint != null && landmarks.FaceRect != null)
         {
+            var faceRect = landmarks.FaceRect;
+            
+            // Calculate crop dimensions based on FACE size (not image size)
+            // This ensures consistent portrait composition regardless of image resolution
+            cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
+            cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
+            
+            // Check if photo is already a portrait (face too large relative to image)
+            isAlreadyPortrait = !IsNeededToResizeFromUpperBodyToPortrait(faceRect, imageWidth, imageHeight);
+            
             centerX = landmarks.EyeMidpoint.X;
             eyeY = landmarks.EyeMidpoint.Y;
         }
@@ -130,12 +129,26 @@ public class ImageProcessor : IImageProcessor
         // Case 2: One eye detected - use it and estimate horizontal center
         else if (landmarks.LeftEye != null || landmarks.RightEye != null)
         {
+            var faceRect = landmarks.FaceRect;
             var eye = landmarks.LeftEye ?? landmarks.RightEye!;
+            
+            if (faceRect != null)
+            {
+                cropWidth = (int)(faceRect.Width * 2.0);
+                cropHeight = (int)(faceRect.Height * 3.0);
+                isAlreadyPortrait = !IsNeededToResizeFromUpperBodyToPortrait(faceRect, imageWidth, imageHeight);
+            }
+            else
+            {
+                // Fallback to image-based dimensions
+                cropHeight = (int)(imageHeight * 0.35);
+                cropWidth = (int)(cropHeight * targetAspectRatio);
+            }
+            
             centerX = eye.X;
             eyeY = eye.Y;
             
             // If only one eye detected, adjust center towards the other side
-            // (eyes are symmetric, so center is offset from single eye)
             if (landmarks.LeftEye != null)
             {
                 centerX = eye.X + (int)(cropWidth * 0.15); // Shift right
@@ -151,19 +164,47 @@ public class ImageProcessor : IImageProcessor
         {
             var faceRect = landmarks.FaceRect;
             
-            // Eyes are typically in the upper 1/3 of the face rectangle
-            // Horizontal center of face = center between eyes
+            // Calculate crop dimensions based on FACE size
+            cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
+            cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
+            
+            isAlreadyPortrait = !IsNeededToResizeFromUpperBodyToPortrait(faceRect, imageWidth, imageHeight);
+            
+            // Eyes are typically in the upper 35% of the face rectangle
             centerX = faceRect.X + faceRect.Width / 2;
-            eyeY = faceRect.Y + (int)(faceRect.Height * 0.35); // Eyes at 35% from top of face
+            eyeY = faceRect.Y + (int)(faceRect.Height * 0.35);
         }
         
         // Case 4: No face detected - use upper portion of image
         else
         {
+            // Fallback to image-based dimensions
+            cropHeight = (int)(imageHeight * 0.35);
+            cropWidth = (int)(cropHeight * targetAspectRatio);
+            
             // Center horizontally
             centerX = imageWidth / 2;
             // Estimate eyes at ~15% from top of image (typical for full-body sports photos)
             eyeY = (int)(imageHeight * 0.15);
+        }
+
+        // If the photo is already a portrait, just use the full image dimensions
+        if (isAlreadyPortrait)
+        {
+            Console.WriteLine("  [ImageProcessor] Photo is already a portrait, using full image");
+            return new PhotoMapperAI.Models.Rectangle(0, 0, imageWidth, imageHeight);
+        }
+
+        // Ensure crop doesn't exceed image bounds
+        if (cropWidth > imageWidth)
+        {
+            cropWidth = imageWidth;
+            cropHeight = (int)(cropWidth / targetAspectRatio);
+        }
+        if (cropHeight > imageHeight)
+        {
+            cropHeight = imageHeight;
+            cropWidth = (int)(cropHeight * targetAspectRatio);
         }
         
         // Calculate crop rectangle
@@ -191,6 +232,23 @@ public class ImageProcessor : IImageProcessor
             cropWidth,
             cropHeight
         );
+    }
+
+    /// <summary>
+    /// Determines if the photo needs to be cropped from upper body to portrait.
+    /// Returns false if the photo is already a portrait (face is large relative to image).
+    /// </summary>
+    private static bool IsNeededToResizeFromUpperBodyToPortrait(
+        PhotoMapperAI.Models.Rectangle faceRect,
+        int imageWidth,
+        int imageHeight)
+    {
+        // When the photo is already a Portrait photo, it's not possible to fit
+        // 2.5x the width of the face or 3x the height of the face in the photo
+        var isNeededToResizeBigOnWidth = faceRect.Width * 2.5 <= imageWidth;
+        var isNeededToResizeBigOnHeight = faceRect.Height * 3.0 <= imageHeight;
+
+        return isNeededToResizeBigOnWidth || isNeededToResizeBigOnHeight;
     }
 
     #endregion
