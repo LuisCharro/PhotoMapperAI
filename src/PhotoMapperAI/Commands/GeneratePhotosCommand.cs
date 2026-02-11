@@ -31,6 +31,7 @@ public class GeneratePhotosCommandLogic
     /// </summary>
     public async Task<int> ExecuteAsync(
         string inputCsvPath,
+        string photosDir,
         string processedPhotosOutputPath,
         string format,
         string faceDetectionModel,
@@ -42,6 +43,7 @@ public class GeneratePhotosCommandLogic
         Console.WriteLine("Generate Photos Command");
         Console.WriteLine("======================");
         Console.WriteLine($"CSV File: {inputCsvPath}");
+        Console.WriteLine($"Photos Dir: {photosDir}");
         Console.WriteLine($"Output Dir: {processedPhotosOutputPath}");
         Console.WriteLine($"Format: {format}");
         Console.WriteLine($"Face Detection: {faceDetectionModel}");
@@ -74,10 +76,19 @@ public class GeneratePhotosCommandLogic
                 Console.WriteLine();
                 Console.WriteLine($"Processing: {player.FullName} (ID: {player.ExternalId})");
 
-                // Construct input photo path
-                var photoFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), $"{player.ExternalId}.*")
+                // Construct input photo path - search in photosDir
+                var photoFiles = Directory.GetFiles(photosDir, $"{player.ExternalId}.*")
                     .Where(f => IsSupportedImageFormat(f))
                     .ToList();
+
+                if (photoFiles.Count == 0)
+                {
+                    // Try searching with underscore name if ID failed
+                    var pattern = $"{player.ExternalId}_*";
+                    photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
+                        .Where(f => IsSupportedImageFormat(f))
+                        .ToList();
+                }
 
                 if (photoFiles.Count == 0)
                 {
@@ -100,16 +111,7 @@ public class GeneratePhotosCommandLogic
                     {
                         Console.WriteLine($"  Detecting faces using: {faceDetectionModel}");
 
-                        // Select face detection service
-                        var service = CreateFaceDetectionService(faceDetectionModel);
-
-                        // Initialize service if needed
-                        if (service is OpenCVDNNFaceDetectionService cvService)
-                        {
-                            await cvService.InitializeAsync();
-                        }
-
-                        landmarks = await service.DetectFaceLandmarksAsync(photoPath);
+                        landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
 
                         if (landmarks.FaceDetected)
                         {
@@ -121,18 +123,6 @@ public class GeneratePhotosCommandLogic
                             {
                                 Console.ForegroundColor = ConsoleColor.Green;
                                 Console.WriteLine($"  ✓ Both eyes detected");
-                                Console.ResetColor();
-                            }
-                            else if (landmarks.LeftEye != null || landmarks.RightEye != null)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.WriteLine($"  ⚠ Only one eye detected");
-                                Console.ResetColor();
-                            }
-                            else
-                            {
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.WriteLine($"  ⚠ No eyes detected, using face center");
                                 Console.ResetColor();
                             }
                         }
@@ -150,61 +140,19 @@ public class GeneratePhotosCommandLogic
                         Console.WriteLine("  Skipping face detection (portrait-only mode)");
                     }
 
-                    // Step 4b: Determine crop strategy
-                    PortraitCropStrategy strategy;
-                    if (portraitOnly)
-                    {
-                        strategy = PortraitCropStrategy.UseExistingLandmarks;
-                        Console.WriteLine("  Using existing landmarks from CSV");
-                    }
-                    else if (crop == "ai")
-                    {
-                        strategy = PortraitCropStrategy.AiBased;
-                        Console.WriteLine("  Using AI-based cropping");
-                    }
-                    else
-                    {
-                        strategy = PortraitCropStrategy.Generic;
-                        Console.WriteLine("  Using generic cropping");
-                    }
-
                     // Step 5: Generate portrait
+                    var strategy = portraitOnly ? "Manual" : (landmarks?.FaceDetected == true ? "AI" : "Center Crop");
                     Console.WriteLine($"  Generating portrait ({strategy})...");
 
                     var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
-
-                    // Determine actual crop dimensions
-                    int actualCropWidth, actualCropHeight;
-
-                    if (strategy == PortraitCropStrategy.AiBased && landmarks == null)
-                    {
-                        // Fallback to generic if AI failed
-                        strategy = PortraitCropStrategy.Generic;
-                    }
-
-                    if (strategy == PortraitCropStrategy.Generic || landmarks == null)
-                    {
-                        // Generic center crop
-                        var cropRect = CalculateGenericCrop(imageWidth, imageHeight, portraitWidth, portraitHeight);
-                        Console.WriteLine($"  Crop: {cropRect.X},{cropRect.Y} {cropRect.Width}x{cropRect.Height}");
-                        actualCropWidth = portraitWidth;
-                        actualCropHeight = portraitHeight;
-                    }
-                    else
-                    {
-                        // Use face landmarks
-                        Console.WriteLine($"  Face center: {landmarks.FaceCenter}");
-                        actualCropWidth = portraitWidth;
-                        actualCropHeight = portraitHeight;
-                    }
 
                     // Load and crop image
                     var image = await _imageProcessor.LoadImageAsync(photoPath);
                     var cropped = await _imageProcessor.CropPortraitAsync(
                         image,
                         landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
-                        actualCropWidth,
-                        actualCropHeight
+                        portraitWidth,
+                        portraitHeight
                     );
 
                     // Save portrait
@@ -253,71 +201,12 @@ public class GeneratePhotosCommandLogic
     #region Private Methods
 
     /// <summary>
-    /// Creates the appropriate face detection service based on model name.
-    /// </summary>
-    private IFaceDetectionService CreateFaceDetectionService(string model)
-    {
-        return model.ToLower() switch
-        {
-            "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-            "yolov8-face" => new OpenCVDNNFaceDetectionService(),
-            var llavaModel when model.Contains("llava") || model.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
-            _ => throw new ArgumentException($"Unknown face detection model: {model}")
-        };
-    }
-
-    /// <summary>
     /// Checks if a file format is supported.
     /// </summary>
     private static bool IsSupportedImageFormat(string path)
     {
         var extension = Path.GetExtension(path).ToLower();
         return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
-    }
-
-    /// <summary>
-    /// Calculates a generic center crop rectangle.
-    /// </summary>
-    private static PhotoMapperAI.Models.Rectangle CalculateGenericCrop(
-        int imageWidth,
-        int imageHeight,
-        int targetWidth,
-        int targetHeight)
-    {
-        var cropWidth = (int)(targetWidth * 2.0);
-        var cropHeight = (int)(targetHeight * 2.0);
-
-        return new PhotoMapperAI.Models.Rectangle(
-            (imageWidth - cropWidth) / 2,
-            (imageHeight - cropHeight) / 2,
-            cropWidth,
-            cropHeight
-        );
-    }
-
-    #endregion
-
-    #region Enums
-
-    /// <summary>
-    /// Portrait cropping strategy.
-    /// </summary>
-    private enum PortraitCropStrategy
-    {
-        /// <summary>
-        /// Use existing face landmarks from CSV/previous run.
-        /// </summary>
-        UseExistingLandmarks,
-
-        /// <summary>
-        /// Use AI-based detection (face detection service).
-        /// </summary>
-        AiBased,
-
-        /// <summary>
-        /// Use generic center crop (no face detection).
-        /// </summary>
-        Generic
     }
 
     #endregion

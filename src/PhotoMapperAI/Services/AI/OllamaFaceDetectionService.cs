@@ -62,7 +62,7 @@ public class OllamaFaceDetectionService : IFaceDetectionService
             var base64Image = Convert.ToBase64String(imageBytes);
 
             // Call Ollama Vision API
-            var response = await _client.ChatAsync(_modelName, prompt, temperature: 0.2);
+            var response = await _client.VisionAsync(_modelName, imagePath, prompt);
 
             // Parse response
             var landmarks = ParseFaceDetectionResponse(response, width, height);

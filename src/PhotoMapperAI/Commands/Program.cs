@@ -203,6 +203,9 @@ public class GeneratePhotosCommand
     [Option(ShortName = "i", LongName = "inputCsvPath", Description = "Path to input CSV file")]
     public string InputCsvPath { get; set; } = string.Empty;
 
+    [Option(ShortName = "p", LongName = "photosDir", Description = "Directory containing source photo files")]
+    public string PhotosDir { get; set; } = string.Empty;
+
     [Option(ShortName = "o", LongName = "processedPhotosOutputPath", Description = "Output directory for portrait photos")]
     public string ProcessedPhotosOutputPath { get; set; } = string.Empty;
 
@@ -215,13 +218,13 @@ public class GeneratePhotosCommand
     [Option(ShortName = "c", LongName = "crop", Description = "Crop method: generic, ai (default: generic)")]
     public string Crop { get; set; } = "generic";
 
-    [Option(ShortName = "p", LongName = "portraitOnly", Description = "Skip face detection, use existing results")]
+    [Option(ShortName = "po", LongName = "portraitOnly", Description = "Skip face detection, use existing results")]
     public bool PortraitOnly { get; set; } = false;
 
-    [Option(ShortName = "w", LongName = "faceWidth", Description = "Portrait width in pixels (default: 800)")]
+    [Option(ShortName = "fw", LongName = "faceWidth", Description = "Portrait width in pixels (default: 800)")]
     public int FaceWidth { get; set; } = 800;
 
-    [Option(ShortName = "h", LongName = "faceHeight", Description = "Portrait height in pixels (default: 1000)")]
+    [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 1000)")]
     public int FaceHeight { get; set; } = 1000;
 
     public async Task<int> OnExecuteAsync()
@@ -244,6 +247,7 @@ public class GeneratePhotosCommand
         // Execute generate photos command
         return await logic.ExecuteAsync(
             InputCsvPath,
+            PhotosDir,
             ProcessedPhotosOutputPath,
             Format,
             FaceDetection,
