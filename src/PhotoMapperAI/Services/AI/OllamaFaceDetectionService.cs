@@ -40,64 +40,138 @@ public class OllamaFaceDetectionService : IFaceDetectionService
     public async Task<FaceLandmarks> DetectFaceLandmarksAsync(string imagePath)
     {
         var startTime = DateTime.UtcNow;
+        const int maxRetries = 2;
+        const int retryDelayMs = 1000;
 
-        try
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            // Load image to get dimensions
-            var (width, height) = await _imageProcessor.GetImageDimensionsAsync(imagePath);
-
-            // Build prompt for face detection
-            var prompt = BuildFaceDetectionPrompt(width, height);
-
-            // Get image base64 for vision input
-            var imageBytes = await File.ReadAllBytesAsync(imagePath);
-            var extension = Path.GetExtension(imagePath).TrimStart('.');
-            var mimeType = extension.ToLower() switch
+            try
             {
-                "jpg" or "jpeg" => "image/jpeg",
-                "png" => "image/png",
-                "bmp" => "image/bmp",
-                _ => "image/jpeg"
-            };
-            var base64Image = Convert.ToBase64String(imageBytes);
+                Console.WriteLine($"[OllamaVision] Attempt {attempt + 1}/{maxRetries + 1} for {_modelName}");
 
-            // Call Ollama Vision API
-            var response = await _client.VisionAsync(_modelName, imagePath, prompt);
+                // Load image to get dimensions
+                var (width, height) = await _imageProcessor.GetImageDimensionsAsync(imagePath);
 
-            // Parse response
-            var landmarks = ParseFaceDetectionResponse(response, width, height);
-            landmarks.ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
-            landmarks.ModelUsed = ModelName;
+                // Build prompt for face detection
+                var prompt = BuildFaceDetectionPrompt(width, height);
 
-            return landmarks;
-        }
-        catch (FileNotFoundException ex)
-        {
-            return new FaceLandmarks
-            {
-                FaceDetected = false,
-                ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
-                ModelUsed = ModelName,
-                Metadata = new Dictionary<string, string>
+                // Get image base64 for vision input
+                var imageBytes = await File.ReadAllBytesAsync(imagePath);
+                var extension = Path.GetExtension(imagePath).TrimStart('.');
+                var mimeType = extension.ToLower() switch
                 {
-                    { "error", $"File not found: {ex.FileName}" }
-                }
-            };
-        }
-        catch (Exception ex)
-        {
-            return new FaceLandmarks
+                    "jpg" or "jpeg" => "image/jpeg",
+                    "png" => "image/png",
+                    "bmp" => "image/bmp",
+                    _ => "image/jpeg"
+                };
+                var base64Image = Convert.ToBase64String(imageBytes);
+
+                // Call Ollama Vision API with timeout
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                var response = await _client.VisionAsync(_modelName, imagePath, prompt, cts.Token);
+
+                // Parse response
+                var landmarks = ParseFaceDetectionResponse(response, width, height);
+                landmarks.ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+                landmarks.ModelUsed = ModelName;
+
+                Console.WriteLine($"[OllamaVision] ✓ Face detected: {landmarks.FaceDetected}, Confidence: {landmarks.FaceConfidence:F2}");
+                return landmarks;
+            }
+            catch (OperationCanceledException ex)
             {
-                FaceDetected = false,
-                ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
-                ModelUsed = ModelName,
-                Metadata = new Dictionary<string, string>
+                Console.WriteLine($"[OllamaVision] ✗ Timeout on attempt {attempt + 1}: {ex.Message}");
+
+                if (attempt == maxRetries)
                 {
-                    { "error", ex.Message },
-                    { "raw_response", ex.ToString() }
+                    return new FaceLandmarks
+                    {
+                        FaceDetected = false,
+                        ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
+                        ModelUsed = ModelName,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "error", $"Request timeout after {maxRetries + 1} attempts" },
+                            { "attempts", $"{maxRetries + 1}" }
+                        }
+                    };
                 }
-            };
+
+                // Wait before retry
+                await Task.Delay(retryDelayMs * (attempt + 1));
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"[OllamaVision] ✗ HTTP error on attempt {attempt + 1}: {ex.Message}");
+
+                if (attempt == maxRetries)
+                {
+                    return new FaceLandmarks
+                    {
+                        FaceDetected = false,
+                        ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
+                        ModelUsed = ModelName,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "error", $"HTTP request failed: {ex.Message}" },
+                            { "attempts", $"{maxRetries + 1}" }
+                        }
+                    };
+                }
+
+                await Task.Delay(retryDelayMs * (attempt + 1));
+            }
+            catch (FileNotFoundException ex)
+            {
+                Console.WriteLine($"[OllamaVision] ✗ File not found: {ex.FileName}");
+                return new FaceLandmarks
+                {
+                    FaceDetected = false,
+                    ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
+                    ModelUsed = ModelName,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "error", $"File not found: {ex.FileName}" }
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[OllamaVision] ✗ Unexpected error on attempt {attempt + 1}: {ex.Message}");
+
+                if (attempt == maxRetries)
+                {
+                    return new FaceLandmarks
+                    {
+                        FaceDetected = false,
+                        ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
+                        ModelUsed = ModelName,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "error", ex.Message },
+                            { "exception_type", ex.GetType().Name },
+                            { "attempts", $"{maxRetries + 1}" },
+                            { "stack_trace", ex.StackTrace ?? string.Empty }
+                        }
+                    };
+                }
+
+                await Task.Delay(retryDelayMs * (attempt + 1));
+            }
         }
+
+        // Should never reach here, but compiler needs it
+        return new FaceLandmarks
+        {
+            FaceDetected = false,
+            ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
+            ModelUsed = ModelName,
+            Metadata = new Dictionary<string, string>
+            {
+                { "error", "Unknown error in DetectFaceLandmarksAsync" }
+            }
+        };
     }
 
     /// <summary>

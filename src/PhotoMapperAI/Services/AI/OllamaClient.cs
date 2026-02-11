@@ -82,14 +82,16 @@ public class OllamaClient
     /// <param name="modelName">Vision model name (e.g., qwen3-vl, llava:7b)</param>
     /// <param name="imagePath">Path to the image file</param>
     /// <param name="prompt">Prompt text</param>
+    /// <param name="cancellationToken">Optional cancellation token for timeout</param>
     /// <returns>Response text</returns>
     public async Task<string> VisionAsync(
         string modelName,
         string imagePath,
-        string prompt)
+        string prompt,
+        CancellationToken cancellationToken = default)
     {
         // Convert image to base64
-        var imageBytes = await File.ReadAllBytesAsync(imagePath);
+        var imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
         var base64Image = Convert.ToBase64String(imageBytes);
 
         // Detect image type
@@ -131,10 +133,10 @@ public class OllamaClient
         var json = JsonSerializer.Serialize(requestBody);
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_baseUrl}/v1/chat/completions", content);
+        var response = await _httpClient.PostAsync($"{_baseUrl}/v1/chat/completions", content, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var responseJson = await response.Content.ReadAsStringAsync();
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         var responseData = JsonSerializer.Deserialize<OllamaResponse>(responseJson);
 
         return responseData?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
