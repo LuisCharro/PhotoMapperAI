@@ -86,7 +86,9 @@ photos/*.jpg
 photos/*.jpeg
 
 # Benchmark results (may contain internal metrics)
+benchmark-results/
 benchmark-results/*.md
+benchmark-results/*.json
 
 # OpenCV models (binary files, large)
 models/
