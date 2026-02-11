@@ -236,6 +236,12 @@ public class GeneratePhotosCommand
     [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 1000)")]
     public int FaceHeight { get; set; } = 1000;
 
+    [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing (default: false)")]
+    public bool Parallel { get; set; } = false;
+
+    [Option(ShortName = "pd", LongName = "parallelDegree", Description = "Max parallel tasks (default: 4)")]
+    public int ParallelDegree { get; set; } = 4;
+
     public async Task<int> OnExecuteAsync()
     {
         // Create face detection service
@@ -263,7 +269,9 @@ public class GeneratePhotosCommand
             Crop,
             PortraitOnly,
             FaceWidth,
-            FaceHeight
+            FaceHeight,
+            Parallel,
+            ParallelDegree
         );
     }
 

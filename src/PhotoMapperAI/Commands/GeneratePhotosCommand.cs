@@ -39,7 +39,9 @@ public class GeneratePhotosCommandLogic
         string crop,
         bool portraitOnly,
         int portraitWidth,
-        int portraitHeight)
+        int portraitHeight,
+        bool parallel,
+        int parallelDegree)
     {
         Console.WriteLine("Generate Photos Command");
         Console.WriteLine("======================");
@@ -51,6 +53,7 @@ public class GeneratePhotosCommandLogic
         Console.WriteLine($"Crop Method: {crop}");
         Console.WriteLine($"Portrait Only: {portraitOnly}");
         Console.WriteLine($"Portrait Size: {portraitWidth}x{portraitHeight}");
+        Console.WriteLine($"Parallel: {parallel} (Degree: {parallelDegree})");
         Console.WriteLine();
 
         try
@@ -87,78 +90,73 @@ public class GeneratePhotosCommandLogic
 
             var progress = new ProgressIndicator("Progress", totalPlayers, useBar: true);
 
-            foreach (var player in playersToProcess)
+            if (parallel)
             {
-                progress.Update($"{player.FullName} (ID: {player.ExternalId})");
-
-                // Construct input photo path - search in photosDir
-                var photoFiles = Directory.GetFiles(photosDir, $"{player.ExternalId}.*")
-                    .Where(f => IsSupportedImageFormat(f))
-                    .ToList();
-
-                if (photoFiles.Count == 0)
+                // Parallel processing mode
+                var options = new ParallelOptions
                 {
-                    // Try searching with underscore name if ID failed
-                    var pattern = $"{player.ExternalId}_*";
-                    photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
-                        .Where(f => IsSupportedImageFormat(f))
-                        .ToList();
-                }
+                    MaxDegreeOfParallelism = parallelDegree
+                };
 
-                if (photoFiles.Count == 0)
+                await Parallel.ForEachAsync(playersToProcess, options, async (player, cancellationToken) =>
                 {
-                    Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"  ⚠ No photo found for player {player.ExternalId}");
-                    Console.ResetColor();
-                    failedCount++;
-                    continue;
-                }
+                    progress.Update($"{player.FullName} (ID: {player.ExternalId})");
 
-                var photoPath = photoFiles[0];
+                    var result = await ProcessPlayerAsync(
+                        player,
+                        photosDir,
+                        processedPhotosOutputPath,
+                        format,
+                        portraitWidth,
+                        portraitHeight,
+                        portraitOnly
+                    );
 
-                try
-                {
-                    FaceLandmarks? landmarks = null;
-
-                    // Step 4a: Detect faces (unless portrait-only mode)
-                    if (!portraitOnly)
+                    if (result.IsSuccess)
                     {
-                        using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
-                        {
-                            landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
-                        }
+                        Interlocked.Increment(ref successCount);
                     }
                     else
                     {
-                        landmarks = new FaceLandmarks { FaceDetected = false };
+                        Interlocked.Increment(ref failedCount);
+                        Console.WriteLine();
+                        Console.ForegroundColor = result.IsWarning ? ConsoleColor.Yellow : ConsoleColor.Red;
+                        Console.WriteLine($"  {(result.IsWarning ? "⚠" : "✗")} {result.ErrorMessage}");
+                        Console.ResetColor();
                     }
 
-                    // Step 5: Generate portrait
-                    var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
+                    cancellationToken.ThrowIfCancellationRequested();
+                });
+            }
+            else
+            {
+                // Sequential processing mode
+                foreach (var player in playersToProcess)
+                {
+                    progress.Update($"{player.FullName} (ID: {player.ExternalId})");
 
-                    // Load and crop image
-                    var image = await _imageProcessor.LoadImageAsync(photoPath);
-                    var cropped = await _imageProcessor.CropPortraitAsync(
-                        image,
-                        landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
+                    var result = await ProcessPlayerAsync(
+                        player,
+                        photosDir,
+                        processedPhotosOutputPath,
+                        format,
                         portraitWidth,
-                        portraitHeight
+                        portraitHeight,
+                        portraitOnly
                     );
 
-                    // Save portrait
-                    var outputPath = Path.Combine(processedPhotosOutputPath, $"{player.PlayerId}.{format}");
-                    await _imageProcessor.SaveImageAsync(cropped, outputPath, format);
-
-                    successCount++;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"  ✗ Error: {ex.Message}");
-                    Console.ResetColor();
-                    failedCount++;
+                    if (result.IsSuccess)
+                    {
+                        successCount++;
+                    }
+                    else
+                    {
+                        failedCount++;
+                        Console.WriteLine();
+                        Console.ForegroundColor = result.IsWarning ? ConsoleColor.Yellow : ConsoleColor.Red;
+                        Console.WriteLine($"  {(result.IsWarning ? "⚠" : "✗")} {result.ErrorMessage}");
+                        Console.ResetColor();
+                    }
                 }
             }
 
@@ -197,6 +195,93 @@ public class GeneratePhotosCommandLogic
     {
         var extension = Path.GetExtension(path).ToLower();
         return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    /// <summary>
+    /// Result structure for processing a single player.
+    /// </summary>
+    private record ProcessPlayerResult(
+        bool IsSuccess,
+        bool IsWarning,
+        string ErrorMessage
+    );
+
+    /// <summary>
+    /// Processes a single player's photo.
+    /// </summary>
+    private async Task<ProcessPlayerResult> ProcessPlayerAsync(
+        PlayerRecord player,
+        string photosDir,
+        string processedPhotosOutputPath,
+        string format,
+        int portraitWidth,
+        int portraitHeight,
+        bool portraitOnly)
+    {
+        // Construct input photo path - search in photosDir
+        var photoFiles = Directory.GetFiles(photosDir, $"{player.ExternalId}.*")
+            .Where(f => IsSupportedImageFormat(f))
+            .ToList();
+
+        if (photoFiles.Count == 0)
+        {
+            // Try searching with underscore name if ID failed
+            var pattern = $"{player.ExternalId}_*";
+            photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
+                .Where(f => IsSupportedImageFormat(f))
+                .ToList();
+        }
+
+        if (photoFiles.Count == 0)
+        {
+            return new ProcessPlayerResult(false, true, $"No photo found for player {player.ExternalId}");
+        }
+
+        var photoPath = photoFiles[0];
+
+        try
+        {
+            FaceLandmarks? landmarks = null;
+
+            // Step 4a: Detect faces (unless portrait-only mode)
+            if (!portraitOnly)
+            {
+                using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
+                {
+                    landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                }
+            }
+            else
+            {
+                landmarks = new FaceLandmarks { FaceDetected = false };
+            }
+
+            // Step 5: Generate portrait
+            var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
+
+            // Load and crop image
+            var image = await _imageProcessor.LoadImageAsync(photoPath);
+            var cropped = await _imageProcessor.CropPortraitAsync(
+                image,
+                landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
+                portraitWidth,
+                portraitHeight
+            );
+
+            // Save portrait
+            var outputPath = Path.Combine(processedPhotosOutputPath, $"{player.PlayerId}.{format}");
+            await _imageProcessor.SaveImageAsync(cropped, outputPath, format);
+
+            return new ProcessPlayerResult(true, false, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return new ProcessPlayerResult(false, false, $"Error: {ex.Message}");
+        }
     }
 
     #endregion
