@@ -251,6 +251,12 @@ dotnet build
 dotnet run -- extract -inputSqlPath data.sql -outputName team.csv
 ```
 
+> **Note:** SQL query examples for different databases are available in `samples/sql-examples/`. See [`samples/sql-examples/README.md`](samples/sql-examples/README.md) for:
+> - SQL Server, MySQL, PostgreSQL, SQLite examples
+> - Guide to adapt queries to your database schema
+> - Required output column format
+> - Common parameter syntax differences
+
 #### Map (3 approaches)
 ```bash
 # 1. Automatic pattern detection
@@ -434,6 +440,37 @@ Areas for contribution:
 - Support for more databases
 - More filename pattern examples
 - Benchmark data and test cases
+
+## Troubleshooting
+
+### Common Issues
+
+If you encounter problems, check [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) for:
+
+- **Name matching issues:** Transliteration differences, name order variations, nicknames
+- **Photo file problems:** No photo found, multiple photos, unsupported formats
+- **Face detection failures:** No face detected, multiple faces, extreme angles
+- **Performance issues:** Slow processing, memory constraints
+- **Database connection problems:** Connection strings, parameter syntax
+- **CSV issues:** Encoding problems, invalid formats
+
+### Quick Fixes
+
+| Problem | Quick Solution |
+|---------|----------------|
+| Face detection too slow | Use `-d center` or `-d llava:7b` instead of `qwen3-vl` |
+| No photo found | Check filename pattern or use `-photoManifest` |
+| Unrecognized photo format | Convert to PNG/JPG (supported: .png, .jpg, .jpeg, .bmp) |
+| Name matching fails | Lower confidence threshold with `-t 0.7` |
+| Memory issues | Reduce parallel degree: `-par -pd 2` |
+
+### Getting Help
+
+For more detailed troubleshooting:
+- See [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) - Comprehensive edge cases guide
+- See [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) - Face detection model guide
+- See [`samples/sql-examples/README.md`](samples/sql-examples/README.md) - SQL query adaptation guide
+- Report issues: https://github.com/LuisCharro/PhotoMapperAI/issues
 
 ## License
 
