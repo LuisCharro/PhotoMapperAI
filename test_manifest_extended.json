@@ -1,0 +1,64 @@
+{
+  "photos": {
+    "martinez_rodriguez.png": {
+      "id": "1",
+      "fullName": "Martinez Rodriguez",
+      "familyName": "Martinez",
+      "surName": "Rodriguez"
+    },
+    "lopez_garcia.png": {
+      "id": "2",
+      "fullName": "Lopez Garcia",
+      "familyName": "Lopez",
+      "surName": "Garcia"
+    },
+    "perez_sanchez.png": {
+      "id": "3",
+      "fullName": "Perez Sanchez",
+      "familyName": "Perez",
+      "surName": "Sanchez"
+    },
+    "gomez_fernandez.png": {
+      "id": "4",
+      "fullName": "Gomez Fernandez",
+      "familyName": "Gomez",
+      "surName": "Fernandez"
+    },
+    "ruiz_diaz.png": {
+      "id": "5",
+      "fullName": "Ruiz Diaz",
+      "familyName": "Ruiz",
+      "surName": "Diaz"
+    },
+    "jimenez_morales.png": {
+      "id": "6",
+      "fullName": "Jimenez Morales",
+      "familyName": "Jimenez",
+      "surName": "Morales"
+    },
+    "hernandez_reyes.png": {
+      "id": "7",
+      "fullName": "Hernandez Reyes",
+      "familyName": "Hernandez",
+      "surName": "Reyes"
+    },
+    "castro_medina.png": {
+      "id": "8",
+      "fullName": "Castro Medina",
+      "familyName": "Castro",
+      "surName": "Medina"
+    },
+    "torres_ramos.png": {
+      "id": "9",
+      "fullName": "Torres Ramos",
+      "familyName": "Torres",
+      "surName": "Ramos"
+    },
+    "delgado_ortiz.png": {
+      "id": "10",
+      "fullName": "Delgado Ortiz",
+      "familyName": "Delgado",
+      "surName": "Ortiz"
+    }
+  }
+}
