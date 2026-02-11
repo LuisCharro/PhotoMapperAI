@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/PhotoMapperAI/PhotoMapperAI.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PhotoMapperAI.Tests/PhotoMapperAI.Tests.csproj" />
+  </Folder>
 </Solution>
