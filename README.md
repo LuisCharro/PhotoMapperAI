@@ -280,14 +280,20 @@ dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest mani
 
 #### Generate Photos (face detection options)
 ```bash
-# OpenCV DNN (default)
-dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg
+# OpenCV DNN (fast, good accuracy)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
 
-# Ollama Vision with fallback (recommended)
+# Ollama Vision with fallback (recommended for best results)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
 
-# Center crop (fastest, no AI)
+# Qwen3-VL only (best for challenging angles)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
+
+# Center crop (fastest, no AI - uses upper-body crop)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection center
+
+# Haar Cascade (fastest with eye detection - may have issues on macOS)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection haar-cascade
 
 # Portrait only (reuse existing detections)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
@@ -358,16 +364,21 @@ None. All Phase 3 critical issues have been resolved.
 
 ### Planned Improvements
 
-See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) for upcoming enhancements:
+See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) for detailed enhancement plans.
 
-- **Haar Cascade Eye Detection** - More reliable eye detection for consistent centering
-- **Face-Based Crop Dimensions** - Crop size based on detected face, not image size
-- **Multiple Output Sizes** - Generate multiple portrait sizes in one run
-- **Portrait Photo Detection** - Skip cropping for photos that are already portraits
-- **Debug Visualization** - Save intermediate images with detected regions highlighted
+**Completed:**
+- ✅ **Face-Based Crop Dimensions** - Crop size based on detected face (2x width, 3x height)
+- ✅ **Portrait Photo Detection** - Skip cropping for photos that are already portraits
+- ✅ **Eye Position Centering** - Eyes positioned at 35% from top for standard composition
+
+**Pending:**
+- ⏳ **Haar Cascade Eye Detection** - Created but has native library issues on macOS
+- ⏳ **Multiple Output Sizes** - Generate multiple portrait sizes in one run
+- ⏳ **Debug Visualization** - Save intermediate images with detected regions highlighted
 
 ### Recent Commits (feature/phase1-implementation)
 
+- `5bc313f` - Fix: Improve portrait crop with face-based dimensions and eye positioning
 - `8c9ba8f` - Fix face detection initialization logic
 - `d81f103` - Fix default portrait dimensions from 800x1000 to 200x300
 
@@ -435,9 +446,12 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 |-------|----------------|-----------|-------------|----------|
 | YOLOv8-Face | 97% | 88% | 65 | Best accuracy |
 | OpenCV DNN | 95% | 82% | 45 | Good speed/accuracy |
-| Qwen3-VL | 94% | 80% | 3200 | Challenging angles |
-| LLaVA:7b | 92% | 75% | 3500 | Edge cases |
-| Haar Cascade | 88% | 70% | 25 | Fastest |
+| Qwen3-VL | 94% | 80% | 3200 | Challenging angles (LLM) |
+| LLaVA:7b | 92% | 75% | 3500 | Edge cases (LLM) |
+| Haar Cascade | 88% | 70% | 25 | Fastest (⚠️ macOS issues) |
+| Center | N/A | N/A | 1 | No AI, upper-body crop |
+
+> **Note:** LLM-based models (Qwen3-VL, LLaVA:7b) use Ollama Vision API and require the models to be pulled via `ollama pull <model>`.
 
 ## Use Cases
 
@@ -471,11 +485,23 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 |-----------|-------------|------------|---------|
 | `-inputCsvPath` | Path to CSV file | Yes | - |
 | `-processedPhotosOutputPath` | Output path for portraits | Yes | - |
+| `-photosDir` | Directory containing source photos | Yes | - |
 | `-format` | Image format (jpg/png) | No | jpg |
-| `-faceDetection` | Face detection model | No | opencv-dnn |
+| `-faceDetection` | Face detection model (see below) | No | llava:7b,qwen3-vl |
 | `-portraitOnly` | Skip face detection, use existing | No | false |
-| `-faceWidth` | Portrait width in pixels | No | 800 |
-| `-faceHeight` | Portrait height in pixels | No | 1000 |
+| `-faceWidth` | Portrait width in pixels | No | 200 |
+| `-faceHeight` | Portrait height in pixels | No | 300 |
+
+**Face Detection Models:**
+| Model | Description |
+|-------|-------------|
+| `opencv-dnn` | OpenCV DNN neural network (fast, good accuracy) |
+| `yolov8-face` | YOLOv8 face detection (best accuracy) |
+| `llava:7b` | Ollama LLaVA 7B vision model (LLM-based) |
+| `qwen3-vl` | Ollama Qwen3-VL vision model (LLM-based, best for angles) |
+| `haar-cascade` | OpenCV Haar Cascade (fastest, may have macOS issues) |
+| `center` | No AI, upper-body crop from top 35% |
+| Comma-separated | Fallback chain, e.g., `llava:7b,qwen3-vl,center` |
 
 ### Benchmark
 | Parameter | Description | Required | Default |
