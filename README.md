@@ -56,12 +56,19 @@ PhotoMapperAI generatePhotos \
   -format jpg \
   -faceDetection opencv-dnn
 
-# Using Ollama Vision
+# Using Ollama Vision with fallback (recommended)
 PhotoMapperAI generatePhotos \
   -inputCsvPath path/to/SpainTeam.csv \
   -processedPhotosOutputPath portraits/SpainTeam \
   -format jpg \
-  -faceDetection qwen3-vl
+  -faceDetection llava:7b,qwen3-vl
+
+# Using center crop (fastest, no AI)
+PhotoMapperAI generatePhotos \
+  -inputCsvPath path/to/SpainTeam.csv \
+  -processedPhotosOutputPath portraits/SpainTeam \
+  -format jpg \
+  -faceDetection center
 
 # Portrait only mode (reuse existing face detections)
 PhotoMapperAI generatePhotos \
@@ -72,10 +79,13 @@ PhotoMapperAI generatePhotos \
 ```
 
 - Reads mapping CSV
-- **Multiple face detection options:** Select between OpenCV, YOLOv8, or Ollama Vision models
+- **Multiple face detection options:** OpenCV, YOLOv8, Ollama Vision, center crop
+- **Automatic fallback:** Use comma-separated models (e.g., `llava:7b,qwen3-vl`) for reliability
 - Detects faces and eyes in full-body photos
 - Calculates portrait crop area based on eye position (or face center as fallback)
 - Outputs portrait photos named with internal system IDs
+
+> **See:** [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.
 
 ## Tech Stack
 
@@ -258,11 +268,11 @@ dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest mani
 # OpenCV DNN (default)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg
 
-# YOLOv8-Face (best accuracy)
-dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection yolov8-face
+# Ollama Vision with fallback (recommended)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
 
-# Ollama Vision (best for edge cases)
-dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
+# Center crop (fastest, no AI)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection center
 
 # Portrait only (reuse existing detections)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
