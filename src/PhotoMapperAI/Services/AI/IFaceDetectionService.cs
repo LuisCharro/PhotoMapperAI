@@ -31,4 +31,10 @@ public interface IFaceDetectionService
     /// </summary>
     /// <returns>True if service can be used</returns>
     Task<bool> IsAvailableAsync();
+
+    /// <summary>
+    /// Initializes the service (loads models, etc).
+    /// </summary>
+    /// <returns>True if initialization succeeded</returns>
+    Task<bool> InitializeAsync();
 }

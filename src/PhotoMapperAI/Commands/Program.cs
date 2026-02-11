@@ -253,11 +253,8 @@ public class GeneratePhotosCommand
         // Create face detection service
         var faceDetectionService = CreateFaceDetectionService(FaceDetection);
 
-        // Initialize OpenCV service if needed
-        if (faceDetectionService is OpenCVDNNFaceDetectionService cvService)
-        {
-            await cvService.InitializeAsync();
-        }
+        // Initialize face detection service (loads models, checks availability)
+        await faceDetectionService.InitializeAsync();
 
         // Create cache if enabled
         FaceDetectionCache? cache = null;

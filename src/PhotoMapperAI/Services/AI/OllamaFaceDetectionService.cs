@@ -132,6 +132,14 @@ public class OllamaFaceDetectionService : IFaceDetectionService
         }
     }
 
+    /// <summary>
+    /// Initializes the Ollama service.
+    /// </summary>
+    public async Task<bool> InitializeAsync()
+    {
+        return await IsAvailableAsync();
+    }
+
     #region Private Methods
 
     /// <summary>

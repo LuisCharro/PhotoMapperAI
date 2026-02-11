@@ -105,6 +105,22 @@ public class FallbackFaceDetectionService : IFaceDetectionService
     }
 
     /// <summary>
+    /// Initializes all fallback services.
+    /// </summary>
+    public async Task<bool> InitializeAsync()
+    {
+        bool anySucceeded = false;
+        foreach (var service in _services)
+        {
+            if (await service.InitializeAsync())
+            {
+                anySucceeded = true;
+            }
+        }
+        return anySucceeded;
+    }
+
+    /// <summary>
     /// Gets the fallback log for debugging.
     /// </summary>
     public IReadOnlyList<string> GetFallbackLog() => _fallbackLog.AsReadOnly();
@@ -165,6 +181,14 @@ public class CenterCropFallbackService : IFaceDetectionService
     /// Always available.
     /// </summary>
     public Task<bool> IsAvailableAsync()
+    {
+        return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// Always succeeds.
+    /// </summary>
+    public Task<bool> InitializeAsync()
     {
         return Task.FromResult(true);
     }
