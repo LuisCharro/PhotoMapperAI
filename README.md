@@ -87,8 +87,13 @@ PhotoMapperAI generatePhotos \
 - **Automatic fallback:** Use comma-separated models (e.g., `llava:7b,qwen3-vl`) for reliability
 - Detects faces and eyes in full-body photos
 - Calculates portrait crop area based on eye position (or face center as fallback)
-- Outputs portrait photos named with internal system IDs
+- Outputs portrait photos named with **PlayerId** (internal system ID, not ExternalId)
 
+> **Note:** Portrait crop behavior:
+> - **With AI face detection:** Crops around eyes/face for optimal framing (head + neck + bit of chest)
+> - **Center mode (no AI):** Crops from upper portion of image (top 20-40%) assuming full-body sports photos
+> - All portraits are resized to exact dimensions (default: 200x300 pixels)
+>
 > **See:** [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.
 
 ## Tech Stack

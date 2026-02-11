@@ -147,15 +147,22 @@ public class ImageProcessor : IImageProcessor
             );
         }
 
-        // Case 4: No face detected (center crop fallback)
+        // Case 4: No face detected (upper-body crop fallback)
+        // For sports photos (full-body shots), crop from upper part of image
+        // Expected portrait: head + neck + bit of chest (not full body)
         else
         {
             var cropWidth = (int)(portraitWidth * 2.0);
             var cropHeight = (int)(portraitHeight * 2.0);
 
+            // Position crop in upper portion of image (top 40% instead of center)
+            // This captures head, neck, and chest area for portrait-style crops
+            var cropY = (int)(imageHeight * 0.2) - (cropHeight / 2); // Start at 20% from top
+            cropY = Math.Max(0, cropY); // Ensure we don't go negative
+
             return new PhotoMapperAI.Models.Rectangle(
-                (imageWidth - cropWidth) / 2,
-                (imageHeight - cropHeight) / 2,
+                (imageWidth - cropWidth) / 2,  // Center horizontally
+                cropY,                         // Upper portion (not center)
                 cropWidth,
                 cropHeight
             );

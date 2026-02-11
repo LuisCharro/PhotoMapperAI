@@ -1,1 +1,0 @@
-SELECT * FROM Players WHERE TeamId = @TeamId

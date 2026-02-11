@@ -97,6 +97,47 @@ photomapperai generatephotos -i test.csv -p ./photos -o ./test -po
 photomapperai generatephotos -i test.csv -p ./photos -o ./test -d llava:7b,qwen3-vl
 ```
 
+## Portrait Crop Behavior
+
+### Center Crop Mode (`-d center`)
+
+When using center crop mode (no face detection), the tool applies an **upper-body crop** optimized for full-body sports photos:
+
+- **Crop Position:** Upper portion of image (starts at 20% from top)
+- **Crop Size:** 2x target dimensions (400x600 for 200x300 output)
+- **Expected Content:** Head, neck, and bit of chest (NOT full body)
+- **Use Case:** Fast testing when face detection is unavailable or not needed
+
+**Why upper-body crop?**
+Sports photos are typically full-body shots with players standing. Cropping from the geometric center would include too much lower body (chest + legs). The upper-body crop assumes the player's face is in the top portion of the image, which yields proper portrait framing.
+
+**Example:**
+```
+Input: Full-body photo (e.g., 800x1200 pixels)
+       ┌─────────────────┐
+       │                 │  ← Head/shoulders area
+       │   ┌─────┐      │
+       │   │Face │      │  ← Upper crop region
+       │   └─────┘      │     (20% from top)
+       │                 │
+       │                 │
+       │                 │
+       │                 │
+       └─────────────────┘
+
+Output: Portrait (200x300 pixels)
+       Head + neck + bit of chest
+```
+
+### AI Face Detection Mode
+
+When using face detection models (OpenCV, LLaVA, Qwen3-VL):
+
+- **Crop Position:** Centered on detected eyes (optimal for portraits)
+- **Crop Size:** 1.2-1.8x target dimensions (varies by detection quality)
+- **Expected Content:** Face centered, with proper headroom
+- **Use Case:** Production when quality matters
+
 ## Portrait-Only Mode
 
 Skip face detection entirely and use existing photo mappings:

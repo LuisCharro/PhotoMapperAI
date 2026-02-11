@@ -5,6 +5,21 @@ All notable changes to PhotoMapperAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-02-11
+
+### Fixed
+
+- **Center crop mode** now applies upper-body crop instead of geometric center
+  - Crops from top 20% of image for full-body sports photos
+  - Produces head + neck + bit of chest (not chest + legs)
+  - Optimized for portrait framing without face detection
+
+### Documentation
+
+- Updated README.md with portrait crop behavior details
+- Added FACE_DETECTION_GUIDE.md section explaining center vs. AI crop modes
+- Clarified that output files are named by PlayerId (internal system ID)
+
 ## [1.0.0] - 2026-02-11
 
 ### Added
