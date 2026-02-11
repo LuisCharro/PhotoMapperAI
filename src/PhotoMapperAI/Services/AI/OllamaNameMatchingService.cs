@@ -73,18 +73,28 @@ public class OllamaNameMatchingService : INameMatchingService
 
     private static string BuildNameComparisonPrompt(string name1, string name2)
     {
-        return $@"Compare these two names of sports players and determine if they refer to the same person.
-Names can have different orders (First Last vs Last First), missing middle names, or transliteration differences.
+        return $@"You are a name matching expert. Compare these two player names and determine if they refer to the same person.
+
+Consider:
+- Different name orders (First Last vs Last First)
+- Missing middle names or initials
+- Transliteration differences (á vs a, ü vs u)
+- Common nicknames
 
 Name 1: {name1}
 Name 2: {name2}
 
-Return ONLY a JSON object with:
+IMPORTANT: Return ONLY valid JSON in this exact format, no other text:
 {{
-  ""confidence"": 0.0 to 1.0,
-  ""isMatch"": true/false,
-  ""reason"": ""short explanation""
-}}";
+  ""confidence"": 0.95,
+  ""isMatch"": true,
+  ""reason"": ""brief explanation""
+}}
+
+Where:
+- confidence: number from 0.0 to 1.0 (1.0 = certain same person)
+- isMatch: true if confidence >= 0.9, false otherwise
+- reason: short 1-sentence explanation";
     }
 
     private MatchResult ParseNameComparisonResponse(string response)
@@ -98,6 +108,10 @@ Return ONLY a JSON object with:
             if (start >= 0 && end > start)
             {
                 var json = response.Substring(start, end - start + 1);
+                
+                // Remove potential markdown language specifier if it got caught in the substring
+                if (json.StartsWith("json")) json = json.Substring(4).Trim();
+                
                 var data = JsonSerializer.Deserialize<NameComparisonResponse>(json, _jsonOptions);
                 
                 if (data != null)
@@ -106,11 +120,15 @@ Return ONLY a JSON object with:
                     {
                         Confidence = data.Confidence,
                         IsMatch = data.IsMatch || data.Confidence >= _confidenceThreshold,
-                        Metadata = new Dictionary<string, string> { { "reason", data.Reason } }
+                        Metadata = new Dictionary<string, string>
+                        {
+                            { "reason", data.Reason },
+                            { "raw_json", json }
+                        }
                     };
                 }
             }
-            
+
             // Fallback: search for confidence number in text
             var confidenceMatch = System.Text.RegularExpressions.Regex.Match(response, @"""confidence"":\s*([0-9\.]+)");
             if (confidenceMatch.Success && double.TryParse(confidenceMatch.Groups[1].Value, CultureInfo.InvariantCulture, out var confidence))
@@ -118,13 +136,22 @@ Return ONLY a JSON object with:
                 return new MatchResult
                 {
                     Confidence = confidence,
-                    IsMatch = confidence >= _confidenceThreshold
+                    IsMatch = confidence >= _confidenceThreshold,
+                    Metadata = new Dictionary<string, string> { { "method", "regex-extract" } }
                 };
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            return new MatchResult
+            {
+                Confidence = 0,
+                IsMatch = false,
+                Metadata = new Dictionary<string, string> { { "error", ex.Message }, { "raw_response", response } }
+            };
+        }
 
-        return new MatchResult { Confidence = 0, IsMatch = false };
+        return new MatchResult { Confidence = 0, IsMatch = false, Metadata = new Dictionary<string, string> { { "raw_response", response } } };
     }
 
     private class NameComparisonResponse

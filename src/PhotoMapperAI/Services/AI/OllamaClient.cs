@@ -73,7 +73,7 @@ public class OllamaClient
         var responseJson = await response.Content.ReadAsStringAsync();
         var responseData = JsonSerializer.Deserialize<OllamaResponse>(responseJson);
 
-        return responseData?.Message?.Content ?? string.Empty;
+        return responseData?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
     }
 
     /// <summary>
@@ -137,7 +137,7 @@ public class OllamaClient
         var responseJson = await response.Content.ReadAsStringAsync();
         var responseData = JsonSerializer.Deserialize<OllamaResponse>(responseJson);
 
-        return responseData?.Message?.Content ?? string.Empty;
+        return responseData?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
     }
 
     /// <summary>
@@ -181,6 +181,12 @@ public class OllamaClient
     #region Response Models
 
     private class OllamaResponse
+    {
+        [JsonPropertyName("choices")]
+        public List<OllamaChoice>? Choices { get; set; }
+    }
+
+    private class OllamaChoice
     {
         [JsonPropertyName("message")]
         public OllamaMessage? Message { get; set; }
