@@ -91,7 +91,7 @@ PhotoMapperAI generatePhotos \
 
 > **Note:** Portrait crop behavior:
 > - **With AI face detection:** Crops around eyes/face for optimal framing (head + neck + bit of chest)
-> - **Center mode (no AI):** Crops from upper portion of image (top 20-40%) assuming full-body sports photos
+> - **Center mode (no AI):** Crops from upper portion of image (top 35% of height) assuming full-body sports photos. This captures head + neck + upper chest for proper portrait composition.
 > - All portraits are resized to exact dimensions (default: 200x300 pixels)
 >
 > **See:** [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.

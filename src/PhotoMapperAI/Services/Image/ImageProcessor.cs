@@ -101,72 +101,96 @@ public class ImageProcessor : IImageProcessor
         int portraitWidth,
         int portraitHeight)
     {
+        // Target aspect ratio is portrait (e.g., 200:300 = 2:3)
+        var targetAspectRatio = (double)portraitWidth / portraitHeight; // e.g., 0.667
+        
+        // Calculate crop size based on source image dimensions
+        // We want head + neck + upper chest (proper portrait)
+        // For a typical portrait, the face should occupy ~45-50% of the height
+        var cropHeight = (int)(imageHeight * 0.35); // 35% of source = head + neck + chest
+        var cropWidth = (int)(cropHeight * targetAspectRatio);
+        
+        // Ensure crop doesn't exceed image bounds
+        if (cropWidth > imageWidth)
+        {
+            cropWidth = imageWidth;
+            cropHeight = (int)(cropWidth / targetAspectRatio);
+        }
+
+        // Determine the center point for cropping
+        int centerX, eyeY;
+        
         // Case 1: Both eyes detected (best centering)
         if (landmarks.BothEyesDetected && landmarks.EyeMidpoint != null)
         {
-            var eyeMidpoint = landmarks.EyeMidpoint;
-            var cropWidth = (int)(portraitWidth * 1.2); // 20% wider than target
-            var cropHeight = (int)(portraitHeight * 1.5); // 50% taller than target
-
-            return new PhotoMapperAI.Models.Rectangle(
-                eyeMidpoint.X - (cropWidth / 2),
-                eyeMidpoint.Y - (int)(cropHeight * 0.35), // Eyes at 35% from top
-                cropWidth,
-                cropHeight
-            );
+            centerX = landmarks.EyeMidpoint.X;
+            eyeY = landmarks.EyeMidpoint.Y;
         }
-
-        // Case 2: One eye detected
+        
+        // Case 2: One eye detected - use it and estimate horizontal center
         else if (landmarks.LeftEye != null || landmarks.RightEye != null)
         {
-            var eye = landmarks.LeftEye ?? landmarks.RightEye ?? new PhotoMapperAI.Models.Point(0, 0);
-
-            var cropWidth = (int)(portraitWidth * 1.3);
-            var cropHeight = (int)(portraitHeight * 1.6);
-
-            return new PhotoMapperAI.Models.Rectangle(
-                eye.X - (cropWidth / 2),
-                eye.Y - (int)(cropHeight * 0.4),
-                cropWidth,
-                cropHeight
-            );
+            var eye = landmarks.LeftEye ?? landmarks.RightEye!;
+            centerX = eye.X;
+            eyeY = eye.Y;
+            
+            // If only one eye detected, adjust center towards the other side
+            // (eyes are symmetric, so center is offset from single eye)
+            if (landmarks.LeftEye != null)
+            {
+                centerX = eye.X + (int)(cropWidth * 0.15); // Shift right
+            }
+            else
+            {
+                centerX = eye.X - (int)(cropWidth * 0.15); // Shift left
+            }
         }
-
-        // Case 3: No eyes but face detected
+        
+        // Case 3: No eyes but face detected - ESTIMATE eye position
         else if (landmarks.FaceDetected && landmarks.FaceRect != null)
         {
             var faceRect = landmarks.FaceRect;
-            var cropWidth = (int)(portraitWidth * 1.5);
-            var cropHeight = (int)(portraitHeight * 1.8);
-
-            return new PhotoMapperAI.Models.Rectangle(
-                faceRect.X - (cropWidth - faceRect.Width) / 2,
-                faceRect.Y - (int)(cropHeight * 0.3),
-                cropWidth,
-                cropHeight
-            );
+            
+            // Eyes are typically in the upper 1/3 of the face rectangle
+            // Horizontal center of face = center between eyes
+            centerX = faceRect.X + faceRect.Width / 2;
+            eyeY = faceRect.Y + (int)(faceRect.Height * 0.35); // Eyes at 35% from top of face
         }
-
-        // Case 4: No face detected (upper-body crop fallback)
-        // For sports photos (full-body shots), crop from upper part of image
-        // Expected portrait: head + neck + bit of chest (not full body)
+        
+        // Case 4: No face detected - use upper portion of image
         else
         {
-            var cropWidth = (int)(portraitWidth * 2.0);
-            var cropHeight = (int)(portraitHeight * 2.0);
-
-            // Position crop in upper portion of image (top 40% instead of center)
-            // This captures head, neck, and chest area for portrait-style crops
-            var cropY = (int)(imageHeight * 0.2) - (cropHeight / 2); // Start at 20% from top
-            cropY = Math.Max(0, cropY); // Ensure we don't go negative
-
-            return new PhotoMapperAI.Models.Rectangle(
-                (imageWidth - cropWidth) / 2,  // Center horizontally
-                cropY,                         // Upper portion (not center)
-                cropWidth,
-                cropHeight
-            );
+            // Center horizontally
+            centerX = imageWidth / 2;
+            // Estimate eyes at ~15% from top of image (typical for full-body sports photos)
+            eyeY = (int)(imageHeight * 0.15);
         }
+        
+        // Calculate crop rectangle
+        // Eyes should be at ~35% from top of the portrait (standard portrait composition)
+        var cropX = centerX - (cropWidth / 2);
+        var cropY = eyeY - (int)(cropHeight * 0.35); // Eyes at 35% from top
+        
+        // Ensure crop stays within image bounds
+        cropX = Math.Max(0, Math.Min(cropX, imageWidth - cropWidth));
+        cropY = Math.Max(0, Math.Min(cropY, imageHeight - cropHeight));
+        
+        // Adjust if crop goes beyond image bounds
+        if (cropX + cropWidth > imageWidth)
+        {
+            cropX = imageWidth - cropWidth;
+        }
+        if (cropY + cropHeight > imageHeight)
+        {
+            cropY = imageHeight - cropHeight;
+        }
+
+        return new PhotoMapperAI.Models.Rectangle(
+            cropX,
+            cropY,
+            cropWidth,
+            cropHeight
+        );
     }
 
     #endregion
