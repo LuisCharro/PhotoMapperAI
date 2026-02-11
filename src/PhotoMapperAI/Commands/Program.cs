@@ -197,10 +197,14 @@ public class MapCommand
 Generates portrait photos from full-body images using face and eye detection.
 Supports OpenCV DNN, Haar Cascades, YOLOv8-Face, and Ollama Vision models.
 
+Fallback mode: Provide comma-separated models to try each in order.
+Example: llava:7b,qwen3-vl will try llava:7b first, fall back to qwen3-vl if it fails.
+
 Examples:
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
+  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
 ")]
 public class GeneratePhotosCommand
@@ -217,8 +221,8 @@ public class GeneratePhotosCommand
     [Option(ShortName = "f", LongName = "format", Description = "Image format: jpg, png (default: jpg)")]
     public string Format { get; set; } = "jpg";
 
-    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-dnn, yolov8-face, llava:7b, qwen3-vl (default: opencv-dnn)")]
-    public string FaceDetection { get; set; } = "opencv-dnn";
+    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b,qwen3-vl)")]
+    public string FaceDetection { get; set; } = "llava:7b,qwen3-vl";
 
     [Option(ShortName = "c", LongName = "crop", Description = "Crop method: generic, ai (default: generic)")]
     public string Crop { get; set; } = "generic";
@@ -265,14 +269,22 @@ public class GeneratePhotosCommand
 
     /// <summary>
     /// Creates the appropriate face detection service based on model name.
+    /// If model contains commas, creates a fallback service that tries each model in order.
     /// </summary>
     private IFaceDetectionService CreateFaceDetectionService(string model)
     {
+        // Check if fallback mode (comma-separated models)
+        if (model.Contains(','))
+        {
+            return new FallbackFaceDetectionService(model);
+        }
+
+        // Single model mode
         return model.ToLower() switch
         {
             "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
             "yolov8-face" => new OpenCVDNNFaceDetectionService(),
-            var ollamaModel when model.Contains("llava") || model.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
+            var ollamaModel when ollamaModel.Contains("llava") || ollamaModel.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
             _ => throw new ArgumentException($"Unknown face detection model: {model}")
         };
     }
