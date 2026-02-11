@@ -94,16 +94,6 @@ public class OllamaClient
         var imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
         var base64Image = Convert.ToBase64String(imageBytes);
 
-        // Detect image type
-        var extension = Path.GetExtension(imagePath).TrimStart('.');
-        var mimeType = extension.ToLower() switch
-        {
-            "jpg" or "jpeg" => "image/jpeg",
-            "png" => "image/png",
-            "bmp" => "image/bmp",
-            _ => "image/jpeg"
-        };
-
         var requestBody = new
         {
             model = modelName,
@@ -112,19 +102,8 @@ public class OllamaClient
                 new
                 {
                     role = "user",
-                    content = new List<object>
-                    {
-                        new
-                        {
-                            type = "text",
-                            text = prompt
-                        },
-                        new
-                        {
-                            type = "image_url",
-                            image_url = $"data:{mimeType};base64,{base64Image}"
-                        }
-                    }
+                    content = prompt,
+                    images = new List<string> { base64Image }
                 }
             },
             stream = false
@@ -133,13 +112,19 @@ public class OllamaClient
         var json = JsonSerializer.Serialize(requestBody);
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_baseUrl}/v1/chat/completions", content, cancellationToken);
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/chat", content, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        var responseData = JsonSerializer.Deserialize<OllamaResponse>(responseJson);
+        
+        using var doc = JsonDocument.Parse(responseJson);
+        if (doc.RootElement.TryGetProperty("message", out var message) &&
+            message.TryGetProperty("content", out var text))
+        {
+            return text.GetString() ?? string.Empty;
+        }
 
-        return responseData?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+        return string.Empty;
     }
 
     /// <summary>

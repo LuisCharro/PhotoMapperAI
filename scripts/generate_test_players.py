@@ -100,15 +100,15 @@ def main():
         writer.writeheader()
 
         for player in players:
-            # Initialize mapping fields (will be updated by map command)
+            # Populate ExternalId from filename (for direct photo mapping)
             writer.writerow({
                 'PlayerId': player['PlayerId'],
                 'TeamId': player['TeamId'],
                 'FamilyName': player['FamilyName'],
                 'SurName': player['SurName'],
-                'ExternalId': '',  # Empty - will be filled by map command
-                'ValidMapping': 0,  # False initially
-                'Confidence': 0.0,  # 0 initially
+                'ExternalId': player['ExternalId'],  # Use parsed PlayerID from filename
+                'ValidMapping': 1,  # Already mapped
+                'Confidence': 1.0,  # 100% confidence
                 'FullName': player['FullName']
             })
 

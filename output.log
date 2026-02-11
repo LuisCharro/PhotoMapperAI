@@ -1,0 +1,28 @@
+/Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI/PhotoMapperAI.csproj : warning NU1603: PhotoMapperAI depends on OpenCvSharp4 (>= 4.8.1) but OpenCvSharp4 4.8.1 was not found. OpenCvSharp4 4.9.0.20240103 was resolved instead.
+/Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI/PhotoMapperAI.csproj : warning NU1603: PhotoMapperAI depends on OpenCvSharp4.runtime.win (>= 4.8.1) but OpenCvSharp4.runtime.win 4.8.1 was not found. OpenCvSharp4.runtime.win 4.9.0.20240103 was resolved instead.
+/Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI/PhotoMapperAI.csproj : warning NU1603: PhotoMapperAI depends on OpenCvSharp4 (>= 4.8.1) but OpenCvSharp4 4.8.1 was not found. OpenCvSharp4 4.9.0.20240103 was resolved instead.
+/Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI/PhotoMapperAI.csproj : warning NU1603: PhotoMapperAI depends on OpenCvSharp4.runtime.win (>= 4.8.1) but OpenCvSharp4.runtime.win 4.8.1 was not found. OpenCvSharp4.runtime.win 4.9.0.20240103 was resolved instead.
+Generate Photos Command
+======================
+CSV File: test_single.csv
+Photos Dir: temp_mapping_photos
+Output Dir: portraits_test_log
+Format: jpg
+Face Detection: llava:7b
+Crop Method: generic
+Portrait Only: False
+Portrait Size: 200x300
+Parallel: False (Degree: 4)
+
+Loading player data...
+✓ Loaded 1 players from CSV
+
+Processing 1 players...
+
+Progress: [==============================] 100% | Aleixandri Lopez Laia (ID: 250081851)              Detecting faces |[OllamaVision] Attempt 1/3 for llava:7b
+  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \  Detecting faces |  Detecting faces /  Detecting faces -  Detecting faces \[OllamaVision] ✓ Face detected: False, Confidence: 0.00
+  Detecting faces ✓
+
+
+📦 Cache: 3/3 entries
+✓ Generated 1 portraits (0 failed)

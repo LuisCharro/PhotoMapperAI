@@ -247,8 +247,9 @@ public class GeneratePhotosCommandLogic
 
         if (photoFiles.Count == 0)
         {
-            // Try searching with underscore name if ID failed
-            var pattern = $"{player.ExternalId}_*";
+            // Try searching with underscore pattern (ID at end of filename)
+            // Filename pattern: FirstName_LastName_PlayerID.jpg
+            var pattern = $"*_{player.ExternalId}.*";
             photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
                 .Where(f => IsSupportedImageFormat(f))
                 .ToList();
@@ -280,10 +281,8 @@ public class GeneratePhotosCommandLogic
                     else
                     {
                         // Cache miss - detect faces
-                        using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
-                        {
-                            landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
-                        }
+                        Console.WriteLine($"  Detecting faces for {player.FullName} (uncached)...");
+                        landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
 
                         // Cache the result
                         _cache.CacheLandmarks(photoPath, landmarks, faceDetectionModel);
@@ -292,10 +291,8 @@ public class GeneratePhotosCommandLogic
                 else
                 {
                     // No cache - detect faces directly
-                    using (var spinner = ProgressIndicator.CreateSpinner("  Detecting faces"))
-                    {
-                        landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
-                    }
+                    Console.WriteLine($"  Detecting faces for {player.FullName}...");
+                    landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
                 }
             }
             else

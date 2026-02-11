@@ -301,29 +301,38 @@ If no face detected, return:
             if (data.FaceDetected && data.FaceRect != null)
             {
                 landmarks.FaceRect = new PhotoMapperAI.Models.Rectangle(
-                    data.FaceRect.X,
-                    data.FaceRect.Y,
-                    data.FaceRect.Width,
-                    data.FaceRect.Height
+                    ScaleCoord(data.FaceRect.X, imageWidth),
+                    ScaleCoord(data.FaceRect.Y, imageHeight),
+                    ScaleCoord(data.FaceRect.Width, imageWidth),
+                    ScaleCoord(data.FaceRect.Height, imageHeight)
                 );
             }
 
             // Parse left eye
             if (data.LeftEye != null)
             {
-                landmarks.LeftEye = new PhotoMapperAI.Models.Point(data.LeftEye.X, data.LeftEye.Y);
+                landmarks.LeftEye = new PhotoMapperAI.Models.Point(
+                    ScaleCoord(data.LeftEye.X, imageWidth),
+                    ScaleCoord(data.LeftEye.Y, imageHeight)
+                );
             }
 
             // Parse right eye
             if (data.RightEye != null)
             {
-                landmarks.RightEye = new PhotoMapperAI.Models.Point(data.RightEye.X, data.RightEye.Y);
+                landmarks.RightEye = new PhotoMapperAI.Models.Point(
+                    ScaleCoord(data.RightEye.X, imageWidth),
+                    ScaleCoord(data.RightEye.Y, imageHeight)
+                );
             }
 
             // Parse face center
             if (data.FaceCenter != null)
             {
-                landmarks.FaceCenter = new PhotoMapperAI.Models.Point(data.FaceCenter.X, data.FaceCenter.Y);
+                landmarks.FaceCenter = new PhotoMapperAI.Models.Point(
+                    ScaleCoord(data.FaceCenter.X, imageWidth),
+                    ScaleCoord(data.FaceCenter.Y, imageHeight)
+                );
             }
 
             return landmarks;
@@ -342,6 +351,16 @@ If no face detected, return:
                 }
             };
         }
+    }
+
+    private static int ScaleCoord(double value, int dimension)
+    {
+        // If value is between 0 and 1, treat as normalized float
+        if (value > 0 && value < 1.0)
+        {
+            return (int)(value * dimension);
+        }
+        return (int)value;
     }
 
     #endregion
@@ -375,25 +394,25 @@ If no face detected, return:
     private class Rect
     {
         [System.Text.Json.Serialization.JsonPropertyName("x")]
-        public int X { get; set; }
+        public double X { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("y")]
-        public int Y { get; set; }
+        public double Y { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("width")]
-        public int Width { get; set; }
+        public double Width { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("height")]
-        public int Height { get; set; }
+        public double Height { get; set; }
     }
 
     private class VisionPoint
     {
         [System.Text.Json.Serialization.JsonPropertyName("x")]
-        public int X { get; set; }
+        public double X { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("y")]
-        public int Y { get; set; }
+        public double Y { get; set; }
     }
 
     #endregion
