@@ -1,4 +1,6 @@
 using McMaster.Extensions.CommandLineUtils;
+using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Commands;
 using System.Reflection;
 
 namespace PhotoMapperAI;
@@ -48,16 +50,16 @@ Examples:
 ")]
 public class ExtractCommand
 {
-    [Option(ShortName = "i", LongName = "inputSqlPath", Required = true, Description = "Path to SQL query file")]
+    [Option(ShortName = "i", LongName = "inputSqlPath", Description = "Path to SQL query file")]
     public string InputSqlPath { get; set; } = string.Empty;
 
-    [Option(ShortName = "c", LongName = "connectionStringPath", Required = true, Description = "Path to database connection string file")]
+    [Option(ShortName = "c", LongName = "connectionStringPath", Description = "Path to database connection string file")]
     public string ConnectionStringPath { get; set; } = string.Empty;
 
-    [Option(ShortName = "t", LongName = "teamId", Required = true, Description = "Team ID to filter")]
+    [Option(ShortName = "t", LongName = "teamId", Description = "Team ID to filter")]
     public int TeamId { get; set; }
 
-    [Option(ShortName = "o", LongName = "outputName", Required = true, Description = "Output CSV filename")]
+    [Option(ShortName = "o", LongName = "outputName", Description = "Output CSV filename")]
     public string OutputName { get; set; } = string.Empty;
 
     public async Task<int> OnExecuteAsync()
@@ -137,10 +139,10 @@ Examples:
 ")]
 public class MapCommand
 {
-    [Option(ShortName = "i", LongName = "inputCsvPath", Required = true, Description = "Path to input CSV file")]
+    [Option(ShortName = "i", LongName = "inputCsvPath", Description = "Path to input CSV file")]
     public string InputCsvPath { get; set; } = string.Empty;
 
-    [Option(ShortName = "p", LongName = "photosDir", Required = true, Description = "Directory containing photo files")]
+    [Option(ShortName = "p", LongName = "photosDir", Description = "Directory containing photo files")]
     public string PhotosDir { get; set; } = string.Empty;
 
     [Option(ShortName = "f", LongName = "filenamePattern", Description = "Filename pattern template (e.g., '{id}_{family}_{sur}.png')")]
@@ -196,10 +198,10 @@ Examples:
 ")]
 public class GeneratePhotosCommand
 {
-    [Option(ShortName = "i", LongName = "inputCsvPath", Required = true, Description = "Path to input CSV file")]
+    [Option(ShortName = "i", LongName = "inputCsvPath", Description = "Path to input CSV file")]
     public string InputCsvPath { get; set; } = string.Empty;
 
-    [Option(ShortName = "o", LongName = "processedPhotosOutputPath", Required = true, Description = "Output directory for portrait photos")]
+    [Option(ShortName = "o", LongName = "processedPhotosOutputPath", Description = "Output directory for portrait photos")]
     public string ProcessedPhotosOutputPath { get; set; } = string.Empty;
 
     [Option(ShortName = "f", LongName = "format", Description = "Image format: jpg, png (default: jpg)")]
@@ -258,8 +260,8 @@ public class GeneratePhotosCommand
         return model.ToLower() switch
         {
             "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-            "yolov8-face" => new OpenCVDNNFaceDetectionService(), // TODO: Implement YOLOv8
-            _ when model.Contains("llava") or model.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
+            "yolov8-face" => new OpenCVDNNFaceDetectionService(),
+            var ollamaModel when model.Contains("llava") || model.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
             _ => throw new ArgumentException($"Unknown face detection model: {model}")
         };
     }
@@ -285,7 +287,7 @@ public class BenchmarkCommand
     [Option(ShortName = "f", LongName = "faceModels", Description = "Comma-separated list of face detection models")]
     public string? FaceModels { get; set; }
 
-    [Option(ShortName = "t", LongName = "testDataPath", Required = true, Description = "Path to test data directory")]
+    [Option(ShortName = "t", LongName = "testDataPath", Description = "Path to test data directory")]
     public string TestDataPath { get; set; } = string.Empty;
 
     [Option(ShortName = "o", LongName = "outputPath", Description = "Path for benchmark results (default: benchmark-results/)")]

@@ -15,11 +15,11 @@ public class ImageProcessor : IImageProcessor
     /// <summary>
     /// Loads an image from file.
     /// </summary>
-    public async Task<Image> LoadImageAsync(string imagePath)
+    public async Task<SixLabors.ImageSharp.Image> LoadImageAsync(string imagePath)
     {
         return await Task.Run(() =>
         {
-            var image = Image.Load(imagePath);
+            var image = SixLabors.ImageSharp.Image.Load(imagePath);
             return image;
         });
     }
@@ -27,8 +27,8 @@ public class ImageProcessor : IImageProcessor
     /// <summary>
     /// Crops a portrait region based on face landmarks.
     /// </summary>
-    public async Task<Image> CropPortraitAsync(
-        Image image,
+    public async Task<SixLabors.ImageSharp.Image> CropPortraitAsync(
+        SixLabors.ImageSharp.Image image,
         FaceLandmarks landmarks,
         int portraitWidth,
         int portraitHeight)
@@ -44,27 +44,22 @@ public class ImageProcessor : IImageProcessor
                 portraitHeight
             );
 
-            // Ensure crop is within image bounds
-            cropRect.X = Math.Max(0, cropRect.X);
-            cropRect.Y = Math.Max(0, cropRect.Y);
-            cropRect.Width = Math.Min(cropRect.Width, image.Width - cropRect.X);
-            cropRect.Height = Math.Min(cropRect.Height, image.Height - cropRect.Y);
+            // Ensure crop is within image bounds and recalculate if needed
+            var x = Math.Max(0, cropRect.X);
+            var y = Math.Max(0, cropRect.Y);
+            var width = Math.Min(cropRect.Width, image.Width - x);
+            var height = Math.Min(cropRect.Height, image.Height - y);
 
-            // Create rectangle for cropping
-            var rect = new Rectangle(
-                cropRect.X,
-                cropRect.Y,
-                cropRect.Width,
-                cropRect.Height
-            );
+            // Create rectangle for cropping (using ImageSharp's Rectangle)
+            var rect = new SixLabors.ImageSharp.Rectangle(x, y, width, height);
 
-            // Crop and resize
-            var cropped = image.Clone(x => x.Crop(rect));
+            // Crop
+            var cropped = image.Clone(img => img.Crop(rect));
 
             // Resize to exact portrait dimensions
             if (cropped.Width != portraitWidth || cropped.Height != portraitHeight)
             {
-                cropped.Mutate(x => x.Resize(portraitWidth, portraitHeight));
+                cropped.Mutate(img => img.Resize(portraitWidth, portraitHeight));
             }
 
             return cropped;
@@ -74,18 +69,10 @@ public class ImageProcessor : IImageProcessor
     /// <summary>
     /// Saves an image to file.
     /// </summary>
-    public async Task SaveImageAsync(Image image, string outputPath, string format)
+    public async Task SaveImageAsync(SixLabors.ImageSharp.Image image, string outputPath, string format)
     {
         await Task.Run(() =>
         {
-            var extension = format.ToLower() switch
-            {
-                "jpg" or "jpeg" => "jpg",
-                "png" => "png",
-                "bmp" => "bmp",
-                _ => "jpg"
-            };
-
             image.Save(outputPath, new JpegEncoder { Quality = 90 });
         });
     }
@@ -97,7 +84,7 @@ public class ImageProcessor : IImageProcessor
     {
         return await Task.Run(() =>
         {
-            using var image = Image.Load(imagePath);
+            using var image = SixLabors.ImageSharp.Image.Load(imagePath);
             return (image.Width, image.Height);
         });
     }
@@ -107,7 +94,7 @@ public class ImageProcessor : IImageProcessor
     /// <summary>
     /// Calculates portrait crop rectangle based on face landmarks.
     /// </summary>
-    private static Rectangle CalculatePortraitCrop(
+    private static PhotoMapperAI.Models.Rectangle CalculatePortraitCrop(
         FaceLandmarks landmarks,
         int imageWidth,
         int imageHeight,
@@ -115,49 +102,46 @@ public class ImageProcessor : IImageProcessor
         int portraitHeight)
     {
         // Case 1: Both eyes detected (best centering)
-        if (landmarks.BothEyesDetected && landmarks.EyeMidpoint.HasValue)
+        if (landmarks.BothEyesDetected && landmarks.EyeMidpoint != null)
         {
-            var eyeMidpoint = landmarks.EyeMidpoint.Value;
+            var eyeMidpoint = landmarks.EyeMidpoint;
             var cropWidth = (int)(portraitWidth * 1.2); // 20% wider than target
             var cropHeight = (int)(portraitHeight * 1.5); // 50% taller than target
 
-            return new Rectangle(
+            return new PhotoMapperAI.Models.Rectangle(
                 eyeMidpoint.X - (cropWidth / 2),
-                eyeMidpoint.Y - (int)(cropHeight * 0.7), // Face is in top 70%
+                eyeMidpoint.Y - (int)(cropHeight * 0.35), // Eyes at 35% from top
                 cropWidth,
                 cropHeight
             );
         }
 
         // Case 2: One eye detected
-        else if (landmarks.LeftEye.HasValue || landmarks.RightEye.HasValue)
+        else if (landmarks.LeftEye != null || landmarks.RightEye != null)
         {
-            var eye = landmarks.LeftEye ?? landmarks.RightEye ?? new Point(0, 0);
+            var eye = landmarks.LeftEye ?? landmarks.RightEye ?? new PhotoMapperAI.Models.Point(0, 0);
 
-            if (landmarks.FaceCenter.HasValue)
-            {
-                var cropWidth = (int)(portraitWidth * 1.3);
-                var cropHeight = (int)(portraitHeight * 1.6);
+            var cropWidth = (int)(portraitWidth * 1.3);
+            var cropHeight = (int)(portraitHeight * 1.6);
 
-                return new Rectangle(
-                    eye.X - (cropWidth / 2),
-                    eye.Y - (int)(cropHeight * 0.6),
-                    cropWidth,
-                    cropHeight
-                );
-            }
+            return new PhotoMapperAI.Models.Rectangle(
+                eye.X - (cropWidth / 2),
+                eye.Y - (int)(cropHeight * 0.4),
+                cropWidth,
+                cropHeight
+            );
         }
 
         // Case 3: No eyes but face detected
-        else if (landmarks.FaceDetected && landmarks.FaceRect.HasValue)
+        else if (landmarks.FaceDetected && landmarks.FaceRect != null)
         {
-            var faceRect = landmarks.FaceRect.Value;
+            var faceRect = landmarks.FaceRect;
             var cropWidth = (int)(portraitWidth * 1.5);
             var cropHeight = (int)(portraitHeight * 1.8);
 
-            return new Rectangle(
-                faceRect.X - (cropWidth / 2) + (faceRect.Width / 2),
-                faceRect.Y - (int)(cropHeight * 0.5),
+            return new PhotoMapperAI.Models.Rectangle(
+                faceRect.X - (cropWidth - faceRect.Width) / 2,
+                faceRect.Y - (int)(cropHeight * 0.3),
                 cropWidth,
                 cropHeight
             );
@@ -169,7 +153,7 @@ public class ImageProcessor : IImageProcessor
             var cropWidth = (int)(portraitWidth * 2.0);
             var cropHeight = (int)(portraitHeight * 2.0);
 
-            return new Rectangle(
+            return new PhotoMapperAI.Models.Rectangle(
                 (imageWidth - cropWidth) / 2,
                 (imageHeight - cropHeight) / 2,
                 cropWidth,

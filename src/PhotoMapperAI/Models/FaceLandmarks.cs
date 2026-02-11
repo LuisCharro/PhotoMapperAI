@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace PhotoMapperAI.Models;
 
 /// <summary>
@@ -51,6 +53,11 @@ public class FaceLandmarks
     public long ProcessingTimeMs { get; set; }
 
     /// <summary>
+    /// Additional metadata about the detection
+    /// </summary>
+    public Dictionary<string, string> Metadata { get; set; } = new();
+
+    /// <summary>
     /// Calculate eye midpoint (used for portrait centering)
     /// Null if both eyes not detected
     /// </summary>
@@ -58,11 +65,11 @@ public class FaceLandmarks
     {
         get
         {
-            if (LeftEye.HasValue && RightEye.HasValue)
+            if (LeftEye != null && RightEye != null)
             {
                 return new Point(
-                    (LeftEye.Value.X + RightEye.Value.X) / 2,
-                    (LeftEye.Value.Y + RightEye.Value.Y) / 2
+                    (LeftEye.X + RightEye.X) / 2,
+                    (LeftEye.Y + RightEye.Y) / 2
                 );
             }
             return null;

@@ -1,6 +1,7 @@
 using PhotoMapperAI.Models;
 using CsvHelper.Configuration;
 using CsvHelper;
+using System.Globalization;
 
 namespace PhotoMapperAI.Services.Database;
 
@@ -31,12 +32,7 @@ public class DatabaseExtractor
         string outputCsvPath)
     {
         // For now, return synthetic data (TODO: Implement actual database access)
-        // This would need:
-        // - Microsoft.Data.SqlClient for SQL Server
-        // - Npgsql for PostgreSQL
-        // - Microsoft.Data.Sqlite for SQLite
-
-        var players = GenerateSyntheticPlayers(parameters?.GetValueOrDefault("TeamId", 1).ToString());
+        var players = GenerateSyntheticPlayers(parameters?.GetValueOrDefault("TeamId", 1).ToString() ?? "1");
 
         await WriteCsvAsync(players, outputCsvPath);
 
@@ -59,12 +55,13 @@ public class DatabaseExtractor
                 IgnoreBlankLines = true
             };
 
-            using var reader = new CsvReader(csvPath, config);
+            using var reader = new StreamReader(csvPath);
+            using var csv = new CsvReader(reader, config);
             var records = new List<PlayerRecord>();
 
-            foreach (var record in reader.GetRecords<PlayerRecordCsv>())
+            foreach (var record in csv.GetRecords<PlayerRecordCsv>())
             {
-                players.Add(new PlayerRecord
+                records.Add(new PlayerRecord
                 {
                     PlayerId = record.PlayerId,
                     TeamId = record.TeamId,
@@ -76,28 +73,26 @@ public class DatabaseExtractor
                 });
             }
 
-            return players;
+            return records;
         });
     }
-
-    #region Private Methods
 
     /// <summary>
     /// Writes player records to CSV file.
     /// </summary>
-    private static async Task WriteCsvAsync(List<PlayerRecord> players, string outputCsvPath)
+    public static async Task WriteCsvAsync(List<PlayerRecord> players, string outputCsvPath)
     {
-        await Task.Run(() =>
+        var config = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
-            {
-                HasHeaderRecord = true
-            };
+            HasHeaderRecord = true
+        };
 
-            using var writer = new CsvWriter(outputCsvPath, config);
-            await writer.WriteRecordsAsync(players);
-        });
+        using var writer = new StreamWriter(outputCsvPath);
+        using var csv = new CsvWriter(writer, config);
+        await csv.WriteRecordsAsync(players);
     }
+
+    #region Private Methods
 
     /// <summary>
     /// Generates synthetic player data for testing.

@@ -1,4 +1,5 @@
 using PhotoMapperAI.Models;
+using PhotoMapperAI.Services;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Utils;
 
@@ -10,14 +11,14 @@ namespace PhotoMapperAI.Commands;
 public class MapCommandLogic
 {
     private readonly INameMatchingService _nameMatchingService;
-    private readonly Services.Image.IImageProcessor _imageProcessor;
+    private readonly IImageProcessor _imageProcessor;
 
     /// <summary>
     /// Creates a new map command logic handler.
     /// </summary>
     public MapCommandLogic(
         INameMatchingService nameMatchingService,
-        Services.Image.IImageProcessor imageProcessor)
+        IImageProcessor imageProcessor)
     {
         _nameMatchingService = nameMatchingService;
         _imageProcessor = imageProcessor;
@@ -123,7 +124,7 @@ public class MapCommandLogic
             var outputPath = Path.Combine(Directory.GetCurrentDirectory(), $"mapped_{Path.GetFileName(inputCsvPath)}");
             Console.WriteLine();
             Console.WriteLine($"Writing results to: {outputPath}");
-            await extractor.WriteCsvAsync(players, outputPath);
+            await Services.Database.DatabaseExtractor.WriteCsvAsync(players, outputPath);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Complete! Results saved to {outputPath}");
@@ -200,7 +201,7 @@ public class MapCommandLogic
         }
 
         // Step 2: Try AI name matching
-        if (!string.IsNullOrEmpty(metadata.FullName))
+        if (string.IsNullOrEmpty(metadata.FullName))
         {
             Console.WriteLine($"    No full name available, skipping AI matching");
             return new MappingResult
@@ -231,7 +232,7 @@ public class MapCommandLogic
             .OrderByDescending(r => r.Confidence)
             .FirstOrDefault();
 
-        if (bestMatch != null)
+        if (bestMatch == null || bestMatch.Confidence < confidenceThreshold)
         {
             return new MappingResult
             {
@@ -248,6 +249,7 @@ public class MapCommandLogic
         {
             PhotoFileName = photoName,
             PlayerId = bestMatch.PlayerId,
+            ExternalId = metadata.ExternalId,
             Method = MatchMethod.AiNameMatching,
             Confidence = bestMatch.Confidence,
             ConfidenceThreshold = confidenceThreshold,

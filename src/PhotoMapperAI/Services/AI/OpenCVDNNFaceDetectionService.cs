@@ -1,5 +1,5 @@
-using OpenCvSharp4;
-using OpenCvSharp4.Extensions;
+using OpenCvSharp;
+using OpenCvSharp.Dnn;
 using PhotoMapperAI.Models;
 using System.Text.Json;
 
@@ -33,7 +33,6 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
         string modelType = "dnn",
         double confidenceThreshold = 0.7)
     {
-        _modelPath = modelsPath;
         _confidenceThreshold = confidenceThreshold;
 
         // Set model paths based on type
@@ -41,6 +40,11 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
         {
             _modelPath = Path.Combine(modelsPath, "res10_ssd_deploy.prototxt");
             _weightsPath = Path.Combine(modelsPath, "res10_300x300_ssd_iter_140000.caffemodel");
+        }
+        else
+        {
+            _modelPath = string.Empty;
+            _weightsPath = string.Empty;
         }
     }
 
@@ -62,8 +66,8 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
                 if (File.Exists(_modelPath) && File.Exists(_weightsPath))
                 {
                     _faceNet = CvDnn.ReadNetFromCaffe(_modelPath, _weightsPath);
-                    _faceNet.SetPreferableBackend(DnnBackend.OPENCV);
-                    _faceNet.SetPreferableTarget(DnnTarget.CPU);
+                    _faceNet.SetPreferableBackend(Backend.OPENCV);
+                    _faceNet.SetPreferableTarget(Target.CPU);
                 }
 
                 _initialized = true;
@@ -114,43 +118,48 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
             }
 
             // Detect faces using DNN
-            var blob = CvDnn.BlobFromImage(image, 1.0, new Size(300, 300), Scalar.Mean(104.0, 177.0, 123.0), true, false);
+            var blob = CvDnn.BlobFromImage(image, 1.0, new OpenCvSharp.Size(300, 300), new Scalar(104.0, 177.0, 123.0), false, false);
             _faceNet?.SetInput(blob);
 
             var detections = _faceNet?.Forward();
-            var output = detections.Reshape(new[] { 1, detections.Cols - 7 });
+            if (detections == null)
+            {
+                return new FaceLandmarks { FaceDetected = false, ModelUsed = ModelName };
+            }
 
+            // Detections shape: [1, 1, N, 7]
             var landmarks = new FaceLandmarks
             {
                 ModelUsed = ModelName
             };
 
-            // Process detections
-            for (int i = 0; i < detections.Rows; i++)
+            // Access data directly from Mat
+            // OpenCV DNN detections format: 7 values per detection [batch, class, confidence, left, top, right, bottom]
+            int numDetections = detections.Size(2);
+            float maxConfidence = 0;
+            
+            for (int i = 0; i < numDetections; i++)
             {
-                var confidence = output.At<float>(i, 2);
+                float confidence = detections.At<float>(0, 0, i, 2);
 
                 if (confidence < _confidenceThreshold)
                     continue;
 
-                var left = output.At<float>(i, 3) * image.Cols;
-                var top = output.At<float>(i, 4) * image.Rows;
-                var right = output.At<float>(i, 5) * image.Cols;
-                var bottom = output.At<float>(i, 6) * image.Rows;
+                if (confidence > maxConfidence)
+                {
+                    maxConfidence = confidence;
+                    float left = detections.At<float>(0, 0, i, 3) * image.Cols;
+                    float top = detections.At<float>(0, 0, i, 4) * image.Rows;
+                    float right = detections.At<float>(0, 0, i, 5) * image.Cols;
+                    float bottom = detections.At<float>(0, 0, i, 6) * image.Rows;
 
-                var faceRect = new Rectangle((int)left, (int)top, (int)(right - left), (int)(bottom - top));
+                    var faceRect = new PhotoMapperAI.Models.Rectangle((int)left, (int)top, (int)(right - left), (int)(bottom - top));
 
-                landmarks.FaceDetected = true;
-                landmarks.FaceRect = new Rectangle(faceRect.X, faceRect.Y, faceRect.Width, faceRect.Height);
-                landmarks.FaceConfidence = confidence;
-                landmarks.FaceCenter = new Point(faceRect.X + faceRect.Width / 2, faceRect.Y + faceRect.Height / 2);
-
-                // Extract face ROI for eye detection
-                var faceRoi = new Mat(image, faceRect);
-
-                // Detect eyes using Haar cascades (TODO: Load cascades separately)
-                // For now, return face detection only
-                break; // Use first face
+                    landmarks.FaceDetected = true;
+                    landmarks.FaceRect = faceRect;
+                    landmarks.FaceConfidence = confidence;
+                    landmarks.FaceCenter = new PhotoMapperAI.Models.Point(faceRect.X + faceRect.Width / 2, faceRect.Y + faceRect.Height / 2);
+                }
             }
 
             landmarks.ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
@@ -196,6 +205,5 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
         _eyeCascade?.Dispose();
         _leftEyeCascade?.Dispose();
         _rightEyeCascade?.Dispose();
-        Cv2.DestroyAllWindows();
     }
 }

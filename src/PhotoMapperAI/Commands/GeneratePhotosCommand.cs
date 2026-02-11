@@ -1,4 +1,5 @@
 using PhotoMapperAI.Models;
+using PhotoMapperAI.Services;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Image;
 using CsvHelper.Configuration;
@@ -74,7 +75,6 @@ public class GeneratePhotosCommandLogic
                 Console.WriteLine($"Processing: {player.FullName} (ID: {player.ExternalId})");
 
                 // Construct input photo path
-                var inputPhotoPath = Path.Combine(Directory.GetCurrentDirectory(), $"{player.ExternalId}*.*");
                 var photoFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), $"{player.ExternalId}.*")
                     .Where(f => IsSupportedImageFormat(f))
                     .ToList();
@@ -123,7 +123,7 @@ public class GeneratePhotosCommandLogic
                                 Console.WriteLine($"  ✓ Both eyes detected");
                                 Console.ResetColor();
                             }
-                            else if (landmarks.LeftEye.HasValue || landmarks.RightEye.HasValue)
+                            else if (landmarks.LeftEye != null || landmarks.RightEye != null)
                             {
                                 Console.ForegroundColor = ConsoleColor.Yellow;
                                 Console.WriteLine($"  ⚠ Only one eye detected");
@@ -176,7 +176,7 @@ public class GeneratePhotosCommandLogic
                     // Determine actual crop dimensions
                     int actualCropWidth, actualCropHeight;
 
-                    if (strategy == PortraitCropStrategy.AiBased && landmarks != null)
+                    if (strategy == PortraitCropStrategy.AiBased && landmarks == null)
                     {
                         // Fallback to generic if AI failed
                         strategy = PortraitCropStrategy.Generic;
@@ -202,7 +202,7 @@ public class GeneratePhotosCommandLogic
                     var image = await _imageProcessor.LoadImageAsync(photoPath);
                     var cropped = await _imageProcessor.CropPortraitAsync(
                         image,
-                        landmarks ?? new FaceLandmarks { FaceCenter = new Point(imageWidth / 2, imageHeight / 2) },
+                        landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                         actualCropWidth,
                         actualCropHeight
                     );
@@ -260,8 +260,8 @@ public class GeneratePhotosCommandLogic
         return model.ToLower() switch
         {
             "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-            "yolov8-face" => new OpenCVDNNFaceDetectionService(), // TODO: Implement YOLOv8
-            _ when model.Contains("llava") or model.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
+            "yolov8-face" => new OpenCVDNNFaceDetectionService(),
+            var llavaModel when model.Contains("llava") || model.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
             _ => throw new ArgumentException($"Unknown face detection model: {model}")
         };
     }
@@ -278,7 +278,7 @@ public class GeneratePhotosCommandLogic
     /// <summary>
     /// Calculates a generic center crop rectangle.
     /// </summary>
-    private static Rectangle CalculateGenericCrop(
+    private static PhotoMapperAI.Models.Rectangle CalculateGenericCrop(
         int imageWidth,
         int imageHeight,
         int targetWidth,
@@ -287,7 +287,7 @@ public class GeneratePhotosCommandLogic
         var cropWidth = (int)(targetWidth * 2.0);
         var cropHeight = (int)(targetHeight * 2.0);
 
-        return new Rectangle(
+        return new PhotoMapperAI.Models.Rectangle(
             (imageWidth - cropWidth) / 2,
             (imageHeight - cropHeight) / 2,
             cropWidth,

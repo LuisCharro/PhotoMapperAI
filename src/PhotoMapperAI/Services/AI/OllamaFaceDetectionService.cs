@@ -218,7 +218,7 @@ If no face detected, return:
             // Parse face rectangle
             if (data.FaceDetected && data.FaceRect != null)
             {
-                landmarks.FaceRect = new Rectangle(
+                landmarks.FaceRect = new PhotoMapperAI.Models.Rectangle(
                     data.FaceRect.X,
                     data.FaceRect.Y,
                     data.FaceRect.Width,
@@ -229,29 +229,19 @@ If no face detected, return:
             // Parse left eye
             if (data.LeftEye != null)
             {
-                landmarks.LeftEye = new Point(data.LeftEye.X, data.LeftEye.Y);
+                landmarks.LeftEye = new PhotoMapperAI.Models.Point(data.LeftEye.X, data.LeftEye.Y);
             }
 
             // Parse right eye
             if (data.RightEye != null)
             {
-                landmarks.RightEye = new Point(data.RightEye.X, data.RightEye.Y);
+                landmarks.RightEye = new PhotoMapperAI.Models.Point(data.RightEye.X, data.RightEye.Y);
             }
 
             // Parse face center
             if (data.FaceCenter != null)
             {
-                landmarks.FaceCenter = new Point(data.FaceCenter.X, data.FaceCenter.Y);
-            }
-
-            // Calculate eye midpoint if both eyes detected
-            if (landmarks.LeftEye.HasValue && landmarks.RightEye.HasValue)
-            {
-                var eyeMidpoint = new Point(
-                    (landmarks.LeftEye.Value.X + landmarks.RightEye.Value.X) / 2,
-                    (landmarks.LeftEye.Value.Y + landmarks.RightEye.Value.Y) / 2
-                );
-                // This will be used in FaceLandmarks.EyeMidpoint property
+                landmarks.FaceCenter = new PhotoMapperAI.Models.Point(data.FaceCenter.X, data.FaceCenter.Y);
             }
 
             return landmarks;
@@ -288,13 +278,13 @@ If no face detected, return:
         public Rect? FaceRect { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("leftEye")]
-        public Point? LeftEye { get; set; }
+        public VisionPoint? LeftEye { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("rightEye")]
-        public Point? RightEye { get; set; }
+        public VisionPoint? RightEye { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("faceCenter")]
-        public Point? FaceCenter { get; set; }
+        public VisionPoint? FaceCenter { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("confidence")]
         public double Confidence { get; set; }
@@ -315,7 +305,7 @@ If no face detected, return:
         public int Height { get; set; }
     }
 
-    private class Point
+    private class VisionPoint
     {
         [System.Text.Json.Serialization.JsonPropertyName("x")]
         public int X { get; set; }
