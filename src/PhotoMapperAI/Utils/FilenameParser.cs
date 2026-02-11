@@ -33,6 +33,10 @@ public class FilenameParser
 
         // Pattern 6: {FamilyName}_{SurName}_{ExternalId}.jpg (variation)
         new Regex(@"^(?<family>[^_]+)_(?<sur>[^_]+)_(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
+                  RegexOptions.IgnoreCase),
+
+        // Pattern 7: {ExternalId}.jpg (simple ID naming)
+        new Regex(@"^(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase)
     };
 
