@@ -301,23 +301,18 @@ public class BenchmarkCommand
 
     public async Task<int> OnExecuteAsync()
     {
-        Console.WriteLine("Benchmark Command");
-        Console.WriteLine("================");
-        Console.WriteLine($"Test Data: {TestDataPath}");
-        Console.WriteLine($"Output Path: {OutputPath}");
+        // Create image processor
+        var imageProcessor = new Services.Image.ImageProcessor();
 
-        if (!string.IsNullOrEmpty(NameModels))
-            Console.WriteLine($"Name Models: {NameModels}");
+        // Create benchmark command logic handler
+        var logic = new BenchmarkCommandLogic(imageProcessor);
 
-        if (!string.IsNullOrEmpty(FaceModels))
-            Console.WriteLine($"Face Models: {FaceModels}");
-
-        Console.WriteLine();
-        Console.WriteLine("TODO: Implement Benchmark command logic");
-
-        // TODO: Implement benchmark logic
-        await Task.CompletedTask;
-
-        return 0;
+        // Execute benchmark command
+        return await logic.ExecuteAsync(
+            NameModels,
+            FaceModels,
+            TestDataPath,
+            OutputPath
+        );
     }
 }
