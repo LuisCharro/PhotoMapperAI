@@ -1,5 +1,9 @@
 # PhotoMapperAI
 
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Status](https://img.shields.io/badge/status-production--ready-green.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
 AI-powered command-line tool for mapping sports player photos to database systems. Automatically matches player names using LLMs, detects faces using multiple approaches, and generates portrait crops from full-body photos.
 
 ## Problem Solved
@@ -357,6 +361,8 @@ None. All Phase 3 critical issues have been resolved.
 - [`PROGRESS.md`](PROGRESS.md) - Development progress and tasks
 - [`TEST_SESSION.md`](TEST_SESSION.md) - Test session logs and findings
 - [`PHASE3_VALIDATION_REPORT.md`](PHASE3_VALIDATION_REPORT.md) - Detailed Phase 3 validation
+- [`RELEASE_NOTES.md`](RELEASE_NOTES.md) - v1.0.0 release notes and features
+- [`CHANGELOG.md`](CHANGELOG.md) - Version history and detailed changes
 - [`docs/`](docs/) - Technical documentation
 
 
