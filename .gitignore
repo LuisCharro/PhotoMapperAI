@@ -78,7 +78,9 @@ appsettings.json
 !sample*.csv
 photo_manifest.json
 portraits*/
-portraits-*
+portraits-*/
+test_photos/
+test_portraits/
 
 # Photo directory (test photos)
 photos/*.png

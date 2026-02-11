@@ -462,9 +462,9 @@ public class FaceDetectionCacheTests : IDisposable
     {
         return new FaceLandmarks
         {
-            FaceRect = new Models.Rectangle(x, y, 200, 200),
-            LeftEye = new Models.Point(x + 70, y + 80),
-            RightEye = new Models.Point(x + 130, y + 80)
+            FaceRect = new PhotoMapperAI.Models.Rectangle(x, y, 200, 200),
+            LeftEye = new PhotoMapperAI.Models.Point(x + 70, y + 80),
+            RightEye = new PhotoMapperAI.Models.Point(x + 130, y + 80)
         };
     }
 
