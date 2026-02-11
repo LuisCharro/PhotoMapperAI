@@ -53,7 +53,7 @@ public class FaceDetectionCache
                 return null;
             }
 
-            var key = GetCacheKey(imagePath);
+            var key = GetCacheKey(imagePath, model);
 
             if (!_cache.TryGetValue(key, out var entry))
             {
@@ -65,12 +65,6 @@ public class FaceDetectionCache
             {
                 _cache.Remove(key);
                 _modified = true;
-                return null;
-            }
-
-            // Check if model matches
-            if (entry.Model != model)
-            {
                 return null;
             }
 
@@ -99,7 +93,7 @@ public class FaceDetectionCache
                 Model = model
             };
 
-            var key = GetCacheKey(imagePath);
+            var key = GetCacheKey(imagePath, model);
             _cache[key] = entry;
             _modified = true;
         }
@@ -164,16 +158,22 @@ public class FaceDetectionCache
             _cache.Clear();
             _modified = true;
             SaveCache();
+            
+            // Also delete the file if it exists
+            if (File.Exists(_cacheFilePath))
+            {
+                try { File.Delete(_cacheFilePath); } catch { }
+            }
         }
     }
 
     /// <summary>
-    /// Generates a cache key for an image path.
+    /// Generates a cache key for an image path and model.
     /// </summary>
-    private string GetCacheKey(string imagePath)
+    private string GetCacheKey(string imagePath, string model)
     {
-        // Use absolute path as key
-        return Path.GetFullPath(imagePath).ToLowerInvariant();
+        // Use absolute path and model name as key
+        return $"{Path.GetFullPath(imagePath).ToLowerInvariant()}|{model.ToLowerInvariant()}";
     }
 
     /// <summary>
@@ -195,7 +195,7 @@ public class FaceDetectionCache
             {
                 foreach (var entry in entries)
                 {
-                    var key = GetCacheKey(entry.ImagePath);
+                    var key = GetCacheKey(entry.ImagePath, entry.Model);
                     _cache[key] = entry;
                 }
             }
