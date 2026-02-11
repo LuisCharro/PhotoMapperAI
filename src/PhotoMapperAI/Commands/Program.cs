@@ -230,11 +230,11 @@ public class GeneratePhotosCommand
     [Option(ShortName = "po", LongName = "portraitOnly", Description = "Skip face detection, use existing results")]
     public bool PortraitOnly { get; set; } = false;
 
-    [Option(ShortName = "fw", LongName = "faceWidth", Description = "Portrait width in pixels (default: 800)")]
-    public int FaceWidth { get; set; } = 800;
+    [Option(ShortName = "fw", LongName = "faceWidth", Description = "Portrait width in pixels (default: 200)")]
+    public int FaceWidth { get; set; } = 200;
 
-    [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 1000)")]
-    public int FaceHeight { get; set; } = 1000;
+    [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
+    public int FaceHeight { get; set; } = 300;
 
     [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing (default: false)")]
     public bool Parallel { get; set; } = false;

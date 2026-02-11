@@ -114,7 +114,7 @@ public class FaceDetectionCache
             try
             {
                 var directory = Path.GetDirectoryName(_cacheFilePath);
-                if (directory != null && !Directory.Exists(directory))
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
                 }
