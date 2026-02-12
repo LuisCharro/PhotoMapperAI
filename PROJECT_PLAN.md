@@ -618,3 +618,6 @@ ollama pull qwen3-vl:7b
 2. Expand face-image benchmark coverage beyond the current 5 labeled samples (`tests/Data/FaceDetection/face_expected.csv`) and validate on macOS + Windows.
 3. Implement real HTTP/API integration for `openai:` and `anthropic:` name providers (current scaffold returns explicit configuration/implementation errors).
 4. Prioritize next Phase 9 feature (batch processing, Docker support, or custom portrait presets).
+
+**Agent Handoff File:**
+- `docs/NEXT_STEPS_HANDOFF.md` (authoritative actionable list for any new agent/session)
