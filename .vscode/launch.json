@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET: Debug CLI (PhotoMapperAI)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-cli",
+      "program": "${workspaceFolder}/src/PhotoMapperAI/bin/Debug/net10.0/PhotoMapperAI.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": ".NET: Debug CLI (help)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-cli",
+      "program": "${workspaceFolder}/src/PhotoMapperAI/bin/Debug/net10.0/PhotoMapperAI.dll",
+      "args": [
+        "--help"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": ".NET: Debug GUI (PhotoMapperAI.UI)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-gui",
+      "program": "${workspaceFolder}/src/PhotoMapperAI.UI/bin/Debug/net10.0/PhotoMapperAI.UI.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": ".NET: Build + Debug GUI",
+      "configurations": [
+        ".NET: Debug GUI (PhotoMapperAI.UI)"
+      ]
+    },
+    {
+      "name": ".NET: Build + Debug CLI",
+      "configurations": [
+        ".NET: Debug CLI (PhotoMapperAI)"
+      ]
+    }
+  ]
+}
