@@ -170,27 +170,15 @@ public class OllamaClient
     }
 
     /// <summary>
-    /// Ensures only one model is active in Ollama:
-    /// - If no model is loaded: do nothing
-    /// - If requested model is already loaded: do nothing
-    /// - If other models are loaded: unload them before the request
+    /// Enforces local-model policy in Ollama:
+    /// - Cloud models (suffix :cloud) are ignored and never unloaded
+    /// - For local required models, unload other running local models
+    /// - For cloud required models, do not unload local models
     /// </summary>
     private async Task EnsureSingleActiveModelAsync(string requiredModel, CancellationToken cancellationToken = default)
     {
         var runningModels = await GetRunningModelsAsync(cancellationToken);
-
-        if (runningModels.Count == 0)
-            return;
-
-        // If only the required model is running, no action needed.
-        if (runningModels.Count == 1 && runningModels.Contains(requiredModel, StringComparer.OrdinalIgnoreCase))
-            return;
-
-        // Keep required model if already loaded; unload everything else.
-        var toUnload = runningModels
-            .Where(m => !string.Equals(m, requiredModel, StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var toUnload = OllamaModelPolicy.GetLocalModelsToUnload(runningModels, requiredModel);
 
         foreach (var model in toUnload)
         {

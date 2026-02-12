@@ -28,6 +28,14 @@ This tool automates the entire workflow, making it database-agnostic and system-
 - **Cross-platform CI:** Automatic build + test validation on macOS and Windows (GitHub Actions)
 - **Rich CLI experience:** Color-coded console output showing mapping progress, unmatched players, and unused photos
 
+## Ollama Local Model Policy
+
+For local inference stability on laptops, the tool enforces a local-model policy before Ollama requests:
+
+- If the requested model is local, other running local models are unloaded first.
+- Models ending with `:cloud` are ignored by this policy and are never unloaded.
+- If the requested model is a cloud model (`:cloud`), no local models are unloaded.
+
 ## Workflow
 
 ### Step 1: Extract Data

@@ -66,3 +66,10 @@ These historical runs are useful for regression tracking but should not be used 
 2. Expand benchmark dataset beyond 10 name pairs and include harder multilingual cases.
 3. Add benchmark runs for additional models listed in the plan (`qwen3:8b`, `llava:7b`, and face fallbacks).
 4. Version benchmark datasets to make results reproducible across machines.
+
+## Ollama Runtime Policy (Local vs Cloud)
+
+- Local laptop executions now apply a single-local-model policy before Ollama requests.
+- Only local running models are candidates for unload.
+- Running models with names ending in `:cloud` are ignored and never unloaded.
+- If the required model is itself `:cloud`, no local unload action is performed.
