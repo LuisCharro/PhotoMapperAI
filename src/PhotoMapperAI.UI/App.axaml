@@ -5,7 +5,7 @@
              RequestedThemeVariant="Light">
   <Application.Styles>
     <FluentTheme />
-    <StyleInclude Source="avares://Avalonia.Fonts.Inter/Styles.axaml" />
+    <!-- <StyleInclude Source="avares://Avalonia.Fonts.Inter/Styles.axaml" /> -->
   </Application.Styles>
 
   <Application.DataTemplates>

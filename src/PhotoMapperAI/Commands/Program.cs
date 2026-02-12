@@ -179,7 +179,7 @@ public class MapCommand
         var logic = new MapCommandLogic(nameMatchingService, imageProcessor);
 
         // Execute map command
-        return await logic.ExecuteAsync(
+        var result = await logic.ExecuteAsync(
             InputCsvPath,
             PhotosDir,
             FilenamePattern,
@@ -187,6 +187,8 @@ public class MapCommand
             NameModel,
             ConfidenceThreshold
         );
+
+        return result.PlayersMatched;
     }
 }
 

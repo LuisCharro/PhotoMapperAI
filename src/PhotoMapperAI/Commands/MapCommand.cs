@@ -6,6 +6,19 @@ using PhotoMapperAI.Utils;
 namespace PhotoMapperAI.Commands;
 
 /// <summary>
+/// Result of map command execution
+/// </summary>
+public class MapResult
+{
+    public int PlayersProcessed { get; set; }
+    public int PlayersMatched { get; set; }
+    public int DirectIdMatches { get; set; }
+    public int StringMatches { get; set; }
+    public int AiMatches { get; set; }
+    public string OutputPath { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Map command - match photos to players using AI
 /// </summary>
 public class MapCommandLogic
@@ -27,7 +40,7 @@ public class MapCommandLogic
     /// <summary>
     /// Executes the map command.
     /// </summary>
-    public async Task<int> ExecuteAsync(
+    public async Task<MapResult> ExecuteAsync(
         string inputCsvPath,
         string photosDir,
         string? filenamePattern,
@@ -132,21 +145,29 @@ public class MapCommandLogic
             Console.WriteLine($"✓ Complete! Results saved to {outputPath}");
             Console.ResetColor();
 
-            return 0;
+            return new MapResult
+            {
+                PlayersProcessed = results.Count,
+                PlayersMatched = results.Count(r => r.IsValidMatch),
+                DirectIdMatches = results.Count(r => r.Method == MatchMethod.DirectIdMatch),
+                StringMatches = results.Count(r => r.ModelUsed == "StringMatching"),
+                AiMatches = results.Count(r => r.ModelUsed == nameModel && r.IsValidMatch),
+                OutputPath = outputPath
+            };
         }
         catch (FileNotFoundException ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ File not found: {ex.FileName}");
             Console.ResetColor();
-            return 1;
+            throw;
         }
         catch (DirectoryNotFoundException ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ Directory not found: {ex.Message}");
             Console.ResetColor();
-            return 1;
+            throw;
         }
         catch (Exception ex)
         {
@@ -154,7 +175,7 @@ public class MapCommandLogic
             Console.WriteLine($"✗ Error: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
             Console.ResetColor();
-            return 1;
+            throw;
         }
     }
 
