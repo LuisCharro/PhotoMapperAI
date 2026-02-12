@@ -215,6 +215,8 @@ public class BenchmarkCommandLogic
                 return result;
             }
 
+            var expectedFaces = LoadExpectedFaceCounts(testDataPath);
+
             // Run detection
             var testResults = new List<FaceDetectionTestResult>();
             foreach (var imagePath in testImages)
@@ -226,7 +228,7 @@ public class BenchmarkCommandLogic
                 testResults.Add(new FaceDetectionTestResult
                 {
                     ImagePath = imagePath,
-                    ExpectedFaces = GetExpectedFaceCount(imagePath),
+                    ExpectedFaces = GetExpectedFaceCount(imagePath, expectedFaces),
                     DetectedFaces = landmarks.FaceDetected ? 1 : 0,
                     ProcessingTimeMs = duration,
                     FaceConfidence = landmarks.FaceConfidence,
@@ -369,11 +371,53 @@ public class BenchmarkCommandLogic
     }
 
     /// <summary>
-    /// Gets expected face count for an image (placeholder logic).
+    /// Loads expected face counts for benchmark images from CSV.
+    /// CSV format: image_file,expected_faces
     /// </summary>
-    private int GetExpectedFaceCount(string imagePath)
+    private Dictionary<string, int> LoadExpectedFaceCounts(string testDataPath)
     {
-        // For now, assume all test images should have at least 1 face
+        var candidates = new[]
+        {
+            Path.Combine(testDataPath, "face_expected.csv"),
+            Path.Combine(testDataPath, "FaceDetection", "face_expected.csv"),
+            Path.Combine(testDataPath, "face-detection", "face_expected.csv")
+        };
+
+        var csvPath = candidates.FirstOrDefault(File.Exists);
+        if (string.IsNullOrWhiteSpace(csvPath))
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var lines = File.ReadAllLines(csvPath);
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in lines.Skip(1))
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var parts = line.Split(',', StringSplitOptions.TrimEntries);
+            if (parts.Length < 2)
+                continue;
+
+            if (!int.TryParse(parts[1], out var expected))
+                continue;
+
+            result[parts[0]] = expected;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gets expected face count for an image.
+    /// </summary>
+    private static int GetExpectedFaceCount(string imagePath, IReadOnlyDictionary<string, int> expectedFaceCounts)
+    {
+        var fileName = Path.GetFileName(imagePath);
+        if (expectedFaceCounts.TryGetValue(fileName, out var expected))
+            return expected;
+
+        // Default assumption when no manifest is available.
         return 1;
     }
 

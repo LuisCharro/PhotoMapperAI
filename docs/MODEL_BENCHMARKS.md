@@ -46,6 +46,7 @@ Most recent face benchmark:
 
 - Face benchmark pipeline now executes on macOS after OpenCV runtime dependency fixes in build output layout.
 - Current dataset is still very small (4 images), so this is only a smoke baseline.
+- Benchmarks now support explicit expected-face labels via `tests/Data/FaceDetection/face_expected.csv`.
 - Next pass should expand benchmark images and validate the same run on Windows 11.
 
 ## Historic Snapshot
