@@ -28,7 +28,11 @@ public class FallbackFaceDetectionService : IFaceDetectionService
 
         for (int i = 0; i < modelList.Length; i++)
         {
-            _services[i] = CreateFaceDetectionService(modelList[i].Trim());
+            _services[i] = FaceDetectionServiceFactory.Create(
+                modelList[i].Trim(),
+                allowFallbackChain: false,
+                fallbackToOllamaOnUnknown: true
+            );
         }
     }
 
@@ -125,22 +129,6 @@ public class FallbackFaceDetectionService : IFaceDetectionService
     /// </summary>
     public IReadOnlyList<string> GetFallbackLog() => _fallbackLog.AsReadOnly();
 
-    /// <summary>
-    /// Creates appropriate face detection service based on model name.
-    /// </summary>
-    private IFaceDetectionService CreateFaceDetectionService(string model)
-    {
-        return model.ToLower() switch
-        {
-            "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-            "yolov8-face" => new OpenCVDNNFaceDetectionService(),
-            "haar-cascade" or "haar" => new HaarCascadeFaceDetectionService(),
-            var ollamaModel when ollamaModel.Contains("llava") => new OllamaFaceDetectionService(modelName: ollamaModel),
-            var ollamaModel when ollamaModel.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: ollamaModel),
-            "center" => new CenterCropFallbackService(),
-            _ => new OllamaFaceDetectionService(modelName: model) // Default to Ollama
-        };
-    }
 }
 
 /// <summary>

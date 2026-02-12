@@ -253,7 +253,7 @@ public class GeneratePhotosCommand
     public async Task<int> OnExecuteAsync()
     {
         // Create face detection service
-        var faceDetectionService = CreateFaceDetectionService(FaceDetection);
+        var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetection);
 
         // Initialize face detection service (loads models, checks availability)
         await faceDetectionService.InitializeAsync();
@@ -288,29 +288,6 @@ public class GeneratePhotosCommand
         );
     }
 
-    /// <summary>
-    /// Creates the appropriate face detection service based on model name.
-    /// If model contains commas, creates a fallback service that tries each model in order.
-    /// </summary>
-    private IFaceDetectionService CreateFaceDetectionService(string model)
-    {
-        // Check if fallback mode (comma-separated models)
-        if (model.Contains(','))
-        {
-            return new FallbackFaceDetectionService(model);
-        }
-
-        // Single model mode
-        return model.ToLower() switch
-        {
-            "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-            "yolov8-face" => new OpenCVDNNFaceDetectionService(),
-            "haar-cascade" or "haar" => new HaarCascadeFaceDetectionService(),
-            "center" => new CenterCropFallbackService(),
-            var ollamaModel when ollamaModel.Contains("llava") || ollamaModel.Contains("qwen3-vl") => new OllamaFaceDetectionService(modelName: model),
-            _ => throw new ArgumentException($"Unknown face detection model: {model}")
-        };
-    }
 }
 
 /// <summary>
