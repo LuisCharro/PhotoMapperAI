@@ -43,6 +43,11 @@ PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/
 
 # Using photo manifest (alternative)
 PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/SpainTeam -photoManifest manifest.json
+
+# Provider-prefixed model syntax (cloud abstraction foundation)
+PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/SpainTeam -nameModel ollama:qwen2.5:7b
+PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/SpainTeam -nameModel openai:gpt-4o-mini
+PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/SpainTeam -nameModel anthropic:claude-3-5-sonnet
 ```
 
 - Loads all photo files and extracts metadata

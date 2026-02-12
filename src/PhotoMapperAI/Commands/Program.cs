@@ -160,7 +160,7 @@ public class MapCommand
     [Option(ShortName = "m", LongName = "photoManifest", Description = "Path to photo manifest JSON file")]
     public string? PhotoManifest { get; set; }
 
-    [Option(ShortName = "n", LongName = "nameModel", Description = "Ollama model for name matching (default: qwen2.5:7b)")]
+    [Option(ShortName = "n", LongName = "nameModel", Description = "Name matching model identifier (e.g., qwen2.5:7b, ollama:qwen2.5:7b, openai:gpt-4o-mini, anthropic:claude-3-5-sonnet)")]
     public string NameModel { get; set; } = "qwen2.5:7b";
 
     [Option(ShortName = "t", LongName = "confidenceThreshold", Description = "Minimum confidence for valid match (default: 0.9)")]
@@ -168,9 +168,9 @@ public class MapCommand
 
     public async Task<int> OnExecuteAsync()
     {
-        // Create Ollama name matching service
-        var nameMatchingService = new Services.AI.OllamaNameMatchingService(
-            modelName: NameModel,
+        // Create provider-aware name matching service.
+        var nameMatchingService = NameMatchingServiceFactory.Create(
+            NameModel,
             confidenceThreshold: ConfidenceThreshold
         );
 

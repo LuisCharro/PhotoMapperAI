@@ -129,8 +129,8 @@ public class BenchmarkCommandLogic
 
         try
         {
-            // Create service
-            var service = new OllamaNameMatchingService(modelName: modelName, confidenceThreshold: 0.7);
+            // Create provider-aware name matching service
+            var service = NameMatchingServiceFactory.Create(modelName, confidenceThreshold: 0.7);
 
             // Load test pairs
             var testPairs = LoadNameMatchingTestPairs(testDataPath);
