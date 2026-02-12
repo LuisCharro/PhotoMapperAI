@@ -107,7 +107,6 @@ public class ImageProcessor : IImageProcessor
 
         int cropWidth, cropHeight;
         int centerX, eyeY;
-        bool isAlreadyPortrait = false;
 
         // Case 1: Both eyes detected (best centering)
         if (landmarks.BothEyesDetected && landmarks.EyeMidpoint != null && landmarks.FaceRect != null)
@@ -118,9 +117,6 @@ public class ImageProcessor : IImageProcessor
             // This ensures consistent portrait composition regardless of image resolution
             cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
             cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
-            
-            // Check if photo is already a portrait (face too large relative to image)
-            isAlreadyPortrait = !IsNeededToResizeFromUpperBodyToPortrait(faceRect, imageWidth, imageHeight);
             
             centerX = landmarks.EyeMidpoint.X;
             eyeY = landmarks.EyeMidpoint.Y;
@@ -136,7 +132,6 @@ public class ImageProcessor : IImageProcessor
             {
                 cropWidth = (int)(faceRect.Width * 2.0);
                 cropHeight = (int)(faceRect.Height * 3.0);
-                isAlreadyPortrait = !IsNeededToResizeFromUpperBodyToPortrait(faceRect, imageWidth, imageHeight);
             }
             else
             {
@@ -168,8 +163,6 @@ public class ImageProcessor : IImageProcessor
             cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
             cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
             
-            isAlreadyPortrait = !IsNeededToResizeFromUpperBodyToPortrait(faceRect, imageWidth, imageHeight);
-            
             // Eyes are typically in the upper 35% of the face rectangle
             centerX = faceRect.X + faceRect.Width / 2;
             eyeY = faceRect.Y + (int)(faceRect.Height * 0.35);
@@ -193,13 +186,6 @@ public class ImageProcessor : IImageProcessor
             // For full-body photos, face is typically at 10-15% from top
             // We want the crop to start near the top to capture head + neck + bit of chest
             eyeY = (int)(imageHeight * 0.12);  // Eyes at ~12% from top
-        }
-
-        // If the photo is already a portrait, just use the full image dimensions
-        if (isAlreadyPortrait)
-        {
-            Console.WriteLine("  [ImageProcessor] Photo is already a portrait, using full image");
-            return new PhotoMapperAI.Models.Rectangle(0, 0, imageWidth, imageHeight);
         }
 
         // Ensure crop doesn't exceed image bounds
@@ -239,23 +225,6 @@ public class ImageProcessor : IImageProcessor
             cropWidth,
             cropHeight
         );
-    }
-
-    /// <summary>
-    /// Determines if the photo needs to be cropped from upper body to portrait.
-    /// Returns false if the photo is already a portrait (face is large relative to image).
-    /// </summary>
-    private static bool IsNeededToResizeFromUpperBodyToPortrait(
-        PhotoMapperAI.Models.Rectangle faceRect,
-        int imageWidth,
-        int imageHeight)
-    {
-        // When the photo is already a Portrait photo, it's not possible to fit
-        // 2.5x the width of the face or 3x the height of the face in the photo
-        var isNeededToResizeBigOnWidth = faceRect.Width * 2.5 <= imageWidth;
-        var isNeededToResizeBigOnHeight = faceRect.Height * 3.0 <= imageHeight;
-
-        return isNeededToResizeBigOnWidth || isNeededToResizeBigOnHeight;
     }
 
     #endregion
