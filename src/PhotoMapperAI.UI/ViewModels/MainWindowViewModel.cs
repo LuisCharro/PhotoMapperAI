@@ -208,6 +208,8 @@ public partial class MainWindowViewModel : ViewModelBase
             PhotoManifestPath = _mapStep.PhotoManifestPath,
             NameModel = _mapStep.NameModel,
             ConfidenceThreshold = _mapStep.ConfidenceThreshold,
+            UseAiMapping = _mapStep.UseAiMapping,
+            AiSecondPass = _mapStep.AiSecondPass,
             MapComplete = _mapStep.IsComplete,
             PlayersMatched = _mapStep.PlayersMatched,
             PlayersProcessed = _mapStep.PlayersProcessed,
@@ -220,6 +222,7 @@ public partial class MainWindowViewModel : ViewModelBase
             PortraitWidth = _generateStep.PortraitWidth,
             PortraitHeight = _generateStep.PortraitHeight,
             PortraitOnly = _generateStep.PortraitOnly,
+            DownloadOpenCvModels = _generateStep.DownloadOpenCvModels,
             GenerateComplete = _generateStep.IsComplete,
             PortraitsGenerated = _generateStep.PortraitsGenerated,
             PortraitsFailed = _generateStep.PortraitsFailed
@@ -243,6 +246,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _mapStep.PhotoManifestPath = session.PhotoManifestPath ?? string.Empty;
         _mapStep.NameModel = session.NameModel ?? "qwen2.5:7b";
         _mapStep.ConfidenceThreshold = session.ConfidenceThreshold;
+        _mapStep.UseAiMapping = session.UseAiMapping;
+        _mapStep.AiSecondPass = session.AiSecondPass;
         _mapStep.IsComplete = session.MapComplete;
         _mapStep.PlayersMatched = session.PlayersMatched;
         _mapStep.PlayersProcessed = session.PlayersProcessed;
@@ -255,6 +260,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _generateStep.PortraitWidth = session.PortraitWidth;
         _generateStep.PortraitHeight = session.PortraitHeight;
         _generateStep.PortraitOnly = session.PortraitOnly;
+        _generateStep.DownloadOpenCvModels = session.DownloadOpenCvModels;
         _generateStep.IsComplete = session.GenerateComplete;
         _generateStep.PortraitsGenerated = session.PortraitsGenerated;
         _generateStep.PortraitsFailed = session.PortraitsFailed;
@@ -300,6 +306,8 @@ Current step: {CurrentStep}
 - Photo manifest path: {_mapStep.PhotoManifestPath}
 - Name model: {_mapStep.NameModel}
 - Confidence threshold: {_mapStep.ConfidenceThreshold}
+- Use AI mapping: {_mapStep.UseAiMapping}
+- AI second pass: {_mapStep.AiSecondPass}
 - Players processed: {_mapStep.PlayersProcessed}
 - Players matched: {_mapStep.PlayersMatched}
 - Status: {_mapStep.ProcessingStatus}
@@ -313,6 +321,7 @@ Current step: {CurrentStep}
 - Face detection model: {_generateStep.FaceDetectionModel}
 - Portrait size: {_generateStep.PortraitWidth}x{_generateStep.PortraitHeight}
 - Portrait only: {_generateStep.PortraitOnly}
+- Download OpenCV models: {_generateStep.DownloadOpenCvModels}
 - Portraits generated: {_generateStep.PortraitsGenerated}
 - Portraits failed: {_generateStep.PortraitsFailed}
 - Status: {_generateStep.ProcessingStatus}

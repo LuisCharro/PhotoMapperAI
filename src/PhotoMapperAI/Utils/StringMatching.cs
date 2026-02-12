@@ -73,6 +73,9 @@ public static class StringMatching
         if (string.IsNullOrEmpty(name))
             return string.Empty;
 
+        // Treat common separators as spaces before normalization.
+        name = name.Replace('-', ' ').Replace('_', ' ');
+
         // Remove accents
         var normalized = name.Normalize(NormalizationForm.FormKD);
         var stringBuilder = new StringBuilder();

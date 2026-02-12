@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.Services.Image;
 
 namespace PhotoMapperAI.UI.ViewModels;
@@ -39,6 +40,9 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _portraitOnly;
+
+    [ObservableProperty]
+    private bool _downloadOpenCvModels;
 
     [ObservableProperty]
     private bool _isProcessing;
@@ -193,6 +197,20 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         try
         {
+            var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetectionModel, DownloadOpenCvModels);
+            if (!preflight.IsOk)
+            {
+                ProcessingStatus = preflight.BuildMessage();
+                IsProcessing = false;
+                return;
+            }
+
+            var warningMessage = preflight.BuildWarningMessage();
+            if (!string.IsNullOrWhiteSpace(warningMessage))
+            {
+                ModelDiagnosticStatus = warningMessage;
+            }
+
             // Create face detection service
             var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
             await faceDetectionService.InitializeAsync();

@@ -7,12 +7,14 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.Services.Image;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class MapStepViewModel : ViewModelBase
 {
+    private const double MinConfidenceThreshold = 0.8;
     private CancellationTokenSource? _cancellationTokenSource;
 
     [ObservableProperty]
@@ -31,7 +33,13 @@ public partial class MapStepViewModel : ViewModelBase
     private string _nameModel = "qwen2.5:7b";
 
     [ObservableProperty]
-    private double _confidenceThreshold = 0.9;
+    private double _confidenceThreshold = MinConfidenceThreshold;
+
+    [ObservableProperty]
+    private bool _useAiMapping;
+
+    [ObservableProperty]
+    private bool _aiSecondPass = true;
 
     [ObservableProperty]
     private bool _isProcessing;
@@ -88,6 +96,12 @@ public partial class MapStepViewModel : ViewModelBase
     [RelayCommand]
     private async Task CheckNameModel()
     {
+        if (!UseAiMapping)
+        {
+            ModelDiagnosticStatus = "Enable AI mapping to check Ollama models.";
+            return;
+        }
+
         if (IsProcessing)
             return;
 
@@ -139,6 +153,25 @@ public partial class MapStepViewModel : ViewModelBase
 
         try
         {
+            if (ConfidenceThreshold < MinConfidenceThreshold)
+            {
+                ConfidenceThreshold = MinConfidenceThreshold;
+            }
+
+            var preflight = await PreflightChecker.CheckMapAsync(UseAiMapping, NameModel);
+            if (!preflight.IsOk)
+            {
+                ProcessingStatus = preflight.BuildMessage();
+                IsProcessing = false;
+                return;
+            }
+
+            var warningMessage = preflight.BuildWarningMessage();
+            if (!string.IsNullOrWhiteSpace(warningMessage))
+            {
+                ModelDiagnosticStatus = warningMessage;
+            }
+
             // Create services
             var nameMatchingService = new OllamaNameMatchingService(
                 modelName: NameModel,
@@ -166,6 +199,8 @@ public partial class MapStepViewModel : ViewModelBase
                 UsePhotoManifest ? PhotoManifestPath : null,
                 NameModel,
                 ConfidenceThreshold,
+                UseAiMapping,
+                UseAiMapping && AiSecondPass,
                 progress,
                 _cancellationTokenSource.Token
             );

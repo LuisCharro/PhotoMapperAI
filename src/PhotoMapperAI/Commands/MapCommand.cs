@@ -47,6 +47,8 @@ public class MapCommandLogic
         string? photoManifest,
         string nameModel,
         double confidenceThreshold,
+        bool useAi,
+        bool aiSecondPass,
         IProgress<(int processed, int total, string current)>? uiProgress = null,
         CancellationToken cancellationToken = default)
     {
@@ -56,6 +58,8 @@ public class MapCommandLogic
         Console.WriteLine($"Photos Dir: {photosDir}");
         Console.WriteLine($"Name Model: {nameModel}");
         Console.WriteLine($"Confidence Threshold: {confidenceThreshold}");
+        Console.WriteLine($"Use AI: {useAi}");
+        Console.WriteLine($"AI Second Pass: {aiSecondPass}");
         Console.WriteLine();
 
         try
@@ -93,58 +97,132 @@ public class MapCommandLogic
                 Console.WriteLine();
             }
 
-            // Step 4: Match photos to players
-            Console.WriteLine("Matching photos to players...");
+            // Step 4: Match players to photos
+            Console.WriteLine("Matching players to photos...");
             var results = new List<MappingResult>();
-
-            var progress = new ProgressIndicator("Progress", photos.Count, useBar: true);
+            var totalPlayers = players.Count;
             var processedCount = 0;
+            var directIdMatches = 0;
+            var stringMatches = 0;
+            var aiMatches = 0;
 
-            foreach (var photo in photos)
+            var photoCandidates = BuildPhotoCandidates(photos, photosDir, filenamePattern, manifest);
+            var remainingCandidates = new List<PhotoCandidate>(photoCandidates);
+            var remainingByExternalId = remainingCandidates
+                .Where(c => !string.IsNullOrWhiteSpace(c.Metadata.ExternalId))
+                .ToDictionary(c => c.Metadata.ExternalId!, c => c, StringComparer.OrdinalIgnoreCase);
+
+            var progress = new ProgressIndicator("Progress", totalPlayers, useBar: true);
+            var unmatchedPlayers = new List<PlayerRecord>();
+
+            foreach (var player in players)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var photoName = Path.GetFileName(photo);
-                progress.Update(photoName);
-                
-                var result = await MatchPhotoToPlayerAsync(
-                    photo,
-                    players,
-                    photosDir,
-                    filenamePattern,
-                    manifest,
-                    nameModel,
-                    confidenceThreshold,
-                    cancellationToken
-                );
+                progress.Update(player.FullName);
 
-                results.Add(result);
                 processedCount++;
-                uiProgress?.Report((processedCount, photos.Count, photoName));
+                uiProgress?.Report((processedCount, totalPlayers, player.FullName));
 
-                // Update player if matched
-                if (result.IsValidMatch)
+                if (!string.IsNullOrWhiteSpace(player.ExternalId))
                 {
-                    var player = players.FirstOrDefault(p => p.PlayerId == result.PlayerId);
-                    if (player != null)
+                    if (remainingByExternalId.TryGetValue(player.ExternalId, out var directCandidate))
                     {
-                        player.ExternalId = result.ExternalId;
-                        player.ValidMapping = true;
-                        player.Confidence = result.Confidence;
+                        ApplyMatch(player, directCandidate, confidenceThreshold, 1.0, out var result);
+                        result.Method = MatchMethod.DirectIdMatch;
+                        result.ModelUsed = "DirectIdMatch";
+                        results.Add(result);
+                        RemoveCandidate(directCandidate, remainingCandidates, remainingByExternalId);
+                        directIdMatches++;
+                        continue;
+                    }
+
+                    results.Add(BuildNoMatchResult(player, confidenceThreshold, "ExternalId not found in photos"));
+                    continue;
+                }
+
+                var simpleMatch = FindBestSimpleMatch(player, remainingCandidates, confidenceThreshold);
+                if (simpleMatch != null)
+                {
+                    ApplyMatch(player, simpleMatch.Value.Candidate, confidenceThreshold, simpleMatch.Value.Confidence, out var result);
+                    result.Method = MatchMethod.AiNameMatching;
+                    result.ModelUsed = "StringMatching";
+                    results.Add(result);
+                    RemoveCandidate(simpleMatch.Value.Candidate, remainingCandidates, remainingByExternalId);
+                    stringMatches++;
+                    continue;
+                }
+
+                if (useAi && !aiSecondPass)
+                {
+                    var aiMatch = await FindBestAiMatchAsync(player, remainingCandidates, confidenceThreshold, cancellationToken);
+                    if (aiMatch != null)
+                    {
+                        ApplyMatch(player, aiMatch.Value.Candidate, confidenceThreshold, aiMatch.Value.Match.Confidence, out var result);
+                        result.Method = MatchMethod.AiNameMatching;
+                        result.ModelUsed = nameModel;
+                        result.Metadata["reason"] = aiMatch.Value.Match.Metadata.GetValueOrDefault("reason", string.Empty);
+                        results.Add(result);
+                        RemoveCandidate(aiMatch.Value.Candidate, remainingCandidates, remainingByExternalId);
+                        aiMatches++;
+                        continue;
                     }
                 }
+
+                unmatchedPlayers.Add(player);
             }
 
             progress.Complete();
 
+            if (useAi && aiSecondPass && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine("Running AI second pass for unmatched players...");
+                var aiProgress = new ProgressIndicator("AI Pass", unmatchedPlayers.Count, useBar: true);
+                var aiProcessed = 0;
+
+                foreach (var player in unmatchedPlayers)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    aiProgress.Update(player.FullName);
+                    aiProcessed++;
+                    uiProgress?.Report((aiProcessed, unmatchedPlayers.Count, $"AI: {player.FullName}"));
+
+                    var aiMatch = await FindBestAiMatchAsync(player, remainingCandidates, confidenceThreshold, cancellationToken);
+                    if (aiMatch != null)
+                    {
+                        ApplyMatch(player, aiMatch.Value.Candidate, confidenceThreshold, aiMatch.Value.Match.Confidence, out var result);
+                        result.Method = MatchMethod.AiNameMatching;
+                        result.ModelUsed = nameModel;
+                        result.Metadata["reason"] = aiMatch.Value.Match.Metadata.GetValueOrDefault("reason", string.Empty);
+                        results.Add(result);
+                        RemoveCandidate(aiMatch.Value.Candidate, remainingCandidates, remainingByExternalId);
+                        aiMatches++;
+                        continue;
+                    }
+
+                    results.Add(BuildNoMatchResult(player, confidenceThreshold, "No AI match"));
+                }
+
+                aiProgress.Complete();
+            }
+            else
+            {
+                foreach (var player in unmatchedPlayers)
+                {
+                    results.Add(BuildNoMatchResult(player, confidenceThreshold, "No match"));
+                }
+            }
+
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"✓ Matched {results.Count(r => r.IsValidMatch)} / {results.Count} photos");
-            Console.WriteLine($"✓ ID matches: {results.Count(r => r.Method == MatchMethod.DirectIdMatch)}");
-            Console.WriteLine($"✓ String matches: {results.Count(r => r.ModelUsed == "StringMatching")}");
-            Console.WriteLine($"✓ AI matches: {results.Count(r => r.ModelUsed == nameModel && r.IsValidMatch)}");
+            Console.WriteLine($"✓ Matched {results.Count(r => r.IsValidMatch)} / {results.Count} players");
+            Console.WriteLine($"✓ ID matches: {directIdMatches}");
+            Console.WriteLine($"✓ String matches: {stringMatches}");
+            Console.WriteLine($"✓ AI matches: {aiMatches}");
             Console.ResetColor();
 
             // Step 5: Write updated CSV
-            var outputPath = Path.Combine(Directory.GetCurrentDirectory(), $"mapped_{Path.GetFileName(inputCsvPath)}");
+            var outputFileName = BuildMappedFileName(inputCsvPath);
+            var outputPath = Path.Combine(Directory.GetCurrentDirectory(), outputFileName);
             Console.WriteLine();
             Console.WriteLine($"Writing results to: {outputPath}");
             await Services.Database.DatabaseExtractor.WriteCsvAsync(players, outputPath);
@@ -157,9 +235,9 @@ public class MapCommandLogic
             {
                 PlayersProcessed = results.Count,
                 PlayersMatched = results.Count(r => r.IsValidMatch),
-                DirectIdMatches = results.Count(r => r.Method == MatchMethod.DirectIdMatch),
-                StringMatches = results.Count(r => r.ModelUsed == "StringMatching"),
-                AiMatches = results.Count(r => r.ModelUsed == nameModel && r.IsValidMatch),
+                DirectIdMatches = directIdMatches,
+                StringMatches = stringMatches,
+                AiMatches = aiMatches,
                 OutputPath = outputPath
             };
         }
@@ -196,169 +274,174 @@ public class MapCommandLogic
 
     #region Private Methods
 
-    /// <summary>
-    /// Matches a single photo to a player using optimized two-tier approach.
-    /// </summary>
-    private async Task<MappingResult> MatchPhotoToPlayerAsync(
-        string photoPath,
-        List<PlayerRecord> players,
+    private sealed record PhotoCandidate(string PhotoPath, string FileName, PhotoMetadata Metadata, string DisplayName);
+
+    private List<PhotoCandidate> BuildPhotoCandidates(
+        List<string> photos,
         string photosDir,
         string? filenamePattern,
-        Dictionary<string, PhotoMetadata>? manifest,
-        string nameModel,
-        double confidenceThreshold,
-        CancellationToken cancellationToken = default)
+        Dictionary<string, PhotoMetadata>? manifest)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var candidates = new List<PhotoCandidate>(photos.Count);
 
+        foreach (var photo in photos)
+        {
+            var fileName = Path.GetFileName(photo);
+            var metadata = ExtractPhotoMetadata(photo, photosDir, filenamePattern, manifest);
+            var displayName = GetPhotoDisplayName(metadata, fileName);
+
+            candidates.Add(new PhotoCandidate(photo, fileName, metadata, displayName));
+        }
+
+        return candidates;
+    }
+
+    private static string GetPhotoDisplayName(PhotoMetadata metadata, string fileName)
+    {
+        if (!string.IsNullOrWhiteSpace(metadata.FullName))
+        {
+            return metadata.FullName;
+        }
+
+        var raw = Path.GetFileNameWithoutExtension(fileName)
+            .Replace('_', ' ')
+            .Replace('-', ' ');
+
+        return raw.Trim();
+    }
+
+    private static void RemoveCandidate(
+        PhotoCandidate candidate,
+        List<PhotoCandidate> remainingCandidates,
+        Dictionary<string, PhotoCandidate> remainingByExternalId)
+    {
+        remainingCandidates.Remove(candidate);
+        if (!string.IsNullOrWhiteSpace(candidate.Metadata.ExternalId))
+        {
+            remainingByExternalId.Remove(candidate.Metadata.ExternalId);
+        }
+    }
+
+    private static void ApplyMatch(
+        PlayerRecord player,
+        PhotoCandidate candidate,
+        double confidenceThreshold,
+        double confidence,
+        out MappingResult result)
+    {
         var startTime = DateTime.UtcNow;
-        var photoName = Path.GetFileName(photoPath);
+        player.ExternalId = candidate.Metadata.ExternalId;
+        player.ValidMapping = true;
+        player.Confidence = confidence;
 
-        // Step 1: Try direct ID match (fastest)
-        var metadata = ExtractPhotoMetadata(photoPath, photosDir, filenamePattern, manifest);
-
-        if (metadata.ExternalId != null)
+        result = new MappingResult
         {
-            // Try to find player by external ID
-            var player = players.FirstOrDefault(p => p.ExternalId == metadata.ExternalId);
-            if (player != null)
+            PlayerId = player.PlayerId,
+            ExternalId = candidate.Metadata.ExternalId,
+            PhotoFileName = candidate.FileName,
+            Confidence = confidence,
+            ConfidenceThreshold = confidenceThreshold,
+            ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
+            Metadata = new Dictionary<string, string>
             {
-                return new MappingResult
-                {
-                    PhotoFileName = photoName,
-                    ExternalId = metadata.ExternalId,
-                    PlayerId = player.PlayerId,
-                    Method = MatchMethod.DirectIdMatch,
-                    Confidence = 1.0,
-                    ConfidenceThreshold = confidenceThreshold,
-                    ModelUsed = "DirectIdMatch",
-                    ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
-                    Metadata = new Dictionary<string, string>
-                    {
-                        { "source", metadata.Source.ToString() }
-                    }
-                };
+                { "source", candidate.Metadata.Source.ToString() }
             }
-        }
+        };
+    }
 
-        // Step 2: Try simple string matching (fast, no API call)
-        if (metadata.FullName != null && players.Count > 0)
-        {
-            var bestSimpleMatch = FindBestSimpleMatch(
-                metadata.FullName,
-                players,
-                confidenceThreshold
-            );
-
-            if (bestSimpleMatch != null)
-            {
-                return new MappingResult
-                {
-                    PhotoFileName = photoName,
-                    ExternalId = metadata.ExternalId,
-                    PlayerId = bestSimpleMatch.Value.Player.PlayerId,
-                    Method = MatchMethod.AiNameMatching, // Treated as name match
-                    Confidence = bestSimpleMatch.Value.Confidence,
-                    ConfidenceThreshold = confidenceThreshold,
-                    ModelUsed = "StringMatching",
-                    ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
-                    Metadata = new Dictionary<string, string>
-                    {
-                        { "method", "Simple string matching" }
-                    }
-                };
-            }
-        }
-
-        // Step 3: Fall back to AI name matching (slow, but accurate)
-        if (metadata.FullName != null && players.Count > 0)
-        {
-            var matchResults = new List<Models.MatchResult>();
-            
-            using (var spinner = ProgressIndicator.CreateSpinner($"  AI matching for {photoName}"))
-            {
-                // Compare against all players
-                foreach (var player in players)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var matchResult = await _nameMatchingService.CompareNamesAsync(
-                        player.FullName,
-                        metadata.FullName ?? string.Empty
-                    );
-
-                    matchResult.PlayerId = player.PlayerId;
-                    matchResults.Add(matchResult);
-                }
-            }
-
-            // Get best match (highest confidence)
-            var bestMatch = matchResults
-                .OrderByDescending(r => r.Confidence)
-                .FirstOrDefault();
-
-            if (bestMatch != null && bestMatch.Confidence >= confidenceThreshold)
-            {
-                return new MappingResult
-                {
-                    PhotoFileName = photoName,
-                    PlayerId = bestMatch.PlayerId,
-                    ExternalId = metadata.ExternalId,
-                    Method = MatchMethod.AiNameMatching,
-                    Confidence = bestMatch.Confidence,
-                    ConfidenceThreshold = confidenceThreshold,
-                    ModelUsed = nameModel,
-                    ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds,
-                    Metadata = new Dictionary<string, string>
-                    {
-                        { "reason", bestMatch.Metadata.GetValueOrDefault("reason", string.Empty) }
-                    }
-                };
-            }
-        }
-
-        // No match found
+    private static MappingResult BuildNoMatchResult(PlayerRecord player, double confidenceThreshold, string reason)
+    {
         return new MappingResult
         {
-            PhotoFileName = photoName,
-            Method = MatchMethod.NoMatch,
+            PlayerId = player.PlayerId,
+            ExternalId = player.ExternalId,
+            PhotoFileName = string.Empty,
             Confidence = 0.0,
             ConfidenceThreshold = confidenceThreshold,
             ModelUsed = "NoMatch",
-            ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds
+            Method = MatchMethod.NoMatch,
+            Metadata = new Dictionary<string, string> { { "reason", reason } }
         };
     }
 
     /// <summary>
     /// Finds the best matching player using simple string similarity.
     /// </summary>
-    private static (PlayerRecord Player, double Confidence)? FindBestSimpleMatch(
-        string name,
-        List<PlayerRecord> players,
+    private static (PhotoCandidate Candidate, double Confidence)? FindBestSimpleMatch(
+        PlayerRecord player,
+        List<PhotoCandidate> candidates,
         double confidenceThreshold)
     {
-        if (players.Count == 0)
+        if (candidates.Count == 0)
             return null;
 
-        PlayerRecord? bestPlayer = null;
+        PhotoCandidate? bestCandidate = null;
         double bestSimilarity = 0;
 
-        foreach (var player in players)
+        foreach (var candidate in candidates)
         {
-            var similarity = StringMatching.CompareNames(name, player.FullName);
+            if (string.IsNullOrWhiteSpace(candidate.Metadata.ExternalId) || string.IsNullOrWhiteSpace(candidate.DisplayName))
+            {
+                continue;
+            }
+
+            var similarity = StringMatching.CompareNames(candidate.DisplayName, player.FullName);
 
             if (similarity > bestSimilarity)
             {
                 bestSimilarity = similarity;
-                bestPlayer = player;
+                bestCandidate = candidate;
             }
         }
 
-        if (bestPlayer != null && bestSimilarity >= confidenceThreshold)
+        if (bestCandidate != null && bestSimilarity >= confidenceThreshold)
         {
-            return (bestPlayer, bestSimilarity);
+            return (bestCandidate, bestSimilarity);
         }
 
         return null;
+    }
+
+    private async Task<(PhotoCandidate Candidate, MatchResult Match)?> FindBestAiMatchAsync(
+        PlayerRecord player,
+        List<PhotoCandidate> candidates,
+        double confidenceThreshold,
+        CancellationToken cancellationToken)
+    {
+        if (candidates.Count == 0)
+            return null;
+
+        PhotoCandidate? bestCandidate = null;
+        MatchResult? bestMatch = null;
+
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate.Metadata.ExternalId) || string.IsNullOrWhiteSpace(candidate.DisplayName))
+            {
+                continue;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var matchResult = await _nameMatchingService.CompareNamesAsync(player.FullName, candidate.DisplayName);
+            if (bestMatch == null || matchResult.Confidence > bestMatch.Confidence)
+            {
+                bestMatch = matchResult;
+                bestCandidate = candidate;
+            }
+        }
+
+        if (bestMatch != null && bestCandidate != null && bestMatch.Confidence >= confidenceThreshold)
+        {
+            return (bestCandidate, bestMatch);
+        }
+
+        return null;
+    }
+
+    private static string BuildMappedFileName(string inputCsvPath)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(inputCsvPath);
+        return $"mapped_{baseName}.csv";
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using McMaster.Extensions.CommandLineUtils;
 using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.Commands;
 using PhotoMapperAI.Utils;
 using System.Reflection;
@@ -148,6 +149,7 @@ Examples:
 ")]
 public class MapCommand
 {
+    private const double MinConfidenceThreshold = 0.8;
     [Option(ShortName = "i", LongName = "inputCsvPath", Description = "Path to input CSV file")]
     public string InputCsvPath { get; set; } = string.Empty;
 
@@ -163,11 +165,39 @@ public class MapCommand
     [Option(ShortName = "n", LongName = "nameModel", Description = "Name matching model identifier (e.g., qwen2.5:7b, ollama:qwen2.5:7b, openai:gpt-4o-mini, anthropic:claude-3-5-sonnet)")]
     public string NameModel { get; set; } = "qwen2.5:7b";
 
-    [Option(ShortName = "t", LongName = "confidenceThreshold", Description = "Minimum confidence for valid match (default: 0.9)")]
-    public double ConfidenceThreshold { get; set; } = 0.9;
+    [Option(ShortName = "t", LongName = "confidenceThreshold", Description = "Minimum confidence for valid match (default: 0.8)")]
+    public double ConfidenceThreshold { get; set; } = MinConfidenceThreshold;
+
+    [Option(ShortName = "a", LongName = "useAI", Description = "Enable AI name matching (slower, optional)")]
+    public bool UseAi { get; set; } = false;
+
+    [Option(ShortName = "ap", LongName = "aiSecondPass", Description = "Run a second AI pass on remaining unmatched players")]
+    public bool AiSecondPass { get; set; } = false;
 
     public async Task<int> OnExecuteAsync()
     {
+        if (ConfidenceThreshold < MinConfidenceThreshold)
+        {
+            Console.WriteLine($"Confidence threshold raised to minimum {MinConfidenceThreshold:0.0}.");
+            ConfidenceThreshold = MinConfidenceThreshold;
+        }
+
+        var preflight = await PreflightChecker.CheckMapAsync(UseAi, NameModel);
+        if (!preflight.IsOk)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(preflight.BuildMessage());
+            Console.ResetColor();
+            return 1;
+        }
+
+        if (preflight.Warnings.Count > 0 || preflight.MissingOllamaModels.Count > 0 || preflight.MissingOpenCvFiles.Count > 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(preflight.BuildWarningMessage());
+            Console.ResetColor();
+        }
+
         // Create provider-aware name matching service.
         var nameMatchingService = NameMatchingServiceFactory.Create(
             NameModel,
@@ -187,7 +217,9 @@ public class MapCommand
             FilenamePattern,
             PhotoManifest,
             NameModel,
-            ConfidenceThreshold
+            ConfidenceThreshold,
+            UseAi,
+            UseAi && AiSecondPass
         );
 
         return result.PlayersMatched;
@@ -252,8 +284,27 @@ public class GeneratePhotosCommand
     [Option(ShortName = "nc", LongName = "noCache", Description = "Disable face detection caching")]
     public bool NoCache { get; set; } = false;
 
+    [Option(ShortName = "dl", LongName = "downloadOpenCvModels", Description = "Download missing OpenCV DNN model files if needed")]
+    public bool DownloadOpenCvModels { get; set; } = false;
+
     public async Task<int> OnExecuteAsync()
     {
+        var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetection, DownloadOpenCvModels);
+        if (!preflight.IsOk)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(preflight.BuildMessage());
+            Console.ResetColor();
+            return 1;
+        }
+
+        if (preflight.Warnings.Count > 0 || preflight.MissingOllamaModels.Count > 0 || preflight.MissingOpenCvFiles.Count > 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(preflight.BuildWarningMessage());
+            Console.ResetColor();
+        }
+
         // Create face detection service
         var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetection);
 

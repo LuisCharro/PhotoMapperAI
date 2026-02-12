@@ -226,6 +226,22 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
         _faceNet?.Dispose();
     }
 
+    public static (string ModelsPath, string PrototxtPath, string WeightsPath) GetResolvedModelPaths(
+        string modelsPath = "./models")
+    {
+        var resolvedModelsPath = ResolveModelsDirectory(modelsPath);
+        var prototxtPath = ResolveFirstExistingFile(
+            resolvedModelsPath,
+            "res10_ssd_deploy.prototxt",
+            "res10_300x300_ssd_iter_140000.prototxt",
+            "deploy.prototxt");
+        var weightsPath = ResolveFirstExistingFile(
+            resolvedModelsPath,
+            "res10_300x300_ssd_iter_140000.caffemodel");
+
+        return (resolvedModelsPath, prototxtPath, weightsPath);
+    }
+
     private static string ResolveModelsDirectory(string configuredModelsPath)
     {
         if (Directory.Exists(configuredModelsPath))

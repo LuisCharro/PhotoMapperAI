@@ -46,6 +46,20 @@ Important:
 3. Implement real OpenAI and Anthropic API integration
 4. Choose and execute next product feature (batch processing, Docker, portrait presets, etc.)
 
+## Required: Model and File Checks
+
+Add a preflight check (CLI + GUI) to validate local dependencies before running map/generate:
+
+- Ollama:
+	- Verify the Ollama server is reachable.
+	- List required models that are missing.
+	- Enforce local-only model policy (stop other local models if a new one is requested, keep cloud models running).
+- OpenCV DNN:
+	- Verify the presence of model files used by `opencv-dnn` face detection.
+	- If missing, show the exact expected paths and filenames.
+
+This should be reported clearly to the user before the command starts.
+
 ## Task 1: Windows Benchmark Compare
 
 Baseline file:
