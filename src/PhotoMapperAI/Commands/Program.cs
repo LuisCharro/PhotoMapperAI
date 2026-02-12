@@ -14,6 +14,7 @@ namespace PhotoMapperAI;
 [Subcommand(typeof(MapCommand))]
 [Subcommand(typeof(GeneratePhotosCommand))]
 [Subcommand(typeof(BenchmarkCommand))]
+[Subcommand(typeof(BenchmarkCompareCommand))]
 [HelpOption("--help", ShortName = "h", Description = "Show help")]
 [VersionOptionFromMember(MemberName = nameof(GetVersion))]
 public class Program
@@ -30,6 +31,7 @@ public class Program
         Console.WriteLine("  map           - Map photos to players using AI");
         Console.WriteLine("  generatephotos - Generate portraits with face detection");
         Console.WriteLine("  benchmark     - Run model benchmarks");
+        Console.WriteLine("  benchmark-compare - Compare benchmark JSON results");
         return 0;
     }
 

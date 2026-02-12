@@ -611,7 +611,7 @@ ollama pull qwen3-vl:7b
 - 🚧 Benchmark and test-data maturity still in progress
 
 **Immediate Next Steps:**
-1. Re-run face benchmarks on Windows 11 and compare against macOS baseline (`benchmark-20260212-075152.json`).
+1. Re-run face benchmarks on Windows 11 and compare against macOS baseline (`benchmark-20260212-075152.json`) using `benchmark-compare`.
 2. Expand face-image benchmark coverage and validate on macOS + Windows.
 3. Prioritize next Phase 9 feature (batch processing or automated testing pipeline).
 4. Evaluate cloud LLM provider abstraction (OpenAI/Anthropic) based on local model limits.
