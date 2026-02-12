@@ -4,6 +4,33 @@ Last updated: 2026-02-12
 
 This file is the single source of truth for "what is left" for any agent continuing work.
 
+## Commit Continuation Map (Windows Handoff)
+
+Starting point used by cross-machine work:
+- `91e6ee520d4f949a08c07048048608590d1a0e93`
+
+Mandatory follow-up commits after that baseline:
+1. `293ba5e` - fix crop regression (face-detected images must not keep full-body frame)
+2. `96b4f77` - add external-data validation suite and documentation
+
+If a Windows clone is checked out at `91e6ee5`, move to the current state with:
+
+```powershell
+git checkout feature/phase1-implementation
+git pull
+```
+
+If local history is pinned and cannot pull directly:
+
+```powershell
+git cherry-pick 293ba5e
+git cherry-pick 96b4f77
+```
+
+Important:
+- `Validation_Run_llava_fixed` is historical and not part of the current normal workflow.
+- Canonical validation run set is now: `Validation_Run`, `Validation_Run_opencv`, `Validation_Run_llava`.
+
 ## Current State
 
 - CLI: implemented and working (`extract`, `map`, `generatephotos`, `benchmark`, `benchmark-compare`)
@@ -91,3 +118,9 @@ python3 scripts/run_external_validation.py --config <your-local-config.json>
 Recommendation:
 - Copy template to a local file (for example `external_validation.local.config.json`) and adjust paths.
 - Keep local config out of git (`*.local.config.json` is ignored).
+
+Windows/macOS common command (run canonical suite with overwrite):
+
+```bash
+python3 scripts/run_validation_suite.py --run all
+```

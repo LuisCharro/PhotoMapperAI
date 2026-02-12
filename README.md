@@ -174,6 +174,7 @@ Behavior:
 - At the end, paths to each run report/generated folders are printed for manual review.
 - A cross-run comparison report is generated at:
   `/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/validation_runs_comparison.md`
+- Historical note: `Validation_Run_llava_fixed` was used for one-time regression verification and is not part of the canonical suite.
 
 ## Architecture
 

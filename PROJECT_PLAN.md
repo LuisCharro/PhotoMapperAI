@@ -612,7 +612,15 @@ ollama pull qwen3-vl:7b
 - ✅ Name-model provider abstraction started (`ollama:`, `openai:`, `anthropic:` routing via factory; cloud providers scaffolded)
 - ✅ Ollama local model policy refined: unload only conflicting local models and ignore `:cloud` running models
 - ✅ External private-data validation harness added (config template + runner script + report output)
+- ✅ Canonical external validation suite stabilized (`run`, `opencv`, `llava`) with overwrite semantics
 - 🚧 Benchmark and test-data maturity still in progress
+
+**Cross-Machine Commit Bridge (important for agents):**
+- Baseline handoff commit used on Windows: `91e6ee520d4f949a08c07048048608590d1a0e93`
+- Required follow-up commits:
+  - `293ba5e` (face crop regression fix)
+  - `96b4f77` (external validation suite/docs)
+- Historical run folder `Validation_Run_llava_fixed` is deprecated for normal workflow.
 
 **Immediate Next Steps:**
 1. Re-run face benchmarks on Windows 11 and compare against macOS baseline (`benchmark-20260212-080146.json`) using `benchmark-compare` or `scripts/run-benchmark-compare.ps1`.
