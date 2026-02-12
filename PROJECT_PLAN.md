@@ -521,14 +521,14 @@ POST http://localhost:11434/api/generate
 ### Phase 6: Testing & Benchmarking (In Progress)
 - [x] Create test data generator
 - [x] Implement benchmark command
-- [ ] Document findings in MODEL_BENCHMARKS.md
-- [ ] Expand test datasets
+- [x] Document findings in MODEL_BENCHMARKS.md
+- [x] Expand test datasets (name-pairs dataset extended with additional multilingual and edge-case rows)
 
 ### Phase 7: Polish (Complete)
 - [x] Color console output
 - [x] Progress indicators and spinners
 - [x] Error handling and logging
-- [ ] Unit tests for non-AI components
+- [x] Unit tests for non-AI components (factory coverage + existing utility/model/cache suite)
 - [x] Documentation and README updates
 - [x] Windows compatibility validation report documented (`WINDOWS_COMPATIBILITY_REPORT.md`)
 
@@ -607,10 +607,11 @@ ollama pull qwen3-vl:7b
 - ✅ CLI workflow implemented (`extract`, `map`, `generatephotos`, `benchmark`)
 - ✅ Avalonia GUI project implemented with 3-step wizard and navigation
 - ✅ Shared AI and image services integrated into both CLI and GUI flows
-- 🚧 GUI hardening pending (progress reporting, cancellation, session command wiring)
+- ✅ GUI hardening completed (progress, cancellation, session, diagnostics, preview, report export, theme toggle)
+- 🚧 Benchmark and test-data maturity still in progress
 
 **Immediate Next Steps:**
-1. Fix `GenerateStepViewModel` result assignment and progress updates.
-2. Remove duplicate `MapResult` in UI and reuse shared command result model.
-3. Implement Save/Load session commands in `MainWindowViewModel`.
-4. Add cancellation tokens for map/generate operations in UI.
+1. Re-run face benchmarks on Windows 11 and compare against macOS baseline (`benchmark-20260212-075152.json`).
+2. Expand face-image benchmark coverage and validate on macOS + Windows.
+3. Prioritize next Phase 9 feature (batch processing or automated testing pipeline).
+4. Evaluate cloud LLM provider abstraction (OpenAI/Anthropic) based on local model limits.

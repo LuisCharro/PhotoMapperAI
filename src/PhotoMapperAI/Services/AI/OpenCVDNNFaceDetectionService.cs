@@ -10,6 +10,7 @@ namespace PhotoMapperAI.Services.AI;
 /// </summary>
 public class OpenCVDNNFaceDetectionService : IFaceDetectionService
 {
+    private readonly string _modelsPath;
     private readonly string _modelPath;
     private readonly string _weightsPath;
     private readonly double _confidenceThreshold;
@@ -34,11 +35,19 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
         // Set model paths based on type
         if (modelType == "dnn")
         {
-            _modelPath = Path.Combine(modelsPath, "res10_ssd_deploy.prototxt");
-            _weightsPath = Path.Combine(modelsPath, "res10_300x300_ssd_iter_140000.caffemodel");
+            _modelsPath = ResolveModelsDirectory(modelsPath);
+            _modelPath = ResolveFirstExistingFile(
+                _modelsPath,
+                "res10_ssd_deploy.prototxt",
+                "res10_300x300_ssd_iter_140000.prototxt",
+                "deploy.prototxt");
+            _weightsPath = ResolveFirstExistingFile(
+                _modelsPath,
+                "res10_300x300_ssd_iter_140000.caffemodel");
         }
         else
         {
+            _modelsPath = string.Empty;
             _modelPath = string.Empty;
             _weightsPath = string.Empty;
         }
@@ -68,13 +77,18 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
                         _faceNet.SetPreferableTarget(Target.CPU);
                     }
                 }
+                else
+                {
+                    Console.WriteLine(
+                        $"OpenCV DNN model files not found. ModelsPath='{_modelsPath}', Prototxt='{_modelPath}', Weights='{_weightsPath}'");
+                }
 
                 _initialized = _faceNet != null;
                 return _initialized;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error initializing OpenCV DNN: {ex.Message}");
+                Console.WriteLine($"Error initializing OpenCV DNN: {ex}");
                 _initialized = false;
                 return false;
             }
@@ -210,5 +224,48 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
     public void Dispose()
     {
         _faceNet?.Dispose();
+    }
+
+    private static string ResolveModelsDirectory(string configuredModelsPath)
+    {
+        if (Directory.Exists(configuredModelsPath))
+            return configuredModelsPath;
+
+        var envPath = Environment.GetEnvironmentVariable("PHOTOMAPPERAI_MODELS_PATH");
+        if (!string.IsNullOrWhiteSpace(envPath) && Directory.Exists(envPath))
+            return envPath;
+
+        var candidates = new List<string>
+        {
+            Path.Combine(AppContext.BaseDirectory, "models"),
+            Path.Combine(Directory.GetCurrentDirectory(), "models")
+        };
+
+        candidates.AddRange(BuildParentCandidates(AppContext.BaseDirectory, "models", maxDepth: 6));
+        candidates.AddRange(BuildParentCandidates(Directory.GetCurrentDirectory(), "models", maxDepth: 6));
+
+        return candidates.FirstOrDefault(Directory.Exists) ?? configuredModelsPath;
+    }
+
+    private static IEnumerable<string> BuildParentCandidates(string startPath, string childName, int maxDepth)
+    {
+        var current = new DirectoryInfo(startPath);
+        for (var i = 0; i < maxDepth && current != null; i++)
+        {
+            yield return Path.Combine(current.FullName, childName);
+            current = current.Parent;
+        }
+    }
+
+    private static string ResolveFirstExistingFile(string directoryPath, params string[] fileNames)
+    {
+        foreach (var fileName in fileNames)
+        {
+            var candidate = Path.Combine(directoryPath, fileName);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return Path.Combine(directoryPath, fileNames[0]);
     }
 }

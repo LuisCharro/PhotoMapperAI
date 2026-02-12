@@ -271,8 +271,26 @@ public class BenchmarkCommandLogic
     /// </summary>
     private List<NameMatchingTestPair> LoadNameMatchingTestPairs(string testDataPath)
     {
-        // Look for name_pairs.csv in test data
+        // Look for benchmark CSV in test data (primary + tracked fallbacks)
         var pairsPath = Path.Combine(testDataPath, "name_pairs.csv");
+        if (!File.Exists(pairsPath))
+        {
+            var samplePairsPath = Path.Combine(testDataPath, "sample_name_pairs.csv");
+            if (File.Exists(samplePairsPath))
+            {
+                pairsPath = samplePairsPath;
+            }
+        }
+
+        if (!File.Exists(pairsPath))
+        {
+            var testPairsPath = Path.Combine(testDataPath, "test-name_pairs.csv");
+            if (File.Exists(testPairsPath))
+            {
+                pairsPath = testPairsPath;
+            }
+        }
+
         if (!File.Exists(pairsPath))
         {
             // Return synthetic test data
@@ -310,18 +328,44 @@ public class BenchmarkCommandLogic
     /// </summary>
     private List<string> LoadFaceDetectionTestImages(string testDataPath)
     {
-        var photosPath = Path.Combine(testDataPath, "photos");
-        if (!Directory.Exists(photosPath))
+        var candidateDirectories = new[]
         {
-            // Use test photos from current directory
-            if (Directory.Exists("./photos"))
-            {
-                return Directory.GetFiles("./photos", "*.*").ToList();
-            }
-            return new List<string>();
+            Path.Combine(testDataPath, "photos"),
+            Path.Combine(testDataPath, "FaceDetection"),
+            Path.Combine(testDataPath, "face-detection"),
+            Path.Combine(testDataPath, "test-photos")
+        };
+
+        foreach (var directory in candidateDirectories)
+        {
+            if (!Directory.Exists(directory))
+                continue;
+
+            var files = Directory.GetFiles(directory, "*.*")
+                .Where(file =>
+                {
+                    var ext = Path.GetExtension(file).ToLowerInvariant();
+                    return ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp";
+                })
+                .ToList();
+
+            if (files.Count > 0)
+                return files;
         }
 
-        return Directory.GetFiles(photosPath, "*.*").ToList();
+        // Use repository-level photos as a final fallback.
+        if (Directory.Exists("./photos"))
+        {
+            return Directory.GetFiles("./photos", "*.*")
+                .Where(file =>
+                {
+                    var ext = Path.GetExtension(file).ToLowerInvariant();
+                    return ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp";
+                })
+                .ToList();
+        }
+
+        return new List<string>();
     }
 
     /// <summary>
