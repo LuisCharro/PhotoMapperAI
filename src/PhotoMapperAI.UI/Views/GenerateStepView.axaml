@@ -138,6 +138,25 @@
                 IsChecked="{Binding PortraitOnly}"
                 Margin="0,8"/>
 
+      <!-- Preview -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="🖼️ Preview Source Image" FontSize="16" FontWeight="SemiBold"/>
+            <Button Content="Load Preview"
+                    Command="{Binding LoadPreviewImageCommand}"
+                    Padding="12,6"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PreviewStatus}"
+                     FontSize="12"
+                     Foreground="#666"
+                     TextWrapping="Wrap"/>
+          <Image Source="{Binding PreviewImage}"
+                 Height="180"
+                 Stretch="Uniform"/>
+        </StackPanel>
+      </Border>
+
       <!-- Execute / Cancel Buttons -->
       <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
         <Button Content="▶ Generate Portraits" 

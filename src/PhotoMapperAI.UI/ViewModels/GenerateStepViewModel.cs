@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
@@ -62,6 +64,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _modelDiagnosticStatus = string.Empty;
 
+    [ObservableProperty]
+    private Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private string _previewStatus = string.Empty;
+
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
 
     public List<string> FaceDetectionModels { get; } = new()
@@ -91,6 +99,49 @@ public partial class GenerateStepViewModel : ViewModelBase
     private async Task BrowseOutputDirectory()
     {
         await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task LoadPreviewImage()
+    {
+        await Task.CompletedTask;
+
+        if (string.IsNullOrWhiteSpace(PhotosDirectory) || !Directory.Exists(PhotosDirectory))
+        {
+            PreviewStatus = "Select a valid photos directory to load preview.";
+            PreviewImage = null;
+            return;
+        }
+
+        var supportedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".bmp"
+        };
+
+        var firstImagePath = Directory.EnumerateFiles(PhotosDirectory, "*.*", SearchOption.AllDirectories)
+            .FirstOrDefault(path => supportedExtensions.Contains(Path.GetExtension(path)));
+
+        if (string.IsNullOrWhiteSpace(firstImagePath))
+        {
+            PreviewStatus = "No supported images found in photos directory.";
+            PreviewImage = null;
+            return;
+        }
+
+        try
+        {
+            await using var stream = File.OpenRead(firstImagePath);
+            PreviewImage = new Bitmap(stream);
+            PreviewStatus = $"Preview loaded: {Path.GetFileName(firstImagePath)}";
+        }
+        catch (Exception ex)
+        {
+            PreviewStatus = $"Failed to load preview: {ex.Message}";
+            PreviewImage = null;
+        }
     }
 
     [RelayCommand]

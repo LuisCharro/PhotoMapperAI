@@ -543,7 +543,7 @@ POST http://localhost:11434/api/generate
 - [x] Implement step navigation (Back/Next/Finish)
 - [x] Implement Save/Load Session feature (default app-data path)
 - [x] Add diagnostic tools for model testing (model availability checks in Map/Generate steps)
-- [ ] Add preview functionality
+- [x] Add preview functionality (Generate step source-image preview)
 - [ ] Theme support (dark/light)
 - [ ] Export processing reports
 
