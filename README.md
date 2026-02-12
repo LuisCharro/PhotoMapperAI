@@ -248,6 +248,11 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 - All CLI parameters with friendly UI controls
 - Session save/load for continuing work later (in development)
 
+**Known Issues (v1.0.1):**
+- Progress bar not updated during portrait generation
+- Result statistics may not display correctly after generation
+- No cancellation support for long-running operations
+
 **Documentation:** See [`GUIDE.md`](GUIDE.md) for complete GUI documentation.
 
 ### Command-Line Interface (For Automation & Batch Processing)
@@ -350,10 +355,6 @@ dotnet run -- benchmark -faceModels opencv-dnn,yolov8-face,llava:7b,qwen3-vl -te
 dotnet run -- benchmark -nameModels qwen2.5:7b,qwen3:8b -faceModels opencv-dnn,llava:7b -testDataPath ./tests/Data
 ```
 
-# Compare face detection approaches
-dotnet run -- benchmark -faceModels opencv-dnn,yolov8-face,llava:7b,qwen3-vl -testDataPath tests/Data/
-```
-
 ## Test Data
 
 **Test data is local-only and should not be committed to the repository.** Create your own test data structure following this pattern:
@@ -383,7 +384,7 @@ Test Data (local, not in repo):
 
 ## Current Status
 
-**Last Updated:** 2026-02-11
+**Last Updated:** 2026-02-12
 
 ### Feature Status
 
@@ -395,11 +396,17 @@ Test Data (local, not in repo):
 | Face detection (OpenCV) | ✅ Fixed | Model files added, fallback working |
 | Face detection (Ollama Vision) | ✅ Working | qwen3-vl and llava:7b supported |
 | Portrait generation | ✅ Fixed | Correct 200x300 dimensions |
+| Desktop GUI (Avalonia) | 🚧 In Progress | Core workflow works; see GUI known issues |
 | PowerShell scripts | ✅ Complete | Windows support available |
 
 ### Known Issues
 
-None. All Phase 3 critical issues have been resolved.
+No critical CLI issues currently.
+
+GUI known issues (v1.0.1):
+- Progress bar is not updated during portrait generation.
+- Generation result statistics are not assigned from the command result object.
+- No cancellation support for long-running operations.
 
 ### Planned Improvements
 

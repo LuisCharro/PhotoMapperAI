@@ -301,6 +301,39 @@ PhotoMapperAI.UI/
 - [ ] Dark/light theme toggle
 - [ ] Export processing reports
 
+## Known Issues & TODOs
+
+### Code Issues (from review)
+
+1. **GenerateStepViewModel.cs:131** - Result not properly used:
+   ```csharp
+   // Current (bug):
+   ProcessingStatus = $"✓ Generated {PortraitsGenerated} portraits ({PortraitsFailed} failed)";
+   
+   // Should be:
+   PortraitsGenerated = result.PortraitsGenerated;
+   PortraitsFailed = result.PortraitsFailed;
+   ProcessingStatus = $"✓ Generated {PortraitsGenerated} portraits ({PortraitsFailed} failed)";
+   ```
+
+2. **MapStepViewModel.cs:127-131** - Duplicate `MapResult` class:
+   - This class duplicates the `MapResult` already defined in `PhotoMapperAI/Commands/MapCommand.cs`
+   - Should use the shared model instead
+
+3. **Progress reporting** - `Progress` property in GenerateStepViewModel is never updated during processing. Consider using `IProgress<T>` or events from the command logic.
+
+4. **Cancellation support** - Long-running operations should support cancellation via `CancellationToken`.
+
+5. **Session UX mismatch** - `SessionState` model exists, but Save/Load commands in `MainWindowViewModel` are still TODO placeholders. Keep labels and status copy explicit until behavior is wired.
+
+### Architecture Suggestions
+
+1. **Dependency Injection** - ViewModels currently create services directly. Consider using DI container for better testability.
+
+2. **Service Locator Pattern** - The `CreateFaceDetectionService` factory method in GenerateStepViewModel should be moved to a dedicated service factory.
+
+3. **Error Handling** - Consider adding a global error handler and user-friendly error messages instead of showing raw exception messages.
+
 ## Comparison with CLI
 
 | Feature | GUI | CLI |

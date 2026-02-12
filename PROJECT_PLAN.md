@@ -164,11 +164,11 @@ public class FaceLandmarks
 **Model Selection:**
 ```bash
 # Use default (OpenCV DNN)
-PhotoMapperAI generatePhotos -inputCsvPath team.csv -outputPath ./portraits
+PhotoMapperAI generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits
 
 # Use Ollama Vision
-PhotoMapperAI generatePhotos -inputCsvPath team.csv -outputPath ./portraits -faceModel llava:7b
-PhotoMapperAI generatePhotos -inputCsvPath team.csv -outputPath ./portraits -faceModel qwen3-vl:7b
+PhotoMapperAI generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -faceDetection llava:7b
+PhotoMapperAI generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -faceDetection qwen3-vl
 ```
 
 **Improved Detection Strategy:**
@@ -262,7 +262,7 @@ PhotoMapperAI generatePhotos \
   -inputCsvPath output/SpainTeam.csv \
   -processedPhotosOutputPath portraits/SpainTeam \
   -format jpg \
-  -faceModel llava:7b
+  -faceDetection llava:7b
 
 # Benchmark mode (for testing)
 PhotoMapperAI benchmark \
@@ -546,6 +546,12 @@ POST http://localhost:11434/api/generate
 - [ ] Theme support (dark/light)
 - [ ] Export processing reports
 
+#### Phase 8.1: Bug Fixes & Improvements (Required)
+- [ ] **Fix GenerateStepViewModel result handling** - `PortraitsGenerated` and `PortraitsFailed` are not populated from `result` object
+- [ ] **Implement progress reporting** - Progress property exists but isn't updated during processing
+- [ ] **Add cancellation support** - Allow users to cancel long-running operations
+- [ ] **Remove duplicate MapResult class** - MapStepViewModel.cs defines MapResult but core project also has one
+
 ### Phase 9: Future Enhancements (Planned)
 - [ ] Web UI for non-technical users
 - [ ] Batch processing for multiple teams
@@ -596,14 +602,14 @@ ollama pull qwen3-vl:7b
 
 ## Current Status
 
-**Environment Setup:**
-- ✅ GitHub repository created
-- ✅ Project structure defined
-- 🔄 .NET SDK installation in progress (via Homebrew)
-- 🔄 Ollama models being downloaded
+**Implementation Snapshot (2026-02-12):**
+- ✅ CLI workflow implemented (`extract`, `map`, `generatephotos`, `benchmark`)
+- ✅ Avalonia GUI project implemented with 3-step wizard and navigation
+- ✅ Shared AI and image services integrated into both CLI and GUI flows
+- 🚧 GUI hardening pending (progress reporting, cancellation, session command wiring)
 
-**Next Steps:**
-1. Complete .NET SDK installation
-2. Pull required Ollama models
-3. Create .NET solution and projects
-4. Implement Phase 1 (Foundation)
+**Immediate Next Steps:**
+1. Fix `GenerateStepViewModel` result assignment and progress updates.
+2. Remove duplicate `MapResult` in UI and reuse shared command result model.
+3. Implement Save/Load session commands in `MainWindowViewModel`.
+4. Add cancellation tokens for map/generate operations in UI.

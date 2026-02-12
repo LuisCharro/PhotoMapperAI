@@ -34,11 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated project structure to include PhotoMapperAI.UI project
 - Added GUI to feature list
 
-## [1.0.0] - 2026-02-11
+### Known Issues (GUI v1.0.1)
 
-### Added
-
-#### Core Features
+- **GenerateStepViewModel** - Result properties not properly assigned after generation
+- **Progress reporting** - Progress bar not updated during processing
+- **Duplicate MapResult** - Class defined in both MapStepViewModel.cs and core project
+- **No cancellation** - Long-running operations cannot be cancelled
 
 ## [1.0.0] - 2026-02-11
 
@@ -88,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full macOS support with bash/zsh scripts
 - Full Windows support with PowerShell 7+ scripts
 - Full Linux support with bash scripts
-- Cross-platform .NET 8.0 runtime
+- Cross-platform .NET 10.0 runtime
 - Consistent CLI experience across all platforms
 
 #### Documentation
@@ -204,4 +205,5 @@ No upgrade path needed - this is version 1.0.0.
 
 ---
 
+[1.0.1]: https://github.com/LuisCharro/PhotoMapperAI/releases/tag/v1.0.1
 [1.0.0]: https://github.com/LuisCharro/PhotoMapperAI/releases/tag/v1.0.0
