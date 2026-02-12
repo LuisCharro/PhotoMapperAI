@@ -47,6 +47,7 @@ public class MapCommandLogic
         string? photoManifest,
         string nameModel,
         double confidenceThreshold,
+        IProgress<(int processed, int total, string current)>? uiProgress = null,
         CancellationToken cancellationToken = default)
     {
         Console.WriteLine("Map Command");
@@ -97,11 +98,13 @@ public class MapCommandLogic
             var results = new List<MappingResult>();
 
             var progress = new ProgressIndicator("Progress", photos.Count, useBar: true);
+            var processedCount = 0;
 
             foreach (var photo in photos)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                progress.Update(Path.GetFileName(photo));
+                var photoName = Path.GetFileName(photo);
+                progress.Update(photoName);
                 
                 var result = await MatchPhotoToPlayerAsync(
                     photo,
@@ -115,6 +118,8 @@ public class MapCommandLogic
                 );
 
                 results.Add(result);
+                processedCount++;
+                uiProgress?.Report((processedCount, photos.Count, photoName));
 
                 // Update player if matched
                 if (result.IsValidMatch)

@@ -50,6 +50,9 @@ public partial class MapStepViewModel : ViewModelBase
     [ObservableProperty]
     private bool _usePhotoManifest;
 
+    [ObservableProperty]
+    private double _progress;
+
     public List<string> NameModels { get; } = new()
     {
         "qwen2.5:7b",
@@ -86,6 +89,9 @@ public partial class MapStepViewModel : ViewModelBase
 
         IsProcessing = true;
         IsComplete = false;
+        Progress = 0;
+        PlayersProcessed = 0;
+        PlayersMatched = 0;
         ProcessingStatus = "Mapping photos to players...";
         _cancellationTokenSource = new CancellationTokenSource();
 
@@ -102,6 +108,15 @@ public partial class MapStepViewModel : ViewModelBase
             var logic = new Commands.MapCommandLogic(nameMatchingService, imageProcessor);
 
             // Execute mapping
+            var progress = new Progress<(int processed, int total, string current)>(p =>
+            {
+                var percent = p.total > 0
+                    ? (double)p.processed / p.total * 100.0
+                    : 0.0;
+                Progress = Math.Clamp(percent, 0, 100);
+                ProcessingStatus = $"Processing {p.processed}/{p.total}: {p.current}";
+            });
+
             var result = await logic.ExecuteAsync(
                 InputCsvPath,
                 PhotosDirectory,
@@ -109,12 +124,14 @@ public partial class MapStepViewModel : ViewModelBase
                 UsePhotoManifest ? PhotoManifestPath : null,
                 NameModel,
                 ConfidenceThreshold,
+                progress,
                 _cancellationTokenSource.Token
             );
 
             PlayersProcessed = result.PlayersProcessed;
             PlayersMatched = result.PlayersMatched;
             ProcessingStatus = $"✓ Mapped {PlayersMatched}/{PlayersProcessed} players successfully";
+            Progress = 100;
             IsComplete = true;
         }
         catch (OperationCanceledException)

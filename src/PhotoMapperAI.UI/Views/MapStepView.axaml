@@ -126,9 +126,10 @@
         <StackPanel Spacing="8">
           <TextBlock Text="{Binding ProcessingStatus}" 
                      FontSize="14" TextWrapping="Wrap"/>
-          <ProgressBar IsIndeterminate="True" 
+          <ProgressBar Value="{Binding Progress}"
+                       Maximum="100"
                        IsVisible="{Binding IsProcessing}"
-                       Height="4"/>
+                       Height="8"/>
         </StackPanel>
       </Border>
 
