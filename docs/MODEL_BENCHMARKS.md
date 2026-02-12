@@ -62,6 +62,7 @@ These historical runs are useful for regression tracking but should not be used 
 
 1. Run face benchmark on Windows 11 and compare using:
    `photomapperai benchmark-compare --baseline benchmark-results/benchmark-20260212-080146.json --candidate benchmark-results/<windows-file>.json --faceModel opencv-dnn`
+   Or use helper script: `scripts/run-benchmark-compare.ps1`.
 2. Expand benchmark dataset beyond 10 name pairs and include harder multilingual cases.
 3. Add benchmark runs for additional models listed in the plan (`qwen3:8b`, `llava:7b`, and face fallbacks).
 4. Version benchmark datasets to make results reproducible across machines.
