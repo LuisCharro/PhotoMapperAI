@@ -30,23 +30,24 @@ Primary run used for conclusions:
 ## Face Detection
 
 Most recent face benchmark:
-- Source file: `benchmark-results/benchmark-20260212-075152.json`
+- Source file: `benchmark-results/benchmark-20260212-080146.json`
 - Model: `opencv-dnn`
 
 ### Summary
 
 | Metric | Value |
 |---|---|
-| Accuracy | 0.25 |
-| Test Count | 4 |
-| Avg Processing Time | 16 ms |
+| Accuracy | 0.20 |
+| Test Count | 5 |
+| Avg Processing Time | 12 ms |
 | Avg Confidence | 0.998 |
 
 ### Key Observations
 
 - Face benchmark pipeline now executes on macOS after OpenCV runtime dependency fixes in build output layout.
-- Current dataset is still very small (4 images), so this is only a smoke baseline.
+- Current dataset is still small (5 labeled images), so this remains a smoke baseline.
 - Benchmarks now support explicit expected-face labels via `tests/Data/FaceDetection/face_expected.csv`.
+- Benchmark loader now scans candidate face-data folders recursively to support larger datasets without code changes.
 - Next pass should expand benchmark images and validate the same run on Windows 11.
 
 ## Historic Snapshot
@@ -60,7 +61,7 @@ These historical runs are useful for regression tracking but should not be used 
 ## Next Benchmark Actions
 
 1. Run face benchmark on Windows 11 and compare using:
-   `photomapperai benchmark-compare --baseline benchmark-results/benchmark-20260212-075152.json --candidate benchmark-results/<windows-file>.json --faceModel opencv-dnn`
+   `photomapperai benchmark-compare --baseline benchmark-results/benchmark-20260212-080146.json --candidate benchmark-results/<windows-file>.json --faceModel opencv-dnn`
 2. Expand benchmark dataset beyond 10 name pairs and include harder multilingual cases.
 3. Add benchmark runs for additional models listed in the plan (`qwen3:8b`, `llava:7b`, and face fallbacks).
 4. Version benchmark datasets to make results reproducible across machines.

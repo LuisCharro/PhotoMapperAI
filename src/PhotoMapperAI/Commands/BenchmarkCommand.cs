@@ -228,7 +228,7 @@ public class BenchmarkCommandLogic
                 testResults.Add(new FaceDetectionTestResult
                 {
                     ImagePath = imagePath,
-                    ExpectedFaces = GetExpectedFaceCount(imagePath, expectedFaces),
+                    ExpectedFaces = GetExpectedFaceCount(imagePath, testDataPath, expectedFaces),
                     DetectedFaces = landmarks.FaceDetected ? 1 : 0,
                     ProcessingTimeMs = duration,
                     FaceConfidence = landmarks.FaceConfidence,
@@ -338,36 +338,34 @@ public class BenchmarkCommandLogic
             Path.Combine(testDataPath, "test-photos")
         };
 
+        var imageFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var directory in candidateDirectories)
         {
             if (!Directory.Exists(directory))
                 continue;
 
-            var files = Directory.GetFiles(directory, "*.*")
-                .Where(file =>
-                {
-                    var ext = Path.GetExtension(file).ToLowerInvariant();
-                    return ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp";
-                })
-                .ToList();
-
-            if (files.Count > 0)
-                return files;
+            var files = Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                var ext = Path.GetExtension(file).ToLowerInvariant();
+                if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp")
+                    imageFiles.Add(file);
+            }
         }
 
-        // Use repository-level photos as a final fallback.
-        if (Directory.Exists("./photos"))
+        // Use repository-level photos as a fallback.
+        if (imageFiles.Count == 0 && Directory.Exists("./photos"))
         {
-            return Directory.GetFiles("./photos", "*.*")
-                .Where(file =>
-                {
-                    var ext = Path.GetExtension(file).ToLowerInvariant();
-                    return ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp";
-                })
-                .ToList();
+            var files = Directory.GetFiles("./photos", "*.*", SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                var ext = Path.GetExtension(file).ToLowerInvariant();
+                if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp")
+                    imageFiles.Add(file);
+            }
         }
 
-        return new List<string>();
+        return imageFiles.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>
@@ -411,11 +409,24 @@ public class BenchmarkCommandLogic
     /// <summary>
     /// Gets expected face count for an image.
     /// </summary>
-    private static int GetExpectedFaceCount(string imagePath, IReadOnlyDictionary<string, int> expectedFaceCounts)
+    private static int GetExpectedFaceCount(string imagePath, string testDataPath, IReadOnlyDictionary<string, int> expectedFaceCounts)
     {
         var fileName = Path.GetFileName(imagePath);
         if (expectedFaceCounts.TryGetValue(fileName, out var expected))
             return expected;
+
+        var relativePath = Path.GetRelativePath(testDataPath, imagePath)
+            .Replace('\\', '/');
+        if (expectedFaceCounts.TryGetValue(relativePath, out expected))
+            return expected;
+
+        var faceDetectionRelative = Path.GetRelativePath(Path.Combine(testDataPath, "FaceDetection"), imagePath)
+            .Replace('\\', '/');
+        if (!faceDetectionRelative.StartsWith("..", StringComparison.Ordinal) &&
+            expectedFaceCounts.TryGetValue(faceDetectionRelative, out expected))
+        {
+            return expected;
+        }
 
         // Default assumption when no manifest is available.
         return 1;
