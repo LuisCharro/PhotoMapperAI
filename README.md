@@ -25,6 +25,7 @@ This tool automates the entire workflow, making it database-agnostic and system-
 - **Automated portrait cropping:** Crops full-body photos to portrait format using AI-based face/eye detection
 - **Filename pattern support:** Automatic pattern detection OR photo manifest file for flexible metadata extraction
 - **Benchmarking capabilities:** Test different models and generate comparison reports
+- **Cross-platform CI:** Automatic build + test validation on macOS and Windows (GitHub Actions)
 - **Rich CLI experience:** Color-coded console output showing mapping progress, unmatched players, and unused photos
 
 ## Workflow
@@ -104,6 +105,18 @@ PhotoMapperAI generatePhotos \
 - **Qwen Vision Model** - AI-based face/eye detection for portrait cropping
 - **CSV processing** - Read/write player mappings
 - **Command-line parser** - Rich CLI interface with subcommands
+- **GitHub Actions** - Cross-platform CI pipeline
+
+## Benchmark Comparison
+
+Use the compare command to validate Windows vs macOS benchmark results:
+
+```bash
+PhotoMapperAI benchmark-compare \
+  --baseline benchmark-results/benchmark-20260212-075152.json \
+  --candidate benchmark-results/<windows-file>.json \
+  --faceModel opencv-dnn
+```
 
 ## Architecture
 

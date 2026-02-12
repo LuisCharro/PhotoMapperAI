@@ -561,7 +561,7 @@ POST http://localhost:11434/api/generate
 - [ ] Custom portrait dimensions presets
 - [ ] Watermarking support
 - [ ] Docker container support
-- [ ] Automated testing pipeline
+- [x] Automated testing pipeline (GitHub Actions: build + tests on macOS and Windows)
 - [ ] Unit tests for non-AI components
 
 ## Environment Setup
@@ -608,10 +608,11 @@ ollama pull qwen3-vl:7b
 - ✅ Avalonia GUI project implemented with 3-step wizard and navigation
 - ✅ Shared AI and image services integrated into both CLI and GUI flows
 - ✅ GUI hardening completed (progress, cancellation, session, diagnostics, preview, report export, theme toggle)
+- ✅ Automated CI pipeline for cross-platform build/test (GitHub Actions on macOS + Windows)
 - 🚧 Benchmark and test-data maturity still in progress
 
 **Immediate Next Steps:**
 1. Re-run face benchmarks on Windows 11 and compare against macOS baseline (`benchmark-20260212-075152.json`) using `benchmark-compare`.
 2. Expand face-image benchmark coverage beyond the current 4 labeled samples (`tests/Data/FaceDetection/face_expected.csv`) and validate on macOS + Windows.
-3. Prioritize next Phase 9 feature (batch processing or automated testing pipeline).
-4. Evaluate cloud LLM provider abstraction (OpenAI/Anthropic) based on local model limits.
+3. Evaluate cloud LLM provider abstraction (OpenAI/Anthropic) based on local model limits.
+4. Prioritize next Phase 9 feature (batch processing, Docker support, or custom portrait presets).
