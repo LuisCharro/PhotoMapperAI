@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,6 +12,8 @@ namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class MapStepViewModel : ViewModelBase
 {
+    private CancellationTokenSource? _cancellationTokenSource;
+
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
 
@@ -82,7 +85,9 @@ public partial class MapStepViewModel : ViewModelBase
         }
 
         IsProcessing = true;
+        IsComplete = false;
         ProcessingStatus = "Mapping photos to players...";
+        _cancellationTokenSource = new CancellationTokenSource();
 
         try
         {
@@ -103,13 +108,19 @@ public partial class MapStepViewModel : ViewModelBase
                 string.IsNullOrEmpty(FilenamePattern) ? null : FilenamePattern,
                 UsePhotoManifest ? PhotoManifestPath : null,
                 NameModel,
-                ConfidenceThreshold
+                ConfidenceThreshold,
+                _cancellationTokenSource.Token
             );
 
             PlayersProcessed = result.PlayersProcessed;
             PlayersMatched = result.PlayersMatched;
             ProcessingStatus = $"✓ Mapped {PlayersMatched}/{PlayersProcessed} players successfully";
             IsComplete = true;
+        }
+        catch (OperationCanceledException)
+        {
+            ProcessingStatus = "⚠ Mapping cancelled";
+            IsComplete = false;
         }
         catch (Exception ex)
         {
@@ -118,14 +129,19 @@ public partial class MapStepViewModel : ViewModelBase
         }
         finally
         {
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
             IsProcessing = false;
         }
     }
-}
 
-// Helper class for result
-public class MapResult
-{
-    public int PlayersProcessed { get; set; }
-    public int PlayersMatched { get; set; }
+    [RelayCommand]
+    private void CancelMap()
+    {
+        if (IsProcessing)
+        {
+            _cancellationTokenSource?.Cancel();
+            ProcessingStatus = "Cancelling mapping...";
+        }
+    }
 }

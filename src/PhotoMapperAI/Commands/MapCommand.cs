@@ -46,7 +46,8 @@ public class MapCommandLogic
         string? filenamePattern,
         string? photoManifest,
         string nameModel,
-        double confidenceThreshold)
+        double confidenceThreshold,
+        CancellationToken cancellationToken = default)
     {
         Console.WriteLine("Map Command");
         Console.WriteLine("============");
@@ -99,6 +100,7 @@ public class MapCommandLogic
 
             foreach (var photo in photos)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 progress.Update(Path.GetFileName(photo));
                 
                 var result = await MatchPhotoToPlayerAsync(
@@ -108,7 +110,8 @@ public class MapCommandLogic
                     filenamePattern,
                     manifest,
                     nameModel,
-                    confidenceThreshold
+                    confidenceThreshold,
+                    cancellationToken
                 );
 
                 results.Add(result);
@@ -155,6 +158,13 @@ public class MapCommandLogic
                 OutputPath = outputPath
             };
         }
+        catch (OperationCanceledException)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("⚠ Mapping cancelled by user");
+            Console.ResetColor();
+            throw;
+        }
         catch (FileNotFoundException ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -191,8 +201,11 @@ public class MapCommandLogic
         string? filenamePattern,
         Dictionary<string, PhotoMetadata>? manifest,
         string nameModel,
-        double confidenceThreshold)
+        double confidenceThreshold,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var startTime = DateTime.UtcNow;
         var photoName = Path.GetFileName(photoPath);
 
@@ -262,6 +275,7 @@ public class MapCommandLogic
                 // Compare against all players
                 foreach (var player in players)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var matchResult = await _nameMatchingService.CompareNamesAsync(
                         player.FullName,
                         metadata.FullName ?? string.Empty

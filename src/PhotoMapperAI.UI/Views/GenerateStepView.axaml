@@ -123,13 +123,19 @@
                 IsChecked="{Binding PortraitOnly}"
                 Margin="0,8"/>
 
-      <!-- Execute Button -->
-      <Button Content="▶ Generate Portraits" 
-              Command="{Binding ExecuteGenerateCommand}"
-              IsEnabled="{Binding !IsProcessing}"
-              Background="#4CAF50" Foreground="White"
-              FontSize="16" Padding="24,12"
-              HorizontalAlignment="Center"/>
+      <!-- Execute / Cancel Buttons -->
+      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+        <Button Content="▶ Generate Portraits" 
+                Command="{Binding ExecuteGenerateCommand}"
+                IsEnabled="{Binding !IsProcessing}"
+                Background="#4CAF50" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+        <Button Content="■ Cancel"
+                Command="{Binding CancelGenerateCommand}"
+                IsVisible="{Binding IsProcessing}"
+                Background="#F44336" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+      </StackPanel>
 
       <!-- Progress -->
       <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 

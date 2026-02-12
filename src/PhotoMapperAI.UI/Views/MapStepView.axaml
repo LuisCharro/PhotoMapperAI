@@ -106,13 +106,19 @@
         </Border>
       </Expander>
 
-      <!-- Execute Button -->
-      <Button Content="▶ Map Photos" 
-              Command="{Binding ExecuteMapCommand}"
-              IsEnabled="{Binding !IsProcessing}"
-              Background="#4CAF50" Foreground="White"
-              FontSize="16" Padding="24,12"
-              HorizontalAlignment="Center"/>
+      <!-- Execute / Cancel Buttons -->
+      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+        <Button Content="▶ Map Photos" 
+                Command="{Binding ExecuteMapCommand}"
+                IsEnabled="{Binding !IsProcessing}"
+                Background="#4CAF50" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+        <Button Content="■ Cancel"
+                Command="{Binding CancelMapCommand}"
+                IsVisible="{Binding IsProcessing}"
+                Background="#F44336" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+      </StackPanel>
 
       <!-- Status -->
       <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 

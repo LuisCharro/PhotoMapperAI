@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,6 +12,8 @@ namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class GenerateStepViewModel : ViewModelBase
 {
+    private CancellationTokenSource? _cancellationTokenSource;
+
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
 
@@ -87,15 +90,21 @@ public partial class GenerateStepViewModel : ViewModelBase
     [RelayCommand]
     private async Task ExecuteGenerate()
     {
-        if (string.IsNullOrEmpty(InputCsvPath) || string.IsNullOrEmpty(OutputDirectory))
+        if (string.IsNullOrWhiteSpace(InputCsvPath) ||
+            string.IsNullOrWhiteSpace(PhotosDirectory) ||
+            string.IsNullOrWhiteSpace(OutputDirectory))
         {
-            ProcessingStatus = "Please select CSV file and output directory";
+            ProcessingStatus = "Please select CSV file, photos directory, and output directory";
             return;
         }
 
         IsProcessing = true;
+        IsComplete = false;
+        PortraitsGenerated = 0;
+        PortraitsFailed = 0;
         ProcessingStatus = "Generating portraits...";
         Progress = 0;
+        _cancellationTokenSource = new CancellationTokenSource();
 
         try
         {
@@ -114,7 +123,17 @@ public partial class GenerateStepViewModel : ViewModelBase
             );
 
             // Execute generation
-            var result = await logic.ExecuteAsync(
+            var progress = new Progress<(int processed, int total, string current)>(p =>
+            {
+                var percent = p.total > 0
+                    ? (double)p.processed / p.total * 100.0
+                    : 0.0;
+
+                Progress = Math.Clamp(percent, 0, 100);
+                ProcessingStatus = $"Processing {p.processed}/{p.total}: {p.current}";
+            });
+
+            var result = await logic.ExecuteWithResultAsync(
                 InputCsvPath,
                 PhotosDirectory,
                 OutputDirectory,
@@ -125,12 +144,39 @@ public partial class GenerateStepViewModel : ViewModelBase
                 PortraitWidth,
                 PortraitHeight,
                 false,
-                4
+                4,
+                progress,
+                _cancellationTokenSource.Token
             );
+
+            PortraitsGenerated = result.PortraitsGenerated;
+            PortraitsFailed = result.PortraitsFailed;
+            Progress = result.TotalPlayers > 0
+                ? Math.Clamp((double)result.ProcessedPlayers / result.TotalPlayers * 100.0, 0, 100)
+                : Progress;
+
+            if (result.IsCancelled)
+            {
+                ProcessingStatus = $"⚠ Generation cancelled ({result.ProcessedPlayers}/{result.TotalPlayers} processed)";
+                IsComplete = false;
+                return;
+            }
+
+            if (result.ExitCode != 0)
+            {
+                ProcessingStatus = $"✗ Generation failed ({PortraitsGenerated} generated, {PortraitsFailed} failed)";
+                IsComplete = false;
+                return;
+            }
 
             ProcessingStatus = $"✓ Generated {PortraitsGenerated} portraits ({PortraitsFailed} failed)";
             IsComplete = true;
             Progress = 100;
+        }
+        catch (OperationCanceledException)
+        {
+            ProcessingStatus = "⚠ Generation cancelled";
+            IsComplete = false;
         }
         catch (Exception ex)
         {
@@ -139,7 +185,19 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
         finally
         {
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
             IsProcessing = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelGenerate()
+    {
+        if (IsProcessing)
+        {
+            _cancellationTokenSource?.Cancel();
+            ProcessingStatus = "Cancelling generation...";
         }
     }
 

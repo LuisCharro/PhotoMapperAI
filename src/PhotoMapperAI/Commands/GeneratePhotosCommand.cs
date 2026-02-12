@@ -11,6 +11,16 @@ namespace PhotoMapperAI.Commands;
 /// <summary>
 /// GeneratePhotos command - generate portraits with face detection
 /// </summary>
+public class GeneratePhotosResult
+{
+    public int ExitCode { get; set; }
+    public int TotalPlayers { get; set; }
+    public int ProcessedPlayers { get; set; }
+    public int PortraitsGenerated { get; set; }
+    public int PortraitsFailed { get; set; }
+    public bool IsCancelled { get; set; }
+}
+
 public class GeneratePhotosCommandLogic
 {
     private readonly IFaceDetectionService _faceDetectionService;
@@ -46,6 +56,46 @@ public class GeneratePhotosCommandLogic
         bool parallel,
         int parallelDegree)
     {
+        var result = await ExecuteWithResultAsync(
+            inputCsvPath,
+            photosDir,
+            processedPhotosOutputPath,
+            format,
+            faceDetectionModel,
+            crop,
+            portraitOnly,
+            portraitWidth,
+            portraitHeight,
+            parallel,
+            parallelDegree
+        );
+
+        return result.ExitCode;
+    }
+
+    /// <summary>
+    /// Executes generation and returns detailed result metrics.
+    /// </summary>
+    public async Task<GeneratePhotosResult> ExecuteWithResultAsync(
+        string inputCsvPath,
+        string photosDir,
+        string processedPhotosOutputPath,
+        string format,
+        string faceDetectionModel,
+        string crop,
+        bool portraitOnly,
+        int portraitWidth,
+        int portraitHeight,
+        bool parallel,
+        int parallelDegree,
+        IProgress<(int processed, int total, string current)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var totalPlayers = 0;
+        var successCount = 0;
+        var failedCount = 0;
+        var processedCount = 0;
+
         Console.WriteLine("Generate Photos Command");
         Console.WriteLine("======================");
         Console.WriteLine($"CSV File: {inputCsvPath}");
@@ -76,34 +126,38 @@ public class GeneratePhotosCommandLogic
 
             // Step 3: Process each player
             var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.ExternalId)).ToList();
-            var totalPlayers = playersToProcess.Count;
-            var successCount = 0;
-            var failedCount = 0;
+            totalPlayers = playersToProcess.Count;
 
             if (totalPlayers == 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("⚠ No players with ExternalId found to process");
                 Console.ResetColor();
-                return 0;
+                return new GeneratePhotosResult
+                {
+                    ExitCode = 0,
+                    TotalPlayers = 0
+                };
             }
 
             Console.WriteLine($"Processing {totalPlayers} players...");
             Console.WriteLine();
 
-            var progress = new ProgressIndicator("Progress", totalPlayers, useBar: true);
+            var progressIndicator = new ProgressIndicator("Progress", totalPlayers, useBar: true);
 
             if (parallel)
             {
                 // Parallel processing mode
                 var options = new ParallelOptions
                 {
-                    MaxDegreeOfParallelism = parallelDegree
+                    MaxDegreeOfParallelism = parallelDegree,
+                    CancellationToken = cancellationToken
                 };
 
                 await Parallel.ForEachAsync(playersToProcess, options, async (player, cancellationToken) =>
                 {
-                    progress.Update($"{player.FullName} (ID: {player.ExternalId})");
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
 
                     var result = await ProcessPlayerAsync(
                         player,
@@ -113,8 +167,12 @@ public class GeneratePhotosCommandLogic
                         portraitWidth,
                         portraitHeight,
                         portraitOnly,
-                        faceDetectionModel
+                        faceDetectionModel,
+                        cancellationToken
                     );
+
+                    var currentProcessed = Interlocked.Increment(ref processedCount);
+                    progress?.Report((currentProcessed, totalPlayers, player.FullName));
 
                     if (result.IsSuccess)
                     {
@@ -137,7 +195,8 @@ public class GeneratePhotosCommandLogic
                 // Sequential processing mode
                 foreach (var player in playersToProcess)
                 {
-                    progress.Update($"{player.FullName} (ID: {player.ExternalId})");
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
 
                     var result = await ProcessPlayerAsync(
                         player,
@@ -147,8 +206,12 @@ public class GeneratePhotosCommandLogic
                         portraitWidth,
                         portraitHeight,
                         portraitOnly,
-                        faceDetectionModel
+                        faceDetectionModel,
+                        cancellationToken
                     );
+
+                    processedCount++;
+                    progress?.Report((processedCount, totalPlayers, player.FullName));
 
                     if (result.IsSuccess)
                     {
@@ -165,7 +228,7 @@ public class GeneratePhotosCommandLogic
                 }
             }
 
-            progress.Complete();
+            progressIndicator.Complete();
 
             Console.WriteLine();
 
@@ -184,14 +247,44 @@ public class GeneratePhotosCommandLogic
             Console.WriteLine($"✓ Generated {successCount} portraits ({failedCount} failed)");
             Console.ResetColor();
 
-            return 0;
+            return new GeneratePhotosResult
+            {
+                ExitCode = 0,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("⚠ Generation cancelled by user");
+            Console.ResetColor();
+
+            return new GeneratePhotosResult
+            {
+                ExitCode = 130,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount,
+                IsCancelled = true
+            };
         }
         catch (FileNotFoundException ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ File not found: {ex.FileName}");
             Console.ResetColor();
-            return 1;
+            return new GeneratePhotosResult
+            {
+                ExitCode = 1,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount
+            };
         }
         catch (Exception ex)
         {
@@ -199,7 +292,14 @@ public class GeneratePhotosCommandLogic
             Console.WriteLine($"✗ Error: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
             Console.ResetColor();
-            return 1;
+            return new GeneratePhotosResult
+            {
+                ExitCode = 1,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount
+            };
         }
     }
 
@@ -238,8 +338,11 @@ public class GeneratePhotosCommandLogic
         int portraitWidth,
         int portraitHeight,
         bool portraitOnly,
-        string faceDetectionModel)
+        string faceDetectionModel,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Construct input photo path - search in photosDir
         var photoFiles = Directory.GetFiles(photosDir, $"{player.ExternalId}.*")
             .Where(f => IsSupportedImageFormat(f))
