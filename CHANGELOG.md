@@ -5,20 +5,40 @@ All notable changes to PhotoMapperAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2026-02-11
+## [1.0.1] - 2026-02-12
+
+### Added
+
+- **Desktop GUI application** using Avalonia UI framework
+  - Step-by-step wizard interface (Extract → Map → Generate)
+  - Visual file browsers for all path parameters
+  - Real-time progress indicators and status updates
+  - All CLI parameters accessible via friendly UI controls
+  - Cross-platform support (Windows, macOS, Linux)
+  - ViewModels: MainWindowViewModel, ExtractStepViewModel, MapStepViewModel, GenerateStepViewModel
 
 ### Fixed
 
-- **Center crop mode** now applies upper-body crop instead of geometric center
-  - Crops from top 20% of image for full-body sports photos
-  - Produces head + neck + bit of chest (not chest + legs)
-  - Optimized for portrait framing without face detection
+- **GUI layout issue** - Separated header and step indicator into separate Grid rows
+  - Fixed overlapping "Save Session" and "Load Session" buttons
+  - Increased window width from 1000 to 1100px for better spacing
+- **Map command result type** - Added MapResult class for detailed statistics
+  - Returns PlayersProcessed, PlayersMatched, DirectIdMatches, StringMatches, AiMatches
+  - Enables GUI to display detailed mapping statistics
+- **Avalonia Font loading** - Commented out Inter font styles due to package loading issue
 
 ### Documentation
 
-- Updated README.md with portrait crop behavior details
-- Added FACE_DETECTION_GUIDE.md section explaining center vs. AI crop modes
-- Clarified that output files are named by PlayerId (internal system ID)
+- Added GUIDE.md - Complete documentation for desktop GUI application
+- Updated README.md to mention GUI option and link to GUIDE.md
+- Updated project structure to include PhotoMapperAI.UI project
+- Added GUI to feature list
+
+## [1.0.0] - 2026-02-11
+
+### Added
+
+#### Core Features
 
 ## [1.0.0] - 2026-02-11
 

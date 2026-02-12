@@ -4,7 +4,7 @@
 ![Status](https://img.shields.io/badge/status-production--ready-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-AI-powered command-line tool for mapping sports player photos to database systems. Automatically matches player names using LLMs, detects faces using multiple approaches, and generates portrait crops from full-body photos.
+AI-powered tool for mapping sports player photos to database systems. Available as both **command-line tool** and **desktop GUI application**. Automatically matches player names using LLMs, detects faces using multiple approaches, and generates portrait crops from full-body photos.
 
 ## Problem Solved
 
@@ -168,36 +168,50 @@ Use center crop fallback (last resort)
 ```
 PhotoMapperAI/
 ├── src/
-│   └── PhotoMapperAI/         # Main CLI project
-│       ├── Commands/            # CLI command handlers
-│       │   ├── ExtractCommand.cs
-│       │   ├── MapCommand.cs
-│       │   └── GeneratePhotosCommand.cs
-│       ├── Services/            # Core business logic
-│       │   ├── DatabaseExtractor.cs
-│       │   ├── PhotoMatcher.cs
-│       │   ├── FilenameParser.cs
-│       │   ├── AI/
-│       │   │   ├── INameMatchingService.cs
-│       │   │   ├── OllamaNameMatchingService.cs
-│       │   │   ├── IFaceDetectionService.cs
-│       │   │   ├── OpenCVDNNFaceDetectionService.cs
-│       │   │   ├── YOLOv8FaceDetectionService.cs
-│       │   │   ├── OllamaFaceDetectionService.cs
-│       │   │   └── ModelFactory.cs
-│       │   ├── PortraitCropper.cs
-│       │   └── IImageProcessor.cs
-│       ├── Models/              # Data models
-│       │   ├── PlayerRecord.cs
-│       │   ├── PhotoMetadata.cs
-│       │   ├── MappingResult.cs
-│       │   ├── PhotoManifest.cs
-│       │   └── FaceLandmarks.cs
-│       ├── Utils/               # Helpers
-│       │   ├── CsvHelper.cs
-│       │   ├── ConsoleHelper.cs
-│       │   └── OllamaClient.cs
-│       └── Program.cs           # Entry point
+│   ├── PhotoMapperAI/            # Main CLI project (core library)
+│   │   ├── Commands/            # CLI command handlers
+│   │   │   ├── ExtractCommand.cs
+│   │   │   ├── MapCommand.cs
+│   │   │   └── GeneratePhotosCommand.cs
+│   │   ├── Services/            # Core business logic
+│   │   │   ├── DatabaseExtractor.cs
+│   │   │   ├── PhotoMatcher.cs
+│   │   │   ├── FilenameParser.cs
+│   │   │   ├── AI/
+│   │   │   │   ├── INameMatchingService.cs
+│   │   │   │   ├── OllamaNameMatchingService.cs
+│   │   │   │   ├── IFaceDetectionService.cs
+│   │   │   │   ├── OpenCVDNNFaceDetectionService.cs
+│   │   │   │   ├── YOLOv8FaceDetectionService.cs
+│   │   │   │   ├── OllamaFaceDetectionService.cs
+│   │   │   │   └── ModelFactory.cs
+│   │   │   ├── PortraitCropper.cs
+│   │   │   └── IImageProcessor.cs
+│   │   ├── Models/              # Data models
+│   │   │   ├── PlayerRecord.cs
+│   │   │   ├── PhotoMetadata.cs
+│   │   │   ├── MappingResult.cs
+│   │   │   ├── PhotoManifest.cs
+│   │   │   └── FaceLandmarks.cs
+│   │   ├── Utils/               # Helpers
+│   │   │   ├── CsvHelper.cs
+│   │   │   ├── ConsoleHelper.cs
+│   │   │   └── OllamaClient.cs
+│   │   └── Program.cs           # CLI entry point
+│   └── PhotoMapperAI.UI/        # Desktop GUI (Avalonia)
+│       ├── ViewModels/            # MVVM ViewModels
+│       │   ├── MainWindowViewModel.cs
+│       │   ├── ExtractStepViewModel.cs
+│       │   ├── MapStepViewModel.cs
+│       │   └── GenerateStepViewModel.cs
+│       ├── Views/                # Avalonia XAML views
+│       │   ├── MainWindow.axaml
+│       │   ├── ExtractStepView.axaml
+│       │   ├── MapStepView.axaml
+│       │   └── GenerateStepView.axaml
+│       ├── App.axaml             # Application resources
+│       ├── Program.cs            # GUI entry point
+│       └── ViewLocator.cs        # ViewModel-to-View mapping
 ├── tests/                       # Unit tests + Benchmark tests
 │   └── PhotoMapperAI.Tests/
 │       ├── Models/
@@ -214,6 +228,31 @@ PhotoMapperAI/
 ```
 
 ## Getting Started
+
+PhotoMapperAI is available in two modes:
+
+### Desktop GUI Application (Recommended for Beginners)
+
+**Cross-platform desktop application** with step-by-step wizard interface.
+
+**Quick Start:**
+```bash
+# From the PhotoMapperAI directory
+dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
+```
+
+**Features:**
+- Visual step-by-step workflow (Extract → Map → Generate)
+- File browser dialogs for easy file selection
+- Real-time progress indicators
+- All CLI parameters with friendly UI controls
+- Session save/load for continuing work later (in development)
+
+**Documentation:** See [`GUIDE.md`](GUIDE.md) for complete GUI documentation.
+
+### Command-Line Interface (For Automation & Batch Processing)
+
+**Full-featured CLI** for scripting and automation.
 
 ### Prerequisites
 

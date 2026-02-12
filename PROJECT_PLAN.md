@@ -489,6 +489,8 @@ POST http://localhost:11434/api/generate
 - [x] Implement CLI argument parsing (McMaster.CommandLineUtils)
 - [x] Create base models and interfaces
 - [x] Set up dependency injection (via Logic handlers)
+- [x] Create Avalonia UI project structure
+- [x] Implement MVVM ViewModels for 3-step wizard
 
 ### Phase 2: Extract Command (Complete)
 - [x] SQL file reader
@@ -528,6 +530,32 @@ POST http://localhost:11434/api/generate
 - [x] Error handling and logging
 - [ ] Unit tests for non-AI components
 - [x] Documentation and README updates
+
+### Phase 8: Desktop GUI (In Progress)
+- [x] Create Avalonia UI project
+- [x] Implement 3-step wizard (Extract → Map → Generate)
+- [x] Create ViewModels for all steps
+- [x] Create XAML views for all steps
+- [x] Wire up all CLI parameters to UI controls
+- [x] Add file browser dialogs
+- [x] Add progress indicators
+- [x] Implement step navigation (Back/Next/Finish)
+- [ ] Implement Save/Load Session feature
+- [ ] Add diagnostic tools for model testing
+- [ ] Add preview functionality
+- [ ] Theme support (dark/light)
+- [ ] Export processing reports
+
+### Phase 9: Future Enhancements (Planned)
+- [ ] Web UI for non-technical users
+- [ ] Batch processing for multiple teams
+- [ ] Cloud LLM support (OpenAI, Anthropic)
+- [ ] Additional face detection models
+- [ ] Custom portrait dimensions presets
+- [ ] Watermarking support
+- [ ] Docker container support
+- [ ] Automated testing pipeline
+- [ ] Unit tests for non-AI components
 
 ## Environment Setup
 
