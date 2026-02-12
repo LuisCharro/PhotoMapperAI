@@ -22,7 +22,7 @@ The system uses a tiered approach to find the best centering point:
    ↓ No
 3. Face detected? → Estimate eye position from face rectangle
    ↓ No
-4. No detection? → Use upper-body crop (top 35% of image)
+4. No detection? → Use upper-body crop (top 22% of image)
 ```
 
 ### Why Eye Detection Matters
@@ -43,7 +43,7 @@ For consistent portraits, **eye detection is critical**:
 
 **How it works:**
 - Assumes full-body sports photo
-- Crops top 35% of image (head + neck + chest area)
+- Crops top 22% of image (head + neck + bit of chest area)
 - Centers horizontally on image center
 - **Limitation:** No face/eye detection, so positioning may vary
 
@@ -109,7 +109,7 @@ photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d qwen3-
 
 | Model | Face | Eyes | Speed | Horizontal Center | Vertical Center |
 |-------|------|------|-------|-------------------|-----------------|
-| center | ❌ | ❌ | Instant | Image center | Estimated (15% from top) |
+| center | ❌ | ❌ | Instant | Image center | Estimated (12% from top) |
 | opencv-dnn | ✅ | ❌ | 1-2s | Face center | Estimated (35% of face) |
 | llava:7b | ✅ | ✅ | 5-10s | **Eye midpoint** | **Actual eye Y** |
 | qwen3-vl | ✅ | ✅ | 30-60s | **Eye midpoint** | **Actual eye Y** |
@@ -162,13 +162,13 @@ photomapperai generatephotos -i test.csv -p ./photos -o ./test -d llava:7b,qwen3
 
 When using center crop mode (no face detection), the tool applies an **upper-body crop** optimized for full-body sports photos:
 
-- **Crop Position:** Top of image (starts at 2% from top with small margin)
-- **Crop Size:** 35% of source image height, maintaining target aspect ratio (2:3)
+- **Crop Position:** Top of image (eyes estimated at ~12% from top)
+- **Crop Size:** 22% of source image height, maintaining target aspect ratio (2:3)
 - **Expected Content:** Head, neck, and upper chest/shoulders (proper portrait composition)
 - **Use Case:** Fast testing when face detection is unavailable or not needed
 
 **Why upper-body crop?**
-Sports photos are typically full-body shots with players standing. Cropping from the geometric center would include too much lower body (chest + legs). The upper-body crop captures the top 35% of the image, which contains the head, neck, and upper chest - exactly what a proper portrait should show.
+Sports photos are typically full-body shots with players standing. Cropping from the geometric center would include too much lower body (chest + legs). The upper-body crop captures the top 22% of the image, which contains the head, neck, and upper chest - exactly what a proper portrait should show.
 
 **Example:**
 ```
@@ -177,8 +177,8 @@ Input: Full-body photo (e.g., 427x640 pixels)
        │   ┌─────┐       │  ← Head/face area
        │   │Face │       │
        │   └─────┘       │
-       │                 │  ← Upper 35% = Portrait crop
-       │─ ─ ─ ─ ─ ─ ─ ─ │     (head + neck + chest)
+       │                 │  ← Upper 22% = Portrait crop
+       │─ ─ ─ ─ ─ ─ ─ ─ │     (head + neck + bit of chest)
        │                 │
        │                 │  ← Lower body (not included)
        │                 │
@@ -186,7 +186,7 @@ Input: Full-body photo (e.g., 427x640 pixels)
        └─────────────────┘
 
 Output: Portrait (200x300 pixels)
-       Head + neck + upper chest/shoulders
+       Head + neck + bit of chest
        Face occupies ~45-50% of vertical space
 ```
 

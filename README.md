@@ -91,7 +91,7 @@ PhotoMapperAI generatePhotos \
 
 > **Note:** Portrait crop behavior:
 > - **With AI face detection:** Crops around eyes/face for optimal framing (head + neck + bit of chest)
-> - **Center mode (no AI):** Crops from upper portion of image (top 35% of height) assuming full-body sports photos. This captures head + neck + upper chest for proper portrait composition.
+> - **Center mode (no AI):** Crops from upper portion of image (top 22% of height) assuming full-body sports photos. This captures head + neck + bit of chest for proper portrait composition.
 > - All portraits are resized to exact dimensions (default: 200x300 pixels)
 >
 > **See:** [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.
@@ -500,7 +500,7 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 | `llava:7b` | Ollama LLaVA 7B vision model (LLM-based) |
 | `qwen3-vl` | Ollama Qwen3-VL vision model (LLM-based, best for angles) |
 | `haar-cascade` | OpenCV Haar Cascade (fastest, may have macOS issues) |
-| `center` | No AI, upper-body crop from top 35% |
+| `center` | No AI, upper-body crop from top 22% |
 | Comma-separated | Fallback chain, e.g., `llava:7b,qwen3-vl,center` |
 
 ### Benchmark

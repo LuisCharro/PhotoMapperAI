@@ -175,17 +175,24 @@ public class ImageProcessor : IImageProcessor
             eyeY = faceRect.Y + (int)(faceRect.Height * 0.35);
         }
         
-        // Case 4: No face detected - use upper portion of image
+        // Case 4: No face detected - use upper portion of image (center crop mode)
         else
         {
-            // Fallback to image-based dimensions
-            cropHeight = (int)(imageHeight * 0.35);
+            // For full-body sports photos, the face is typically in the upper 20% of the image.
+            // We want a portrait showing: bit of space + head + neck + bit of chest
+            // This is approximately 20-25% of the total image height for full-body photos.
+            
+            // Use a smaller crop height for proper portrait composition
+            cropHeight = (int)(imageHeight * 0.22);  // 22% of image height
             cropWidth = (int)(cropHeight * targetAspectRatio);
             
             // Center horizontally
             centerX = imageWidth / 2;
-            // Estimate eyes at ~15% from top of image (typical for full-body sports photos)
-            eyeY = (int)(imageHeight * 0.15);
+            
+            // Position crop at upper portion of image
+            // For full-body photos, face is typically at 10-15% from top
+            // We want the crop to start near the top to capture head + neck + bit of chest
+            eyeY = (int)(imageHeight * 0.12);  // Eyes at ~12% from top
         }
 
         // If the photo is already a portrait, just use the full image dimensions

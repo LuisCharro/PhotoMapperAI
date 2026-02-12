@@ -1,0 +1,144 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PhotoMapperAI.UI.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             x:Class="PhotoMapperAI.UI.Views.MapStepView"
+             x:DataType="vm:MapStepViewModel">
+
+  <Design.DataContext>
+    <vm:MapStepViewModel/>
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="20">
+      <!-- Header -->
+      <TextBlock Text="Step 2: Map Photos to Players" 
+                 FontSize="24" FontWeight="Bold" 
+                 Foreground="#1976D2"/>
+      <TextBlock Text="Match photos to player records using AI-powered name matching. The CSV from Step 1 will be updated with photo mappings."
+                 FontSize="14" Foreground="#666" TextWrapping="Wrap"/>
+
+      <Separator Margin="0,8"/>
+
+      <!-- CSV File Selection -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Select the CSV file from Step 1 (or a previously saved session)"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 
+                     Watermark="Path to CSV file..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseCsvFile_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Photos Directory -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📁 Photos Directory" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Select the directory containing player photos"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" Text="{Binding PhotosDirectory}" 
+                     Watermark="Path to photos directory..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowsePhotosDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Options Grid -->
+      <Grid ColumnDefinitions="*,*" Margin="0,8">
+        <!-- Name Model -->
+        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
+          <StackPanel Spacing="12">
+            <TextBlock Text="🤖 AI Model for Name Matching" FontSize="16" FontWeight="SemiBold"/>
+            <ComboBox ItemsSource="{Binding NameModels}" 
+                      SelectedItem="{Binding NameModel}"
+                      HorizontalAlignment="Stretch" Height="36"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Confidence Threshold -->
+        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="8,0,0,0">
+          <StackPanel Spacing="12">
+            <TextBlock Text="📊 Confidence Threshold" FontSize="16" FontWeight="SemiBold"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <Slider Grid.Column="0" Value="{Binding ConfidenceThreshold}" 
+                      Minimum="0.5" Maximum="1.0" 
+                      TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+              <TextBlock Grid.Column="1" Text="{Binding ConfidenceThreshold, StringFormat={}{0:F2}}"
+                         Width="40" VerticalAlignment="Center"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Advanced Options -->
+      <Expander Header="Advanced Options" IsExpanded="False">
+        <Border Background="#FAFAFA" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+          <StackPanel Spacing="12">
+            <CheckBox Content="Use Photo Manifest File" 
+                      IsChecked="{Binding UsePhotoManifest}"/>
+            
+            <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding UsePhotoManifest}">
+              <TextBox Grid.Column="0" Text="{Binding PhotoManifestPath}" 
+                       Watermark="Path to photo manifest JSON..."
+                       IsReadOnly="True" Height="36"/>
+              <Button Grid.Column="1" Content="Browse" 
+                      Click="BrowsePhotoManifest_Click"
+                      Margin="8,0,0,0" Padding="16,8"/>
+            </Grid>
+
+            <TextBox Text="{Binding FilenamePattern}" 
+                     Watermark="Filename pattern (e.g., {id}_{family}_{sur}.png)"
+                     Height="36"/>
+          </StackPanel>
+        </Border>
+      </Expander>
+
+      <!-- Execute Button -->
+      <Button Content="▶ Map Photos" 
+              Command="{Binding ExecuteMapCommand}"
+              IsEnabled="{Binding !IsProcessing}"
+              Background="#4CAF50" Foreground="White"
+              FontSize="16" Padding="24,12"
+              HorizontalAlignment="Center"/>
+
+      <!-- Status -->
+      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+              IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding ProcessingStatus}" 
+                     FontSize="14" TextWrapping="Wrap"/>
+          <ProgressBar IsIndeterminate="True" 
+                       IsVisible="{Binding IsProcessing}"
+                       Height="4"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Success indicator -->
+      <Border Background="#E8F5E9" CornerRadius="8" Padding="16"
+              IsVisible="{Binding IsComplete}">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="✓" FontSize="20" Foreground="#4CAF50"/>
+            <TextBlock Text="{Binding PlayersMatched, StringFormat='Successfully matched {0} players'}"
+                       FontSize="14" Foreground="#2E7D32"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PlayersProcessed, StringFormat='Total players processed: {0}'}"
+                     FontSize="12" Foreground="#666"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
