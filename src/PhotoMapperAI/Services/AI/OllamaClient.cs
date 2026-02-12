@@ -36,6 +36,8 @@ public class OllamaClient
         string? systemPrompt = null,
         double temperature = 0.3)
     {
+        await EnsureSingleActiveModelAsync(modelName);
+
         var requestBody = new
         {
             model = modelName,
@@ -90,6 +92,8 @@ public class OllamaClient
         string prompt,
         CancellationToken cancellationToken = default)
     {
+        await EnsureSingleActiveModelAsync(modelName, cancellationToken);
+
         // Convert image to base64
         var imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
         var base64Image = Convert.ToBase64String(imageBytes);
@@ -165,6 +169,89 @@ public class OllamaClient
         }
     }
 
+    /// <summary>
+    /// Ensures only one model is active in Ollama:
+    /// - If no model is loaded: do nothing
+    /// - If requested model is already loaded: do nothing
+    /// - If other models are loaded: unload them before the request
+    /// </summary>
+    private async Task EnsureSingleActiveModelAsync(string requiredModel, CancellationToken cancellationToken = default)
+    {
+        var runningModels = await GetRunningModelsAsync(cancellationToken);
+
+        if (runningModels.Count == 0)
+            return;
+
+        // If only the required model is running, no action needed.
+        if (runningModels.Count == 1 && runningModels.Contains(requiredModel, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        // Keep required model if already loaded; unload everything else.
+        var toUnload = runningModels
+            .Where(m => !string.Equals(m, requiredModel, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var model in toUnload)
+        {
+            await UnloadModelAsync(model, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Returns currently loaded/running models from Ollama.
+    /// </summary>
+    private async Task<List<string>> GetRunningModelsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{_baseUrl}/api/ps", cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            var data = JsonSerializer.Deserialize<OllamaPsResponse>(responseJson);
+
+            var models = new List<string>();
+            if (data?.Models == null)
+                return models;
+
+            foreach (var m in data.Models)
+            {
+                if (!string.IsNullOrWhiteSpace(m.Name))
+                    models.Add(m.Name);
+                else if (!string.IsNullOrWhiteSpace(m.Model))
+                    models.Add(m.Model);
+            }
+
+            return models.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        catch
+        {
+            // Best effort: if ps endpoint is unavailable, continue without model management.
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Unloads a model from Ollama memory.
+    /// </summary>
+    private async Task UnloadModelAsync(string modelName, CancellationToken cancellationToken = default)
+    {
+        var requestBody = new
+        {
+            model = modelName,
+            prompt = string.Empty,
+            stream = false,
+            keep_alive = 0
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/generate", content, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     #region Response Models
 
     private class OllamaResponse
@@ -195,6 +282,22 @@ public class OllamaClient
     {
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+    }
+
+    private class OllamaPsResponse
+    {
+        [JsonPropertyName("models")]
+        public List<OllamaPsModel>? Models { get; set; }
+    }
+
+    private class OllamaPsModel
+    {
+        // Depending on Ollama version, /api/ps may expose "name" or "model".
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("model")]
+        public string? Model { get; set; }
     }
 
     #endregion
