@@ -141,6 +141,29 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    [RelayCommand]
+    private async Task ExportReport()
+    {
+        try
+        {
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var reportsDir = Path.Combine(appDataPath, "PhotoMapperAI", "reports");
+            Directory.CreateDirectory(reportsDir);
+
+            var fileName = $"report-{DateTime.Now:yyyyMMdd-HHmmss}.md";
+            var reportPath = Path.Combine(reportsDir, fileName);
+
+            var report = BuildMarkdownReport();
+            await File.WriteAllTextAsync(reportPath, report);
+
+            StatusMessage = $"Report exported: {reportPath}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to export report: {ex.Message}";
+        }
+    }
+
     private SessionState BuildSessionState()
     {
         return new SessionState
@@ -223,6 +246,54 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(CanGoNext));
         }
+    }
+
+    private string BuildMarkdownReport()
+    {
+        var generatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+        return $"""
+# PhotoMapperAI Processing Report
+
+Generated at: {generatedAt}
+Current step: {CurrentStep}
+
+## Step 1 - Extract
+- Completed: {_extractStep.IsComplete}
+- SQL file: {_extractStep.SqlFilePath}
+- Connection string file: {_extractStep.ConnectionStringPath}
+- Team ID: {_extractStep.TeamId}
+- Output file name: {_extractStep.OutputFileName}
+- Database type: {_extractStep.DatabaseType}
+- Players extracted: {_extractStep.PlayersExtracted}
+- Status: {_extractStep.ProcessingStatus}
+
+## Step 2 - Map
+- Completed: {_mapStep.IsComplete}
+- Input CSV: {_mapStep.InputCsvPath}
+- Photos directory: {_mapStep.PhotosDirectory}
+- Filename pattern: {_mapStep.FilenamePattern}
+- Use photo manifest: {_mapStep.UsePhotoManifest}
+- Photo manifest path: {_mapStep.PhotoManifestPath}
+- Name model: {_mapStep.NameModel}
+- Confidence threshold: {_mapStep.ConfidenceThreshold}
+- Players processed: {_mapStep.PlayersProcessed}
+- Players matched: {_mapStep.PlayersMatched}
+- Status: {_mapStep.ProcessingStatus}
+
+## Step 3 - Generate
+- Completed: {_generateStep.IsComplete}
+- Input CSV: {_generateStep.InputCsvPath}
+- Photos directory: {_generateStep.PhotosDirectory}
+- Output directory: {_generateStep.OutputDirectory}
+- Image format: {_generateStep.ImageFormat}
+- Face detection model: {_generateStep.FaceDetectionModel}
+- Portrait size: {_generateStep.PortraitWidth}x{_generateStep.PortraitHeight}
+- Portrait only: {_generateStep.PortraitOnly}
+- Portraits generated: {_generateStep.PortraitsGenerated}
+- Portraits failed: {_generateStep.PortraitsFailed}
+- Status: {_generateStep.ProcessingStatus}
+""";
     }
 
     private void UpdateCurrentView()

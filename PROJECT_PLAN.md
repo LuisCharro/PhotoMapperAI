@@ -545,7 +545,7 @@ POST http://localhost:11434/api/generate
 - [x] Add diagnostic tools for model testing (model availability checks in Map/Generate steps)
 - [x] Add preview functionality (Generate step source-image preview)
 - [ ] Theme support (dark/light)
-- [ ] Export processing reports
+- [x] Export processing reports (GUI header action exports markdown report)
 
 #### Phase 8.1: Bug Fixes & Improvements (Required)
 - [x] **Fix GenerateStepViewModel result handling** - `PortraitsGenerated` and `PortraitsFailed` are populated from command result

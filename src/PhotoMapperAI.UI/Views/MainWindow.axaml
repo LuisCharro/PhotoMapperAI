@@ -31,6 +31,8 @@
                   Background="#2196F3" Foreground="White" Padding="12,6"/>
           <Button Content="📂 Load Session" Command="{Binding LoadSessionCommand}"
                   Background="#2196F3" Foreground="White" Padding="12,6"/>
+          <Button Content="📄 Export Report" Command="{Binding ExportReportCommand}"
+                  Background="#2196F3" Foreground="White" Padding="12,6"/>
         </StackPanel>
       </Grid>
     </Border>
