@@ -540,17 +540,17 @@ POST http://localhost:11434/api/generate
 - [x] Add file browser dialogs
 - [x] Add progress indicators
 - [x] Implement step navigation (Back/Next/Finish)
-- [ ] Implement Save/Load Session feature
+- [x] Implement Save/Load Session feature (default app-data path)
 - [ ] Add diagnostic tools for model testing
 - [ ] Add preview functionality
 - [ ] Theme support (dark/light)
 - [ ] Export processing reports
 
 #### Phase 8.1: Bug Fixes & Improvements (Required)
-- [ ] **Fix GenerateStepViewModel result handling** - `PortraitsGenerated` and `PortraitsFailed` are not populated from `result` object
-- [ ] **Implement progress reporting** - Progress property exists but isn't updated during processing
-- [ ] **Add cancellation support** - Allow users to cancel long-running operations
-- [ ] **Remove duplicate MapResult class** - MapStepViewModel.cs defines MapResult but core project also has one
+- [x] **Fix GenerateStepViewModel result handling** - `PortraitsGenerated` and `PortraitsFailed` are populated from command result
+- [x] **Implement progress reporting** - Determinate progress added for map and generate workflows
+- [x] **Add cancellation support** - Map and generate support cancellation in UI and command logic
+- [x] **Remove duplicate MapResult class** - UI now uses shared command-layer `MapResult`
 
 ### Phase 9: Future Enhancements (Planned)
 - [ ] Web UI for non-technical users

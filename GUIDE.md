@@ -174,35 +174,35 @@ Generate portrait photos from full-body images using face detection.
 
 Save your current progress to continue later.
 
-**Status:** 🚧 **Under Development** (feature placeholder exists, implementation pending)
+**Status:** ✅ **Implemented** (saved to default app-data location)
 
-**Planned Features:**
-- Save all step configurations to JSON file
-- Save step completion status
-- Save file paths and parameter values
-- Save processing results (player counts, statistics)
+**Current Behavior:**
+- Saves all step configurations to JSON
+- Saves step completion status
+- Saves key processing results (counts/statistics)
+- Default path:
+  - macOS: `~/Library/Application Support/PhotoMapperAI/session.json`
+  - Windows: `%AppData%\\PhotoMapperAI\\session.json`
 
 **Usage:**
 1. Click "💾 Save Session" in header bar
-2. Choose session file location
-3. Session saved as `.session.json`
+2. Session is saved to default app-data location
 
 ### Load Session
 
 Restore a previously saved session.
 
-**Status:** 🚧 **Under Development** (feature placeholder exists, implementation pending)
+**Status:** ✅ **Implemented** (loads from default app-data location)
 
-**Planned Features:**
-- Load all configurations from session file
-- Restore step completion status
-- Restore file paths and parameter values
-- Display saved processing results
+**Current Behavior:**
+- Loads all saved configurations from JSON
+- Restores step completion status
+- Restores file paths, parameters, and saved counters
 
 **Usage:**
 1. Click "📂 Load Session" in header bar
-2. Select previously saved `.session.json` file
-3. All configurations and progress restored
+2. App loads the session from default app-data location
+3. All configurations and progress are restored
 
 ## Navigation
 
@@ -293,7 +293,7 @@ PhotoMapperAI.UI/
 
 ### Future Enhancements
 
-- [ ] Implement Save/Load Session feature
+- [x] Implement Save/Load Session feature (default path)
 - [ ] Add batch processing for multiple teams
 - [ ] Add diagnostic tools for model testing
 - [ ] Support custom portrait size presets
@@ -305,26 +305,8 @@ PhotoMapperAI.UI/
 
 ### Code Issues (from review)
 
-1. **GenerateStepViewModel.cs:131** - Result not properly used:
-   ```csharp
-   // Current (bug):
-   ProcessingStatus = $"✓ Generated {PortraitsGenerated} portraits ({PortraitsFailed} failed)";
-   
-   // Should be:
-   PortraitsGenerated = result.PortraitsGenerated;
-   PortraitsFailed = result.PortraitsFailed;
-   ProcessingStatus = $"✓ Generated {PortraitsGenerated} portraits ({PortraitsFailed} failed)";
-   ```
-
-2. **MapStepViewModel.cs:127-131** - Duplicate `MapResult` class:
-   - This class duplicates the `MapResult` already defined in `PhotoMapperAI/Commands/MapCommand.cs`
-   - Should use the shared model instead
-
-3. **Progress reporting** - `Progress` property in GenerateStepViewModel is never updated during processing. Consider using `IProgress<T>` or events from the command logic.
-
-4. **Cancellation support** - Long-running operations should support cancellation via `CancellationToken`.
-
-5. **Session UX mismatch** - `SessionState` model exists, but Save/Load commands in `MainWindowViewModel` are still TODO placeholders. Keep labels and status copy explicit until behavior is wired.
+1. **Session file picker UX** - Save/Load uses default app-data path only. Add file picker if explicit path control is required.
+2. **Dependency wiring** - ViewModels still construct services directly instead of using DI container.
 
 ### Architecture Suggestions
 
