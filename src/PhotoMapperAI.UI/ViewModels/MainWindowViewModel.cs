@@ -2,8 +2,10 @@
 using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.UI.Models;
@@ -27,6 +29,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _currentStepDescription = "Step 1: Extract player data from database to CSV";
+
+    [ObservableProperty]
+    private bool _isDarkTheme;
+
+    public string ThemeToggleText => IsDarkTheme ? "☀️ Light" : "🌙 Dark";
 
     public MainWindowViewModel()
     {
@@ -162,6 +169,22 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             StatusMessage = $"Failed to export report: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        IsDarkTheme = !IsDarkTheme;
+
+        if (Application.Current != null)
+        {
+            Application.Current.RequestedThemeVariant = IsDarkTheme
+                ? ThemeVariant.Dark
+                : ThemeVariant.Light;
+        }
+
+        OnPropertyChanged(nameof(ThemeToggleText));
+        StatusMessage = $"Theme changed to {(IsDarkTheme ? "Dark" : "Light")}";
     }
 
     private SessionState BuildSessionState()

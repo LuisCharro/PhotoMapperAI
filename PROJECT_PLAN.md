@@ -544,7 +544,7 @@ POST http://localhost:11434/api/generate
 - [x] Implement Save/Load Session feature (default app-data path)
 - [x] Add diagnostic tools for model testing (model availability checks in Map/Generate steps)
 - [x] Add preview functionality (Generate step source-image preview)
-- [ ] Theme support (dark/light)
+- [x] Theme support (dark/light toggle in GUI header)
 - [x] Export processing reports (GUI header action exports markdown report)
 
 #### Phase 8.1: Bug Fixes & Improvements (Required)
