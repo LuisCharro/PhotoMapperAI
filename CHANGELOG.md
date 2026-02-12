@@ -5,6 +5,16 @@ All notable changes to PhotoMapperAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **GUI generation result handling** - Generate step now uses command result metrics (`PortraitsGenerated`, `PortraitsFailed`) correctly
+- **GUI progress reporting** - Determinate progress updates added for map and generate workflows
+- **GUI cancellation support** - Added cancel actions for long-running map/generate operations with command-level cancellation propagation
+- **Session management wiring** - Save/Load session actions are now implemented (default app-data location)
+- **Map result model duplication** - Removed duplicate `MapResult` in UI layer; uses shared command result model
+
 ## [1.0.1] - 2026-02-12
 
 ### Added

@@ -246,12 +246,10 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 - File browser dialogs for easy file selection
 - Real-time progress indicators
 - All CLI parameters with friendly UI controls
-- Session save/load for continuing work later (in development)
+- Session save/load for continuing work later
 
-**Known Issues (v1.0.1):**
-- Progress bar not updated during portrait generation
-- Result statistics may not display correctly after generation
-- No cancellation support for long-running operations
+**Known Issues (GUI):**
+- Session save/load currently uses default app data path (no file picker yet)
 
 **Documentation:** See [`GUIDE.md`](GUIDE.md) for complete GUI documentation.
 
@@ -403,10 +401,8 @@ Test Data (local, not in repo):
 
 No critical CLI issues currently.
 
-GUI known issues (v1.0.1):
-- Progress bar is not updated during portrait generation.
-- Generation result statistics are not assigned from the command result object.
-- No cancellation support for long-running operations.
+GUI known issues:
+- Session save/load currently uses default app data path (no file picker yet).
 
 ### Planned Improvements
 

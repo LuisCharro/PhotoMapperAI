@@ -109,7 +109,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         try
         {
             // Create face detection service
-            var faceDetectionService = CreateFaceDetectionService(FaceDetectionModel);
+            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
             await faceDetectionService.InitializeAsync();
 
             // Create image processor
@@ -201,22 +201,4 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
     }
 
-    private IFaceDetectionService CreateFaceDetectionService(string model)
-    {
-        if (model.Contains(','))
-        {
-            return new FallbackFaceDetectionService(model);
-        }
-
-        return model.ToLower() switch
-        {
-            "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-            "yolov8-face" => new OpenCVDNNFaceDetectionService(),
-            "haar-cascade" or "haar" => new HaarCascadeFaceDetectionService(),
-            "center" => new CenterCropFallbackService(),
-            var ollamaModel when ollamaModel.Contains("llava") || ollamaModel.Contains("qwen3-vl") 
-                => new OllamaFaceDetectionService(modelName: model),
-            _ => throw new ArgumentException($"Unknown face detection model: {model}")
-        };
-    }
 }

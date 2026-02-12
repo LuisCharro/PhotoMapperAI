@@ -199,21 +199,12 @@ public class BenchmarkCommandLogic
         try
         {
             // Create and initialize service
-            IFaceDetectionService? service = modelName.ToLower() switch
+            var service = FaceDetectionServiceFactory.Create(modelName, allowFallbackChain: false);
+            var initialized = await service.InitializeAsync();
+            if (!initialized)
             {
-                "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-                var ollama when modelName.Contains("llava") || modelName.Contains("qwen") => new OllamaFaceDetectionService(modelName: modelName),
-                _ => throw new ArgumentException($"Unknown face detection model: {modelName}")
-            };
-
-            if (service is OpenCVDNNFaceDetectionService cvService)
-            {
-                var initialized = await cvService.InitializeAsync();
-                if (!initialized)
-                {
-                    result.Error = "Failed to initialize OpenCV DNN";
-                    return result;
-                }
+                result.Error = $"Failed to initialize model: {modelName}";
+                return result;
             }
 
             // Load test images
