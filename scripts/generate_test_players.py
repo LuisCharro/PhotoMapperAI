@@ -4,8 +4,6 @@ Generate synthetic player CSV from FIFA photos for PhotoMapperAI testing.
 Matches the SQL schema expected by the extract command.
 """
 
-import os
-import re
 import random
 import csv
 from pathlib import Path
@@ -64,9 +62,11 @@ def generate_team_id(team_name):
     return team_ids.get(team_name, 1)
 
 def main():
+    base_dir = Path('/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation')
+
     # Photo directories
-    spain_dir = Path('/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Spain')
-    switzerland_dir = Path('/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Switzerland')
+    spain_dir = base_dir / 'inputs' / 'Spain'
+    switzerland_dir = base_dir / 'inputs' / 'Switzerland'
 
     players = []
 
@@ -90,7 +90,8 @@ def main():
     players.sort(key=lambda p: (p['TeamId'], p['FamilyName'], p['SurName']))
 
     # Write CSV (matches extract command output format)
-    output_file = Path('/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/players_test.csv')
+    output_file = base_dir / 'metadata' / 'players_test.csv'
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=[

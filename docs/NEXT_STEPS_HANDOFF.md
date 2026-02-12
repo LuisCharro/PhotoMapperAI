@@ -76,3 +76,18 @@ dotnet build src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 dotnet test tests/PhotoMapperAI.Tests/PhotoMapperAI.Tests.csproj
 ```
 
+## External Private Dataset Harness
+
+For private real data outside this repo (not committed), use:
+- Config template: `samples/external_validation.config.template.json`
+- Runner: `scripts/run_external_validation.py`
+
+Command:
+
+```bash
+python3 scripts/run_external_validation.py --config <your-local-config.json>
+```
+
+Recommendation:
+- Copy template to a local file (for example `external_validation.local.config.json`) and adjust paths.
+- Keep local config out of git (`*.local.config.json` is ignored).

@@ -611,6 +611,7 @@ ollama pull qwen3-vl:7b
 - ✅ Automated CI pipeline for cross-platform build/test (GitHub Actions on macOS + Windows)
 - ✅ Name-model provider abstraction started (`ollama:`, `openai:`, `anthropic:` routing via factory; cloud providers scaffolded)
 - ✅ Ollama local model policy refined: unload only conflicting local models and ignore `:cloud` running models
+- ✅ External private-data validation harness added (config template + runner script + report output)
 - 🚧 Benchmark and test-data maturity still in progress
 
 **Immediate Next Steps:**

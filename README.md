@@ -131,6 +131,50 @@ PhotoMapperAI benchmark-compare \
   --faceModel opencv-dnn
 ```
 
+## External Real-Data Validation (No Data Commit)
+
+If you keep private test data outside this repo (for example in `PhotoMapperAI_ExternalData`), use:
+
+1. Config template: `samples/external_validation.config.template.json`
+2. Runner script: `scripts/run_external_validation.py`
+
+Example:
+
+```bash
+python3 scripts/run_external_validation.py --config samples/external_validation.config.template.json
+```
+
+This will:
+- prepare team CSVs (from source players CSV, or synthesize from filenames if needed),
+- run `map`,
+- run `generatephotos`,
+- compare generated portrait IDs against expected portrait IDs,
+- write a report in the configured `outputRoot`.
+
+### Validation Suite Runner (Overwrite + All/Single Preset)
+
+To run the predefined validation presets and always overwrite previous results:
+
+```bash
+# Run all presets:
+python3 scripts/run_validation_suite.py --run all
+
+# Run only one preset:
+python3 scripts/run_validation_suite.py --run opencv
+python3 scripts/run_validation_suite.py --run llava
+```
+
+Preset keys:
+- `run`
+- `opencv`
+- `llava`
+
+Behavior:
+- If target output folder exists, it is deleted and recreated.
+- At the end, paths to each run report/generated folders are printed for manual review.
+- A cross-run comparison report is generated at:
+  `/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/validation_runs_comparison.md`
+
 ## Architecture
 
 ### Modular AI Services

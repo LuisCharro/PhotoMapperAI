@@ -81,6 +81,7 @@ portraits-*/
 test_photos/
 test_portraits/
 test_output_*/
+*.local.config.json
 
 # Photo directory (test photos)
 photos/*.png
