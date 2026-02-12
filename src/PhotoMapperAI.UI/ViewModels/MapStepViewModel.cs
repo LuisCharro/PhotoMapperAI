@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -53,6 +54,12 @@ public partial class MapStepViewModel : ViewModelBase
     [ObservableProperty]
     private double _progress;
 
+    [ObservableProperty]
+    private bool _isCheckingModel;
+
+    [ObservableProperty]
+    private string _modelDiagnosticStatus = string.Empty;
+
     public List<string> NameModels { get; } = new()
     {
         "qwen2.5:7b",
@@ -76,6 +83,41 @@ public partial class MapStepViewModel : ViewModelBase
     private async Task BrowsePhotoManifest()
     {
         await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task CheckNameModel()
+    {
+        if (IsProcessing)
+            return;
+
+        IsCheckingModel = true;
+        ModelDiagnosticStatus = $"Checking model '{NameModel}'...";
+
+        try
+        {
+            var client = new OllamaClient();
+            var available = await client.IsAvailableAsync();
+            if (!available)
+            {
+                ModelDiagnosticStatus = "✗ Ollama server is not reachable (http://localhost:11434)";
+                return;
+            }
+
+            var models = await client.GetAvailableModelsAsync();
+            var exists = models.Any(m => string.Equals(m, NameModel, StringComparison.OrdinalIgnoreCase));
+            ModelDiagnosticStatus = exists
+                ? $"✓ Model available: {NameModel}"
+                : $"✗ Model not found in Ollama: {NameModel}";
+        }
+        catch (Exception ex)
+        {
+            ModelDiagnosticStatus = $"✗ Model check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingModel = false;
+        }
     }
 
     [RelayCommand]

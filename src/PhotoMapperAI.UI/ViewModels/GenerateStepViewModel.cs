@@ -56,6 +56,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private double _progress;
 
+    [ObservableProperty]
+    private bool _isCheckingModel;
+
+    [ObservableProperty]
+    private string _modelDiagnosticStatus = string.Empty;
+
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
 
     public List<string> FaceDetectionModels { get; } = new()
@@ -85,6 +91,34 @@ public partial class GenerateStepViewModel : ViewModelBase
     private async Task BrowseOutputDirectory()
     {
         await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task CheckFaceModel()
+    {
+        if (IsProcessing)
+            return;
+
+        IsCheckingModel = true;
+        ModelDiagnosticStatus = $"Checking model '{FaceDetectionModel}'...";
+
+        try
+        {
+            var service = FaceDetectionServiceFactory.Create(FaceDetectionModel);
+            var initialized = await service.InitializeAsync();
+
+            ModelDiagnosticStatus = initialized
+                ? $"✓ Face detection model ready: {FaceDetectionModel}"
+                : $"✗ Face detection model unavailable: {FaceDetectionModel}";
+        }
+        catch (Exception ex)
+        {
+            ModelDiagnosticStatus = $"✗ Model check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingModel = false;
+        }
     }
 
     [RelayCommand]
