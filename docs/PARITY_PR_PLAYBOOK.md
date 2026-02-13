@@ -25,6 +25,17 @@ Why this order:
 - 3 introduces CLI parity contract.
 - 4 builds UI behavior on top of stable CLI behavior.
 
+## Merge automation
+
+Use the helper script to wait for checks and merge in order:
+
+```bash
+./scripts/ops/merge_parity_prs.sh         # dry-run (default)
+./scripts/ops/merge_parity_prs.sh --apply # perform merges
+```
+
+CI snapshot (2026-02-13 late evening): all four PRs reached green status in dry-run verification.
+
 ---
 
 ## PR checklist template (copy into each PR)
