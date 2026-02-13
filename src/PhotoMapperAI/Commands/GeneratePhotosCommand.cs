@@ -420,9 +420,10 @@ public class GeneratePhotosCommandLogic
 
             // Step 5: Generate portrait
             var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
-            // Load and crop image
-            var image = await _imageProcessor.LoadImageAsync(photoPath);
-            var cropped = await _imageProcessor.CropPortraitAsync(
+
+            // Load/crop/save with deterministic disposal to avoid memory pressure in large runs.
+            using var image = await _imageProcessor.LoadImageAsync(photoPath);
+            using var cropped = await _imageProcessor.CropPortraitAsync(
                 image,
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                 portraitWidth,
