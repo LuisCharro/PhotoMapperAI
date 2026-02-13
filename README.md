@@ -555,6 +555,10 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 | llava:7b | 88% | 1100 | Text+vision tasks |
 | llama3.2:3b | 85% | 520 | Speed-critical |
 
+Operational note for MAP command:
+- For hosted OpenAI mapping, see `/Users/luis/Repos/PhotoMapperAI/docs/NAME_MAPPING_PIPELINE.md` (`OpenAI gpt-4.1 Cost/Quality Snapshot`).
+- Latest validated Denmark run shows deterministic+AI flow (`-a -ap`, no `--aiOnly`) reached better quality and much lower token cost than `--aiOnly`.
+
 ### Face Detection Approaches
 
 | Model | Face Detection | Both Eyes | Speed (ms) | Use Case |

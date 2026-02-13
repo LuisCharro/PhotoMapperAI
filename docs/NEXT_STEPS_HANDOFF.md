@@ -1,6 +1,6 @@
 # Next Steps Handoff
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 This file is the single source of truth for "what is left" for any agent continuing work.
 
@@ -37,13 +37,13 @@ Important:
 - GUI: implemented and working (3-step flow + diagnostics + session + reporting)
 - CI: implemented (`.github/workflows/dotnet-ci.yml`) for macOS + Windows
 - Ollama policy: implemented for local-only unload behavior, cloud models (`:cloud`) ignored
-- Cloud provider abstraction: scaffolded (`openai:`, `anthropic:`) but API calls are not implemented yet
+- Cloud provider integration: implemented for `openai:` and `anthropic:` name matching
 
 ## Pending Work (Priority Order)
 
 1. Run Windows benchmark and compare with macOS baseline
 2. Expand face benchmark dataset (beyond current 5 labeled images)
-3. Implement real OpenAI and Anthropic API integration
+3. Add additional hosted name-matching providers (priority: Cerebras, OpenRouter, Groq) with provider-specific auth/diagnostics
 4. Choose and execute next product feature (batch processing, Docker, portrait presets, etc.)
 
 ## Required: Model and File Checks
@@ -90,22 +90,50 @@ Done criteria:
 - Benchmark run on macOS and Windows with updated dataset
 - Findings documented in `docs/MODEL_BENCHMARKS.md`
 
-## Task 3: Real Cloud Provider Integration
+## Task 3: Additional Hosted Provider Integration (Cerebras/OpenRouter/Groq Priority)
 
 Current scaffold files:
 - `src/PhotoMapperAI/Services/AI/OpenAINameMatchingService.cs`
 - `src/PhotoMapperAI/Services/AI/AnthropicNameMatchingService.cs`
+- `src/PhotoMapperAI/Services/AI/NameMatchingServiceFactory.cs`
 
 Required implementation:
-- Replace placeholder responses with real HTTP client calls
-- Use `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`
+- Add one or more new providers with free-tier options (starting with Cerebras, OpenRouter, and Groq)
+- Keep provider prefix routing via `-nameModel` (for example `cerebras:<model>`)
+- Implement key handling and preflight checks (CLI + GUI memory-only overrides)
 - Keep `INameMatchingService` contract unchanged
-- Preserve fallback/error metadata behavior
+- Preserve usage metadata extraction (`usage_prompt_tokens`, `usage_completion_tokens`, `usage_total_tokens`)
+- Add explicit error handling for provider quota/limit errors similar to current Ollama/OpenAI behavior
+
+Initial Cerebras candidate models to benchmark (from local Kilo provider UI snapshot):
+- `zai-glm-4.7`
+- `qwen-3-235b-a22b-instruct-2507`
+- `llama-3.3-70b`
+- `qwen-3-32b`
+- `gpt-oss-120b`
+
+Initial OpenRouter candidate models to benchmark (free-tier options from local Kilo provider UI snapshot):
+- `z-ai/glm-4.5-air:free`
+- `openrouter/free`
+- `stepfun/step-3.5-flash:free`
+- `arcee-ai/trinity-large-preview:free`
+- `arcee-ai/trinity-mini:free`
+- `deepseek/deepseek-r1-0528:free`
+- `google/gemma-3-12b-it:free`
+- `google/gemma-3-27b-it:free`
+- `google/gemma-3-4b-it:free`
+
+Initial Groq candidate models to benchmark (free-tier focused):
+- `openai/gpt-oss-20b`
+- `openai/gpt-oss-120b`
+- `meta-llama/llama-3.3-70b-versatile`
+- `deepseek-r1-distill-llama-70b`
 
 Done criteria:
-- `openai:<model>` and `anthropic:<model>` complete real comparisons
+- At least one new provider (`cerebras:<model>`, `openrouter:<model>`, or `groq:<model>`) runs end-to-end in MAP command
 - Unit tests for success/failure/configuration missing scenarios
 - README usage examples validated
+- Benchmark note added in `docs/NAME_MAPPING_PIPELINE.md` (quality + cost snapshot)
 
 ## Quick Validation Checklist
 

@@ -182,6 +182,37 @@ The following is a local benchmark snapshot from the built-in map-reference harn
 - Alternative for targeted experiments: `qwen2.5-coder:7b-instruct-q4_K_M`
 - Avoid for unattended batch runs (current setup): `qwen3:8b` unless timeout/serving behavior is improved
 
+## OpenAI `gpt-4.1` Cost/Quality Snapshot (MAP)
+
+Validated against trusted Denmark reference mapping (`24` players).
+Token-cost estimates use OpenAI list pricing for `gpt-4.1` as checked on February 13, 2026 (`$2.00/M` input, `$8.00/M` output).
+
+### Run A: AI-only
+
+- Config: `-n openai:gpt-4.1 -a -ap --aiOnly -t 0.8`
+- Console summary: matched `21/24`, `31` AI calls, `19,327` input tokens, `2,082` output tokens
+- Reference comparison: `21` correct, `0` wrong ID, `3` unmapped
+- Estimated API cost:
+  - Input: `19,327 * $2.00 / 1M = $0.0387`
+  - Output: `2,082 * $8.00 / 1M = $0.0167`
+  - Total: `~$0.0553`
+
+### Run B: Normal deterministic+AI flow
+
+- Config: `-n openai:gpt-4.1 -a -ap -t 0.8` (without `--aiOnly`)
+- Console summary: matched `23/24`, `3` AI calls, `1,857` input tokens, `213` output tokens
+- Reference comparison: `23` correct, `0` wrong ID, `1` unmapped
+- Estimated API cost:
+  - Input: `1,857 * $2.00 / 1M = $0.0037`
+  - Output: `213 * $8.00 / 1M = $0.0017`
+  - Total: `~$0.0054`
+
+### Interpretation
+
+- For this workload, `openai:gpt-4.1` is a practical minimum recommendation when you insist on `--aiOnly`.
+- Even with `gpt-4.1`, `--aiOnly` still underperformed normal deterministic+AI flow (`21/24` vs `23/24`) and cost about `10x` more.
+- Preferred production mode remains deterministic first + AI fallback (`-a -ap`, no `--aiOnly`).
+
 ## Ollama Cloud Candidates (Name Comparison Use Case)
 
 This section summarizes cloud models currently relevant to MAP name-comparison runs. It is intentionally focused on this task (short text-pair matching with strict precision requirements), not general coding-agent benchmarks.
@@ -221,6 +252,7 @@ In practice, a cloud model that is slightly more accurate but frequently times o
 ### Sources
 
 - Ollama model search (cloud filter): [ollama.com/search?c=cloud](https://ollama.com/search?c=cloud)
+- OpenAI pricing: [platform.openai.com/pricing](https://platform.openai.com/pricing)
 - Gemini 3 Flash Preview: [ollama.com/library/gemini-3-flash-preview:cloud](https://ollama.com/library/gemini-3-flash-preview%3Acloud)
 - Qwen3-Coder-Next: [ollama.com/library/qwen3-coder-next:cloud](https://ollama.com/library/qwen3-coder-next%3Acloud)
 - Kimi K2.5: [ollama.com/library/kimi-k2.5:cloud](https://ollama.com/library/kimi-k2.5%3Acloud)

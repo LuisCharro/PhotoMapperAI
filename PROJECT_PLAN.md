@@ -556,7 +556,7 @@ POST http://localhost:11434/api/generate
 ### Phase 9: Future Enhancements (Planned)
 - [ ] Web UI for non-technical users
 - [ ] Batch processing for multiple teams
-- [ ] Cloud LLM support (OpenAI, Anthropic)
+- [ ] Additional hosted LLM provider support (for example Cerebras/OpenRouter/Groq via provider prefix)
 - [ ] Additional face detection models
 - [ ] Custom portrait dimensions presets
 - [ ] Watermarking support
@@ -609,7 +609,7 @@ ollama pull qwen3-vl:7b
 - ✅ Shared AI and image services integrated into both CLI and GUI flows
 - ✅ GUI hardening completed (progress, cancellation, session, diagnostics, preview, report export, theme toggle)
 - ✅ Automated CI pipeline for cross-platform build/test (GitHub Actions on macOS + Windows)
-- ✅ Name-model provider abstraction started (`ollama:`, `openai:`, `anthropic:` routing via factory; cloud providers scaffolded)
+- ✅ Name-model provider abstraction active (`ollama:`, `openai:`, `anthropic:` routing via factory)
 - ✅ Ollama local model policy refined: unload only conflicting local models and ignore `:cloud` running models
 - ✅ External private-data validation harness added (config template + runner script + report output)
 - ✅ Canonical external validation suite stabilized (`run`, `opencv`, `llava`) with overwrite semantics
@@ -625,7 +625,7 @@ ollama pull qwen3-vl:7b
 **Immediate Next Steps:**
 1. Re-run face benchmarks on Windows 11 and compare against macOS baseline (`benchmark-20260212-080146.json`) using `benchmark-compare` or `scripts/run-benchmark-compare.ps1`.
 2. Expand face-image benchmark coverage beyond the current 5 labeled samples (`tests/Data/FaceDetection/face_expected.csv`) and validate on macOS + Windows.
-3. Implement real HTTP/API integration for `openai:` and `anthropic:` name providers (current scaffold returns explicit configuration/implementation errors).
+3. Add next hosted providers (`cerebras:`, `openrouter:`, `groq:`) with preflight/key wiring and benchmark validation.
 4. Prioritize next Phase 9 feature (batch processing, Docker support, or custom portrait presets).
 
 **Agent Handoff File:**
