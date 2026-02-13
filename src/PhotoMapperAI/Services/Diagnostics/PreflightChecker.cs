@@ -84,7 +84,22 @@ public static class PreflightChecker
         if (!useAi)
             return result;
 
-        var modelsToCheck = new[] { nameModel };
+        var (provider, model) = ParseProviderAndModel(nameModel);
+        if (provider == "openai")
+        {
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
+                result.Errors.Add("OPENAI_API_KEY is missing for OpenAI name model.");
+            return result;
+        }
+
+        if (provider is "anthropic" or "claude")
+        {
+            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")))
+                result.Errors.Add("ANTHROPIC_API_KEY is missing for Anthropic name model.");
+            return result;
+        }
+
+        var modelsToCheck = new[] { model };
         var (ollamaAvailable, missingModels) = await CheckOllamaAsync(modelsToCheck);
 
         if (!ollamaAvailable)
@@ -261,5 +276,31 @@ public static class PreflightChecker
         }
 
         return (true, missing);
+    }
+
+    private static (string Provider, string ModelName) ParseProviderAndModel(string modelIdentifier)
+    {
+        var normalized = modelIdentifier?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalized))
+            return ("ollama", string.Empty);
+
+        var separatorIndex = normalized.IndexOf(':');
+        if (separatorIndex <= 0)
+            return ("ollama", normalized);
+
+        var possibleProvider = normalized[..separatorIndex].Trim().ToLowerInvariant();
+        var remainder = normalized[(separatorIndex + 1)..].Trim();
+        var knownProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ollama",
+            "openai",
+            "anthropic",
+            "claude"
+        };
+
+        if (!knownProviders.Contains(possibleProvider))
+            return ("ollama", normalized);
+
+        return (possibleProvider, remainder);
     }
 }

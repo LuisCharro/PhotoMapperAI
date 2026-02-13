@@ -33,6 +33,13 @@ public partial class MapStepViewModel : ViewModelBase
         "minimax-m2:cloud",
         "qwen3-coder:480b-cloud"
     };
+    private static readonly string[] KnownHostedNameModels =
+    {
+        "openai:gpt-4o-mini",
+        "openai:gpt-4.1-mini",
+        "anthropic:claude-3-5-sonnet",
+        "anthropic:claude-3-5-haiku"
+    };
 
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
@@ -128,6 +135,24 @@ public partial class MapStepViewModel : ViewModelBase
 
         try
         {
+            if (IsOpenAiModel(NameModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ OPENAI_API_KEY detected. OpenAI model can be used."
+                    : "✗ OPENAI_API_KEY is missing.";
+                return;
+            }
+
+            if (IsAnthropicModel(NameModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ ANTHROPIC_API_KEY detected. Anthropic model can be used."
+                    : "✗ ANTHROPIC_API_KEY is missing.";
+                return;
+            }
+
             var client = new OllamaClient();
             var available = await client.IsAvailableAsync();
             if (!available)
@@ -328,6 +353,8 @@ public partial class MapStepViewModel : ViewModelBase
 
         foreach (var model in KnownCloudNameModels)
             merged.Add(model);
+        foreach (var model in KnownHostedNameModels)
+            merged.Add(model);
 
         var ordered = merged
             .OrderBy(model => IsCloudModel(model) ? 1 : 0)
@@ -358,4 +385,13 @@ public partial class MapStepViewModel : ViewModelBase
         => !string.IsNullOrWhiteSpace(modelName) &&
            (modelName.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase) ||
             modelName.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsOpenAiModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.StartsWith("openai:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAnthropicModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (modelName.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
+            modelName.StartsWith("claude:", StringComparison.OrdinalIgnoreCase));
 }
