@@ -30,6 +30,14 @@ Why this order:
 Use helper scripts to drive the final gate:
 
 ```bash
+# Unified wrapper
+./scripts/ops/parity_pipeline.sh status
+./scripts/ops/parity_pipeline.sh request <github-user> [more-users...]
+./scripts/ops/parity_pipeline.sh comment
+./scripts/ops/parity_pipeline.sh merge
+./scripts/ops/parity_pipeline.sh merge --apply
+
+# Low-level scripts (equivalent)
 ./scripts/ops/request_parity_reviews.sh <github-user> [more-users...]
 ./scripts/ops/check_parity_pr_merge_readiness.sh
 ./scripts/ops/merge_parity_prs.sh         # dry-run (default)

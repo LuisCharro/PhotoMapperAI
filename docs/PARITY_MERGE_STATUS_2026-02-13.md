@@ -4,6 +4,8 @@
 
 All parity PRs have passing CI checks but cannot be merged yet due to repository rule requiring one approving review.
 
+Latest verification via `./scripts/ops/parity_pipeline.sh status` still shows approvals = 0 for PRs #2..#5.
+
 ### PR readiness snapshot
 
 - PR #2 (`feature/generate-quality-fix`): ✅ checks passed, ❌ approvals: 0
