@@ -36,6 +36,21 @@ Use the helper script to wait for checks and merge in order:
 
 CI snapshot (2026-02-13 late evening): all four PRs reached green status in dry-run verification.
 
+### Merge gate currently blocking completion
+
+Repository rule currently enforces:
+- At least **1 approving review** from a reviewer with write access.
+
+Observed behavior:
+- Direct merge is blocked by base branch policy.
+- Auto-merge is disabled at repository level.
+- Admin merge also blocked due to required approval rule.
+
+Action to unblock:
+1. Add one approval to each parity PR (#2, #3, #4, #5).
+2. Run:
+   - `./scripts/ops/merge_parity_prs.sh --apply`
+
 ---
 
 ## PR checklist template (copy into each PR)
