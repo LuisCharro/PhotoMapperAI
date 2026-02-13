@@ -2,6 +2,8 @@
   "repoRoot": "/Users/luis/Repos/PhotoMapperAI",
   "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/metadata/players_test.csv",
   "outputRoot": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/Validation_Run",
+  "mapTimeoutSec": 600,
+  "generateTimeoutSec": 1200,
   "map": {
     "nameModel": "ollama:qwen2.5:7b",
     "confidenceThreshold": 0.9

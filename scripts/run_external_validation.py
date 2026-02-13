@@ -45,8 +45,19 @@ class TeamResult:
     generated_dir: Path
 
 
-def _run(cmd: List[str], cwd: Path, allow_nonzero: bool = False) -> int:
-    process = subprocess.run(cmd, cwd=str(cwd), check=False)
+def _run(
+    cmd: List[str],
+    cwd: Path,
+    allow_nonzero: bool = False,
+    timeout_sec: Optional[int] = None,
+) -> int:
+    try:
+        process = subprocess.run(cmd, cwd=str(cwd), check=False, timeout=timeout_sec)
+    except subprocess.TimeoutExpired as ex:
+        raise RuntimeError(
+            f"Command timed out after {timeout_sec}s: {' '.join(cmd)}"
+        ) from ex
+
     if process.returncode != 0 and not allow_nonzero:
         raise RuntimeError(f"Command failed ({process.returncode}): {' '.join(cmd)}")
     return process.returncode
@@ -203,6 +214,9 @@ def main() -> int:
     map_cfg = config.get("map", {})
     generate_cfg = config.get("generate", {})
 
+    map_timeout_sec = int(config.get("mapTimeoutSec", 600))
+    generate_timeout_sec = int(config.get("generateTimeoutSec", 1200))
+
     teams: List[TeamConfig] = []
     for raw in config.get("teams", []):
         teams.append(
@@ -226,6 +240,8 @@ def main() -> int:
         print(f"Repo root: {repo_root}")
         print(f"Source players CSV: {source_csv_path}")
         print(f"Output root: {output_root}")
+        print(f"Map timeout (sec): {map_timeout_sec}")
+        print(f"Generate timeout (sec): {generate_timeout_sec}")
         for t in teams:
             print(f"- Team {t.name}:")
             print(f"  photos   : {t.input_photos_dir}")
@@ -263,7 +279,7 @@ def main() -> int:
             str(map_cfg.get("confidenceThreshold", 0.9)),
         ]
         # map command currently returns matched-count as exit code, so non-zero can still mean success.
-        _run(map_cmd, cwd=team_workspace, allow_nonzero=True)
+        _run(map_cmd, cwd=team_workspace, allow_nonzero=True, timeout_sec=map_timeout_sec)
 
         mapped_csv = team_workspace / f"mapped_{team_csv.name}"
         if not mapped_csv.exists():
@@ -292,7 +308,7 @@ def main() -> int:
         ]
         if bool(generate_cfg.get("portraitOnly", False)):
             generate_cmd.append("--portraitOnly")
-        _run(generate_cmd, cwd=team_workspace)
+        _run(generate_cmd, cwd=team_workspace, timeout_sec=generate_timeout_sec)
 
         expected_ids = _list_generated_ids(team.expected_portraits_dir)
         generated_ids = _list_generated_ids(generated_out)

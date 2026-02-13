@@ -157,6 +157,10 @@ This will:
 - compare generated portrait IDs against expected portrait IDs,
 - write a report in the configured `outputRoot`.
 
+Tip: config supports command timeouts to avoid long hangs on missing models:
+- `mapTimeoutSec`
+- `generateTimeoutSec`
+
 ### Validation Suite Runner (Overwrite + All/Single Preset)
 
 To run the predefined validation presets and always overwrite previous results:
