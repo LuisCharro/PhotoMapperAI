@@ -30,6 +30,7 @@ class TeamConfig:
     team_id: Optional[int]
     input_photos_dir: Path
     expected_portraits_dir: Path
+    source_players_csv_path: Optional[Path] = None
 
 
 @dataclass
@@ -134,6 +135,18 @@ def _prepare_team_csv(
     source_csv_path: Optional[Path], team: TeamConfig, workspace_dir: Path
 ) -> Path:
     team_csv = workspace_dir / f"{team.name.lower()}_players.csv"
+
+    # Priority 1: team-specific CSV path (parity mode with legacy IDs)
+    if team.source_players_csv_path and team.source_players_csv_path.exists():
+        rows = _read_players_csv(team.source_players_csv_path)
+        if not rows:
+            raise RuntimeError(
+                f"No player rows found in team source CSV for '{team.name}': {team.source_players_csv_path}"
+            )
+        _write_players_csv(team_csv, rows)
+        return team_csv
+
+    # Priority 2: shared source CSV + teamId filter
     if source_csv_path and source_csv_path.exists() and team.team_id is not None:
         rows = _read_players_csv(source_csv_path)
         filtered = [r for r in rows if r.get("TeamId") == str(team.team_id)]
@@ -198,6 +211,11 @@ def main() -> int:
                 team_id=raw.get("teamId"),
                 input_photos_dir=Path(raw["inputPhotosDir"]).expanduser().resolve(),
                 expected_portraits_dir=Path(raw["expectedPortraitsDir"]).expanduser().resolve(),
+                source_players_csv_path=(
+                    Path(raw["sourcePlayersCsvPath"]).expanduser().resolve()
+                    if raw.get("sourcePlayersCsvPath")
+                    else None
+                ),
             )
         )
 
@@ -213,6 +231,7 @@ def main() -> int:
             print(f"  photos   : {t.input_photos_dir}")
             print(f"  expected : {t.expected_portraits_dir}")
             print(f"  teamId   : {t.team_id}")
+            print(f"  teamCsv  : {t.source_players_csv_path}")
         return 0
 
     output_root.mkdir(parents=True, exist_ok=True)
@@ -269,7 +288,7 @@ def main() -> int:
             "--format",
             str(generate_cfg.get("format", "jpg")),
             "--faceDetection",
-            str(generate_cfg.get("faceDetectionModel", "llava:7b,qwen3-vl")),
+            str(generate_cfg.get("faceDetectionModel", "llava:7b")),
         ]
         if bool(generate_cfg.get("portraitOnly", False)):
             generate_cmd.append("--portraitOnly")

@@ -138,16 +138,20 @@ PhotoMapperAI benchmark-compare \
 If you keep private test data outside this repo (for example in `PhotoMapperAI_ExternalData`), use:
 
 1. Config template: `samples/external_validation.config.template.json`
-2. Runner script: `scripts/run_external_validation.py`
+2. Legacy-parity config template (team-specific CSVs): `samples/external_validation.realdata_parity.template.json`
+3. Runner script: `scripts/run_external_validation.py`
 
-Example:
+Examples:
 
 ```bash
 python3 scripts/run_external_validation.py --config samples/external_validation.config.template.json
+
+# Legacy-ID parity mode (recommended for comparing against old expected portraits)
+python3 scripts/run_external_validation.py --config samples/external_validation.realdata_parity.template.json
 ```
 
 This will:
-- prepare team CSVs (from source players CSV, or synthesize from filenames if needed),
+- prepare team CSVs (team-specific source CSV if configured, otherwise shared source CSV, or synthesize from filenames),
 - run `map`,
 - run `generatephotos`,
 - compare generated portrait IDs against expected portrait IDs,
@@ -612,7 +616,7 @@ Operational note for MAP command:
 | `-processedPhotosOutputPath` | Output path for portraits | Yes | - |
 | `-photosDir` | Directory containing source photos | Yes | - |
 | `-format` | Image format (jpg/png) | No | jpg |
-| `-faceDetection` | Face detection model (see below) | No | llava:7b,qwen3-vl |
+| `-faceDetection` | Face detection model (see below) | No | llava:7b |
 | `-portraitOnly` | Skip face detection, use existing | No | false |
 | `-faceWidth` | Portrait width in pixels | No | 200 |
 | `-faceHeight` | Portrait height in pixels | No | 300 |

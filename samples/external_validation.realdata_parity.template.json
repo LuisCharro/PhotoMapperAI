@@ -1,0 +1,27 @@
+{
+  "repoRoot": "/Users/luis/Repos/PhotoMapperAI",
+  "outputRoot": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/Validation_Run",
+  "map": {
+    "nameModel": "ollama:qwen2.5:7b",
+    "confidenceThreshold": 0.9
+  },
+  "generate": {
+    "format": "jpg",
+    "faceDetectionModel": "llava:7b",
+    "portraitOnly": false
+  },
+  "teams": [
+    {
+      "name": "Spain",
+      "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/DataPrep/03_transformed_with_map_data/Spain.csv",
+      "inputPhotosDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/inputs/Spain",
+      "expectedPortraitsDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/expected/portraits/Spain"
+    },
+    {
+      "name": "Switzerland",
+      "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/DataPrep/03_transformed_with_map_data/Switzerland.csv",
+      "inputPhotosDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/inputs/Switzerland",
+      "expectedPortraitsDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/expected/portraits/Switzerland"
+    }
+  ]
+}
