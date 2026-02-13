@@ -27,9 +27,11 @@ Why this order:
 
 ## Merge automation
 
-Use the helper script to wait for checks and merge in order:
+Use helper scripts to drive the final gate:
 
 ```bash
+./scripts/ops/request_parity_reviews.sh <github-user> [more-users...]
+./scripts/ops/check_parity_pr_merge_readiness.sh
 ./scripts/ops/merge_parity_prs.sh         # dry-run (default)
 ./scripts/ops/merge_parity_prs.sh --apply # perform merges
 ```
