@@ -37,6 +37,9 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _sizeProfilePath = string.Empty;
 
+    public bool ManualSizeControlsEnabled => string.IsNullOrWhiteSpace(SizeProfilePath);
+    public bool CanUseAllSizes => !string.IsNullOrWhiteSpace(SizeProfilePath);
+
     [ObservableProperty]
     private bool _allSizes;
 
@@ -146,6 +149,17 @@ public partial class GenerateStepViewModel : ViewModelBase
         SizeProfilePath = string.Empty;
         AllSizes = false;
         IsComplete = false;
+    }
+
+    partial void OnSizeProfilePathChanged(string value)
+    {
+        OnPropertyChanged(nameof(ManualSizeControlsEnabled));
+        OnPropertyChanged(nameof(CanUseAllSizes));
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            AllSizes = false;
+        }
     }
 
     [RelayCommand]
