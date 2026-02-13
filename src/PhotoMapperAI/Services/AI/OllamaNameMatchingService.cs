@@ -98,22 +98,12 @@ public class OllamaNameMatchingService : INameMatchingService
         var core1 = ToCoreTokens(name1);
         var core2 = ToCoreTokens(name2);
 
-        var surname1 = GetSurnameTokens(core1);
-        var surname2 = GetSurnameTokens(core2);
-
-        var given1 = core1.Count > 0 ? core1[0] : "";
-        var given2 = core2.Count > 0 ? core2[0] : "";
-
         var input = new
         {
             name1_raw = name1,
             name2_raw = name2,
             name1_core_tokens = core1,
-            name2_core_tokens = core2,
-            name1_given = given1,
-            name2_given = given2,
-            name1_surname_tokens = surname1,
-            name2_surname_tokens = surname2
+            name2_core_tokens = core2
         };
 
         var inputJson = JsonSerializer.Serialize(input);
@@ -128,6 +118,8 @@ Do NOT guess. Do NOT pick a ""best candidate"". If evidence is not strong, retur
 IMPORTANT:
 - Use ONLY the provided tokens. Do NOT use world knowledge about real players.
 - Assume accents/diacritics and punctuation are already handled in the tokens.
+- Token order is NOT reliable. One source may be ""family given"", another may be ""given family"".
+- Extra middle/second-surname tokens may appear on one side only.
 - Output MUST be valid JSON ONLY (no markdown, no extra text).
 
 INPUT (JSON):
@@ -138,24 +130,30 @@ Decide if the two names refer to the same person.
 
 DEFINITIONS:
 - core tokens: the provided token lists.
-- surname tokens: the provided last 1-2 core tokens (already computed).
-- given token: the provided first core token (already computed).
 - matched tokens: exact string equality only (no semantic guessing).
 
 HARD RULES (STRICT):
-1) If there is NO overlap between surname token sets, then:
+1) If there is NO overlap between core token sets, then:
    - isMatch MUST be false
    - confidence MUST be <= 0.10
-2) If there IS surname overlap but given tokens do NOT match exactly, then:
+2) If core-token MULTISET is identical ignoring order, then:
+   - isMatch MUST be true
+   - confidence MUST be 0.99
+3) If all tokens from the shorter side are contained in the longer side
+   (subset relation) AND overlap count >= 2, then:
+   - isMatch MUST be true
+   - confidence MUST be in 0.92..0.97
+4) If overlap is ""all but one token"" for the shorter side (e.g. 2-of-3 or 1-of-2)
+   and the non-overlapping token pair has strong string similarity (minor variant/diminutive)
+   with same first letter, then:
+   - isMatch MAY be true
+   - confidence MUST be in 0.82..0.90
+5) If overlap count is exactly 1 and neither side is single-token-only (and rule 4 does not apply), then:
    - isMatch MUST be false
    - confidence MUST be <= 0.60
-   (Exception: if one given token is a single-letter initial that matches the other's first letter,
-    confidence may be up to 0.75 but isMatch MUST still be false.)
-3) If surnames overlap AND given tokens match exactly, then a match is POSSIBLE, but still conservative:
-   - If core token MULTISET is identical ignoring order => confidence 0.99 and isMatch true
-   - Else if one core token set is a subset of the other (extra middle tokens only) => confidence 0.93..0.97 and isMatch true
-   - Else (partial overlap beyond that) => confidence <= 0.89 and isMatch false
-4) If any clear contradiction exists (e.g., two different surname tokens with no way to reconcile via subset),
+6) For other partial-overlap cases, be conservative:
+   - if evidence is not clearly subset/equality, set isMatch=false and confidence <= 0.89
+7) If any clear contradiction exists (large token disagreement with weak overlap),
    set confidence <= 0.20 and isMatch false.
 
 OUTPUT SCHEMA (JSON only):

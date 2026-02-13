@@ -174,8 +174,17 @@ public class MapCommand
     [Option(ShortName = "ap", LongName = "aiSecondPass", Description = "Run a second AI pass on remaining unmatched players")]
     public bool AiSecondPass { get; set; } = false;
 
+    [Option(ShortName = "ao", LongName = "aiOnly", Description = "Skip deterministic name matching and use AI for all unresolved players")]
+    public bool AiOnly { get; set; } = false;
+
     public async Task<int> OnExecuteAsync()
     {
+        if (AiOnly && !UseAi)
+        {
+            Console.WriteLine("AI-only mode enables AI matching automatically.");
+            UseAi = true;
+        }
+
         if (ConfidenceThreshold < MinConfidenceThreshold)
         {
             Console.WriteLine($"Confidence threshold raised to minimum {MinConfidenceThreshold:0.0}.");
@@ -219,7 +228,8 @@ public class MapCommand
             NameModel,
             ConfidenceThreshold,
             UseAi,
-            UseAi && AiSecondPass
+            UseAi && AiSecondPass,
+            aiOnly: AiOnly
         );
 
         return result.PlayersMatched;

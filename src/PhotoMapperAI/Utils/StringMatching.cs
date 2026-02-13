@@ -128,9 +128,13 @@ public static class StringMatching
         if (words1.SequenceEqual(words2))
             return 1.0;
 
-        // Strategy 3: Jaccard similarity for words
+        // Strategy 3: One side is subset of the other (extra middle/second surname tokens)
         var set1 = new HashSet<string>(words1);
         var set2 = new HashSet<string>(words2);
+        if ((set1.IsSubsetOf(set2) || set2.IsSubsetOf(set1)) && Math.Min(set1.Count, set2.Count) >= 2)
+            return 0.93;
+
+        // Strategy 4: Jaccard similarity for words
         var intersection = new HashSet<string>(set1);
         intersection.IntersectWith(set2);
         var union = new HashSet<string>(set1);
@@ -140,11 +144,11 @@ public static class StringMatching
         if (jaccard >= 0.8)
             return jaccard;
 
-        // Strategy 4: Contains check
+        // Strategy 5: Contains check
         if (norm1.Contains(norm2) || norm2.Contains(norm1))
             return 0.95;
 
-        // Strategy 5: Levenshtein similarity
+        // Strategy 6: Levenshtein similarity
         var similarity = CalculateSimilarity(norm1, norm2);
         
         return Math.Max(similarity, jaccard);
