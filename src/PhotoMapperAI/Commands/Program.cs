@@ -300,6 +300,9 @@ public class GeneratePhotosCommand
     [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
     public int FaceHeight { get; set; } = 300;
 
+    [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON. First variant overrides faceWidth/faceHeight in this phase.")]
+    public string? SizeProfile { get; set; }
+
     [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing (default: false)")]
     public bool Parallel { get; set; } = false;
 
@@ -317,6 +320,27 @@ public class GeneratePhotosCommand
 
     public async Task<int> OnExecuteAsync()
     {
+        if (!string.IsNullOrWhiteSpace(SizeProfile))
+        {
+            try
+            {
+                var loadedProfile = SizeProfileLoader.LoadFromFile(SizeProfile);
+                var firstVariant = loadedProfile.Variants.First();
+                FaceWidth = firstVariant.Width;
+                FaceHeight = firstVariant.Height;
+
+                Console.WriteLine($"Using size profile '{loadedProfile.Name}' from {SizeProfile}");
+                Console.WriteLine($"Active variant (phase 1): {firstVariant.Key} => {FaceWidth}x{FaceHeight}");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Invalid --sizeProfile: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
+        }
+
         var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetection, DownloadOpenCvModels);
         if (!preflight.IsOk)
         {

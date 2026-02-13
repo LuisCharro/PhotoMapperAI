@@ -399,7 +399,7 @@ dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest mani
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
 
 # Ollama Vision with fallback (recommended for best results)
-dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b
 
 # Qwen3-VL only (best for challenging angles)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
@@ -412,6 +412,9 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 
 # Portrait only (reuse existing detections)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
+
+# Size profile (phase 1: applies first variant)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -sizeProfile samples/size_profiles.default.json
 ```
 
 #### Benchmark
@@ -616,6 +619,7 @@ Operational note for MAP command:
 | `-portraitOnly` | Skip face detection, use existing | No | false |
 | `-faceWidth` | Portrait width in pixels | No | 200 |
 | `-faceHeight` | Portrait height in pixels | No | 300 |
+| `-sizeProfile` | Path to size profile JSON (phase 1: first variant applied) | No | - |
 
 **Face Detection Models:**
 | Model | Description |
