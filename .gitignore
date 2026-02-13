@@ -67,6 +67,16 @@ test-config.local.json
 test-data-path.txt
 local-test-settings.json
 
+# Keep anonymized in-repo validation fixtures tracked
+!tests/Data/
+tests/Data/*
+!tests/Data/Anonymized/
+!tests/Data/Anonymized/**
+!tests/Data/Anonymized/**/*.csv
+!tests/Data/Anonymized/**/*.sql
+!tests/Data/Anonymized/**/*.txt
+!tests/Data/Anonymized/**/*.jpg
+
 # App settings with local paths
 appsettings.local.json
 appsettings.json
@@ -75,6 +85,7 @@ appsettings.json
 *.csv
 !test-*.csv
 !sample*.csv
+tests/Data/sample_name_pairs.csv
 photo_manifest.json
 portraits*/
 portraits-*/

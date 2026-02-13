@@ -1,0 +1,1 @@
+Server=127.0.0.1,1;Database=NoDb;User Id=nouser;Password=nopass;Connect Timeout=1;

@@ -669,6 +669,7 @@ For more detailed troubleshooting:
 - See [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) - Comprehensive edge cases guide
 - See [`docs/NAME_MAPPING_PIPELINE.md`](docs/NAME_MAPPING_PIPELINE.md) - Name mapping strategy and decision flow
 - See [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) - Face detection model guide
+- See [`docs/ANONYMIZED_VALIDATION.md`](docs/ANONYMIZED_VALIDATION.md) - In-repo anonymized CLI validation (extract + map)
 - See [`samples/sql-examples/README.md`](samples/sql-examples/README.md) - SQL query adaptation guide
 - Report issues: https://github.com/LuisCharro/PhotoMapperAI/issues
 
