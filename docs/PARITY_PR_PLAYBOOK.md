@@ -29,6 +29,10 @@ Why this order:
 
 Use helper scripts to drive the final gate:
 
+> Tip: override PR scope when needed (example: only PR #4 and #5)
+>
+> `PARITY_PRS="4 5" ./scripts/ops/parity_pipeline.sh status`
+
 ```bash
 # Unified wrapper
 ./scripts/ops/parity_pipeline.sh status
@@ -38,6 +42,7 @@ Use helper scripts to drive the final gate:
 ./scripts/ops/parity_pipeline.sh merge --apply
 ./scripts/ops/parity_pipeline.sh watch
 ./scripts/ops/parity_pipeline.sh report
+./scripts/ops/validate_ops_scripts.sh
 
 # Low-level scripts (equivalent)
 ./scripts/ops/request_parity_reviews.sh <github-user> [more-users...]
