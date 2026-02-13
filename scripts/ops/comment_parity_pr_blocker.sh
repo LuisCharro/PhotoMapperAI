@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PRS=(2 3 4 5)
+PARITY_PRS_STRING="${PARITY_PRS:-2 3 4 5}"
+read -r -a PRS <<< "$PARITY_PRS_STRING"
 
 BODY="Automation status update: CI checks are green, but merge is blocked by repository rule requiring 1 approval from another reviewer (authors cannot self-approve).
 

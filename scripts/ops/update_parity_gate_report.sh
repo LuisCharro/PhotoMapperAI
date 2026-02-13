@@ -4,7 +4,8 @@ set -euo pipefail
 # Generates a markdown status report for parity PR merge gates.
 
 OUT="docs/PARITY_GATE_LIVE.md"
-PRS=(2 3 4 5)
+PARITY_PRS_STRING="${PARITY_PRS:-2 3 4 5}"
+read -r -a PRS <<< "$PARITY_PRS_STRING"
 
 {
   echo "# Parity Gate Live Report"

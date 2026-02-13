@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PRS=(2 3 4 5)
+PARITY_PRS_STRING="${PARITY_PRS:-2 3 4 5}"
+read -r -a PRS <<< "$PARITY_PRS_STRING"
 
 for pr in "${PRS[@]}"; do
   echo "\n== PR #$pr =="

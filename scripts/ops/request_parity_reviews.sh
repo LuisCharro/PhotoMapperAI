@@ -6,7 +6,8 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
-PRS=(2 3 4 5)
+PARITY_PRS_STRING="${PARITY_PRS:-2 3 4 5}"
+read -r -a PRS <<< "$PARITY_PRS_STRING"
 
 for reviewer in "$@"; do
   for pr in "${PRS[@]}"; do
