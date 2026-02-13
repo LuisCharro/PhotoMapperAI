@@ -1,0 +1,267 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PhotoMapperAI.UI.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             x:Class="PhotoMapperAI.UI.Views.MapStepView"
+             x:DataType="vm:MapStepViewModel">
+
+  <Design.DataContext>
+    <vm:MapStepViewModel/>
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="20">
+      <!-- Header -->
+      <TextBlock Text="Step 2: Map Players to Photos" 
+                 FontSize="24" FontWeight="Bold" 
+                 Foreground="#1976D2"/>
+      <TextBlock Text="Match players to photos using IDs embedded in filenames. The CSV from Step 1 will be updated with photo mappings."
+                 FontSize="14" Foreground="#666" TextWrapping="Wrap"/>
+
+      <Separator Margin="0,8"/>
+
+      <!-- CSV File Selection -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Select the CSV file from Step 1 (or a previously saved session)"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 
+                     Watermark="Path to CSV file..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseCsvFile_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearInputCsvCommand}"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Photos Directory -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📁 Photos Directory" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Select the directory containing player photos"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding PhotosDirectory}" 
+                     Watermark="Path to photos directory..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowsePhotosDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearPhotosDirectoryCommand}"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Output Directory -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📂 Output Folder" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Choose where the mapped CSV will be saved"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" 
+                     Watermark="Path to output folder..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseOutputDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearOutputDirectoryCommand}"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Options Grid -->
+      <Grid ColumnDefinitions="3*,1.4*" Margin="0,8">
+        <!-- Name Model -->
+        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
+          <StackPanel Spacing="12">
+            <TextBlock Text="🤖 AI Model for Name Matching" FontSize="16" FontWeight="SemiBold"/>
+            <CheckBox Content="Enable AI name matching (slower)"
+                      IsChecked="{Binding UseAiMapping}"/>
+
+            <TabControl IsEnabled="{Binding UseAiMapping}"
+                        SelectedIndex="{Binding SelectedModelTierIndex}">
+              <TabItem Header="Local (Ollama)">
+                <StackPanel Spacing="8" Margin="0,8,0,0">
+                  <TextBlock Text="Runs locally via Ollama on this machine."
+                             FontSize="12" Foreground="#666"/>
+                  <ComboBox ItemsSource="{Binding LocalNameModels}"
+                            SelectedItem="{Binding NameModel, Mode=OneWay}"
+                            SelectionChanged="NameModelSelectionChanged"
+                            HorizontalAlignment="Left" Width="320" Height="36"/>
+                </StackPanel>
+              </TabItem>
+              <TabItem Header="Free Tier">
+                <StackPanel Spacing="8" Margin="0,8,0,0">
+                  <TextBlock Text="Cloud models with free-tier access (quota dependent)."
+                             FontSize="12" Foreground="#666"/>
+                  <ComboBox ItemsSource="{Binding FreeTierNameModels}"
+                            SelectedItem="{Binding NameModel, Mode=OneWay}"
+                            SelectionChanged="NameModelSelectionChanged"
+                            HorizontalAlignment="Left" Width="320" Height="36"/>
+                </StackPanel>
+              </TabItem>
+              <TabItem Header="Paid">
+                <StackPanel Spacing="8" Margin="0,8,0,0">
+                  <TextBlock Text="Paid API models (key required)."
+                             FontSize="12" Foreground="#666"/>
+                  <ComboBox ItemsSource="{Binding PaidNameModels}"
+                            SelectedItem="{Binding NameModel, Mode=OneWay}"
+                            SelectionChanged="NameModelSelectionChanged"
+                            HorizontalAlignment="Left" Width="320" Height="36"/>
+                </StackPanel>
+              </TabItem>
+            </TabControl>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Refresh Models"
+                      Command="{Binding RefreshNameModelsCommand}"
+                      IsEnabled="{Binding UseAiMapping}"
+                      Padding="12,6"/>
+              <Button Content="Check Model"
+                      Command="{Binding CheckNameModelCommand}"
+                      IsEnabled="{Binding UseAiMapping}"
+                      Padding="12,6"/>
+              <ProgressBar IsIndeterminate="True"
+                           Width="80"
+                           Height="4"
+                           IsVisible="{Binding IsCheckingModel}"/>
+            </StackPanel>
+
+            <CheckBox Content="Run AI second pass on unmatched players"
+                      IsChecked="{Binding AiSecondPass}"
+                      IsEnabled="{Binding UseAiMapping}"/>
+            <CheckBox Content="AI-only mode (skip deterministic matching)"
+                      IsChecked="{Binding AiOnly}"
+                      IsEnabled="{Binding UseAiMapping}"/>
+
+            <TextBox Text="{Binding OpenAiApiKey}"
+                     Watermark="OpenAI API key (memory only, not saved)"
+                     PasswordChar="•"
+                     IsVisible="{Binding ShowOpenAiApiKeyInput}"
+                     IsEnabled="{Binding UseAiMapping}"
+                     Height="36"/>
+            <TextBox Text="{Binding AnthropicApiKey}"
+                     Watermark="Anthropic API key (memory only, not saved)"
+                     PasswordChar="•"
+                     IsVisible="{Binding ShowAnthropicApiKeyInput}"
+                     IsEnabled="{Binding UseAiMapping}"
+                     Height="36"/>
+            <TextBlock Text="{Binding ModelDiagnosticStatus}"
+                       FontSize="12"
+                       Foreground="#666"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Confidence Threshold -->
+        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="12" Margin="8,0,0,0">
+          <StackPanel Spacing="8">
+            <TextBlock Text="📊 Confidence Threshold" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="Applies to deterministic and AI matches."
+                       FontSize="11" Foreground="#777"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <Slider Grid.Column="0" Value="{Binding ConfidenceThreshold}"
+                      Minimum="0.8" Maximum="1.0"
+                      TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+              <TextBlock Grid.Column="1" Text="{Binding ConfidenceThreshold, StringFormat={}{0:F2}}"
+                         Width="40" VerticalAlignment="Center"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Advanced Options -->
+      <Expander Header="Advanced Options" IsExpanded="False">
+        <Border Background="#FAFAFA" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+          <StackPanel Spacing="12">
+            <CheckBox Content="Use Photo Manifest File" 
+                      IsChecked="{Binding UsePhotoManifest}"/>
+            
+            <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding UsePhotoManifest}">
+              <TextBox Grid.Column="0" Text="{Binding PhotoManifestPath}" 
+                       Watermark="Path to photo manifest JSON..."
+                       IsReadOnly="True" Height="36"/>
+              <Button Grid.Column="1" Content="Browse" 
+                      Click="BrowsePhotoManifest_Click"
+                      Margin="8,0,0,0" Padding="16,8"/>
+            </Grid>
+
+            <TextBox Text="{Binding FilenamePattern}" 
+                     Watermark="Filename pattern (e.g., {id}_{family}_{sur}.png)"
+                     Height="36"/>
+          </StackPanel>
+        </Border>
+      </Expander>
+
+      <!-- Execute / Cancel Buttons -->
+      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+        <Button Content="▶ Map Photos" 
+                Click="ExecuteMap_Click"
+                IsEnabled="{Binding !IsProcessing}"
+                Background="#4CAF50" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+        <Button Content="■ Cancel"
+                Command="{Binding CancelMapCommand}"
+                IsVisible="{Binding IsProcessing}"
+                Background="#F44336" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+      </StackPanel>
+
+      <!-- Status -->
+      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+              IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding ProcessingStatus}" 
+                     FontSize="14" TextWrapping="Wrap"/>
+          <ProgressBar Value="{Binding Progress}"
+                       Maximum="100"
+                       IsVisible="{Binding IsProcessing}"
+                       Height="8"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Run Log -->
+      <Expander Header="Run Log" IsExpanded="False">
+        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
+          <ScrollViewer Height="160">
+            <ItemsControl ItemsSource="{Binding LogLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+      </Expander>
+
+      <!-- Success indicator -->
+      <Border Background="#E8F5E9" CornerRadius="8" Padding="16"
+              IsVisible="{Binding IsComplete}">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="✓" FontSize="20" Foreground="#4CAF50"/>
+            <TextBlock Text="{Binding PlayersMatched, StringFormat='Successfully matched {0} players'}"
+                       FontSize="14" Foreground="#2E7D32"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PlayersProcessed, StringFormat='Total players processed: {0}'}"
+                     FontSize="12" Foreground="#666"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

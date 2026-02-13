@@ -1,0 +1,235 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PhotoMapperAI.UI.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             x:Class="PhotoMapperAI.UI.Views.GenerateStepView"
+             x:DataType="vm:GenerateStepViewModel">
+
+  <Design.DataContext>
+    <vm:GenerateStepViewModel/>
+  </Design.DataContext>
+
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="20">
+      <!-- Header -->
+      <TextBlock Text="Step 3: Generate Portrait Photos" 
+                 FontSize="24" FontWeight="Bold" 
+                 Foreground="#1976D2"/>
+      <TextBlock Text="Generate portrait photos from full-body images using AI face detection. Output files will be named by PlayerId."
+                 FontSize="14" Foreground="#666" TextWrapping="Wrap"/>
+
+      <Separator Margin="0,8"/>
+
+      <!-- CSV File Selection -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Select the CSV file with photo mappings from Step 2"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 
+                     Watermark="Path to CSV file..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseCsvFile_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearInputCsvCommand}"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Photos Directory -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📁 Source Photos Directory" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Directory containing the original player photos"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding PhotosDirectory}" 
+                     Watermark="Path to photos directory..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowsePhotosDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearPhotosDirectoryCommand}"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Output Directory -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📂 Output Directory" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Directory where portrait photos will be saved"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" 
+                     Watermark="Path to output directory..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseOutputDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearOutputDirectoryCommand}"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Face Detection Model -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="🤖 Face Detection Model" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Select AI model for face detection (LLM models require Ollama)"
+                     FontSize="12" Foreground="#666"/>
+          <ComboBox ItemsSource="{Binding FaceDetectionModels}" 
+                    SelectedItem="{Binding FaceDetectionModel}"
+                    HorizontalAlignment="Stretch" Height="36"/>
+          <CheckBox Content="Download missing OpenCV DNN files"
+                    IsChecked="{Binding DownloadOpenCvModels}"/>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Check Model"
+                    Command="{Binding CheckFaceModelCommand}"
+                    IsEnabled="{Binding !IsCheckingModel}"
+                    Padding="12,6"/>
+            <ProgressBar IsIndeterminate="True"
+                         Width="80"
+                         Height="4"
+                         IsVisible="{Binding IsCheckingModel}"/>
+          </StackPanel>
+          <TextBlock Text="{Binding ModelDiagnosticStatus}"
+                     FontSize="12"
+                     Foreground="#666"
+                     TextWrapping="Wrap"
+                     IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Portrait Settings -->
+      <Grid ColumnDefinitions="*,*,*" Margin="0,8">
+        <!-- Width -->
+        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Width (px)" FontSize="14" FontWeight="SemiBold"/>
+            <NumericUpDown Value="{Binding PortraitWidth}" 
+                          Minimum="50" Maximum="1000"
+                          HorizontalAlignment="Stretch" Height="36"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Height -->
+        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="4,0">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Height (px)" FontSize="14" FontWeight="SemiBold"/>
+            <NumericUpDown Value="{Binding PortraitHeight}" 
+                          Minimum="50" Maximum="1500"
+                          HorizontalAlignment="Stretch" Height="36"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Format -->
+        <Border Grid.Column="2" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="8,0,0,0">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Format" FontSize="14" FontWeight="SemiBold"/>
+            <ComboBox ItemsSource="{Binding ImageFormats}" 
+                      SelectedItem="{Binding ImageFormat}"
+                      HorizontalAlignment="Stretch" Height="36"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Portrait Only Option -->
+      <CheckBox Content="Portrait Only (skip face detection, use existing results)" 
+                IsChecked="{Binding PortraitOnly}"
+                Margin="0,8"/>
+
+      <!-- Preview -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="🖼️ Preview Source Image" FontSize="16" FontWeight="SemiBold"/>
+            <Button Content="Load Preview"
+                    Command="{Binding LoadPreviewImageCommand}"
+                    Padding="12,6"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PreviewStatus}"
+                     FontSize="12"
+                     Foreground="#666"
+                     TextWrapping="Wrap"/>
+          <Image Source="{Binding PreviewImage}"
+                 Height="180"
+                 Stretch="Uniform"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Execute / Cancel Buttons -->
+      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+        <Button Content="▶ Generate Portraits" 
+                Command="{Binding ExecuteGenerateCommand}"
+                IsEnabled="{Binding !IsProcessing}"
+                Background="#4CAF50" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+        <Button Content="■ Cancel"
+                Command="{Binding CancelGenerateCommand}"
+                IsVisible="{Binding IsProcessing}"
+                Background="#F44336" Foreground="White"
+                FontSize="16" Padding="24,12"/>
+      </StackPanel>
+
+      <!-- Progress -->
+      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+              IsVisible="{Binding IsProcessing}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding ProcessingStatus}" 
+                     FontSize="14" TextWrapping="Wrap"/>
+          <ProgressBar Value="{Binding Progress}" 
+                       Maximum="100"
+                       Height="8"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Status -->
+      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+              IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Text="{Binding ProcessingStatus}" 
+                   FontSize="14" TextWrapping="Wrap"/>
+      </Border>
+
+      <!-- Run Log -->
+      <Expander Header="Run Log" IsExpanded="False">
+        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
+          <ScrollViewer Height="160">
+            <ItemsControl ItemsSource="{Binding LogLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+      </Expander>
+
+      <!-- Success indicator -->
+      <Border Background="#E8F5E9" CornerRadius="8" Padding="16"
+              IsVisible="{Binding IsComplete}">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="✓" FontSize="20" Foreground="#4CAF50"/>
+            <TextBlock Text="{Binding PortraitsGenerated, StringFormat='Successfully generated {0} portraits'}"
+                       FontSize="14" Foreground="#2E7D32"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PortraitsFailed, StringFormat='Failed: {0}'}"
+                     FontSize="12" Foreground="#666"
+                     IsVisible="{Binding PortraitsFailed}"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

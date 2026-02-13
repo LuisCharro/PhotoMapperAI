@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="33.1.0" />
+    <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="5.0.1" />
+    <PackageReference Include="OllamaSharp" Version="5.4.16" />
+    <PackageReference Include="OpenCvSharp4" Version="4.8.0.20230708" />
+    <PackageReference Include="OpenCvSharp4.runtime.osx_arm64" Version="4.8.1" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.8.0.20230708" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\**\*" />
+  </ItemGroup>
+
+  <Target Name="CopyOpenCvMacDependencies" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <PropertyGroup>
+      <_OpenCvNativeDir>$(OutputPath)runtimes/osx-arm64/native</_OpenCvNativeDir>
+      <_OpenCvLibsDir>$(OutputPath)../libs</_OpenCvLibsDir>
+    </PropertyGroup>
+
+    <ItemGroup Condition="Exists('$(_OpenCvNativeDir)')">
+      <_OpenCvNativeLibraries Include="$(_OpenCvNativeDir)/lib*.dylib" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_OpenCvLibsDir)" Condition="Exists('$(_OpenCvNativeDir)')" />
+    <Copy
+      SourceFiles="@(_OpenCvNativeLibraries)"
+      DestinationFolder="$(_OpenCvLibsDir)"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(_OpenCvNativeDir)')" />
+  </Target>
+
+</Project>

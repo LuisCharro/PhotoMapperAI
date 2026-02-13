@@ -1,0 +1,57 @@
+name: Dotnet CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+  pull_request:
+    branches:
+      - main
+      - feature/**
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore solution
+        run: dotnet restore PhotoMapperAI.sln
+
+      - name: Restore GUI project
+        run: dotnet restore src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
+
+      - name: Build CLI
+        run: dotnet build src/PhotoMapperAI/PhotoMapperAI.csproj --configuration Release --no-restore
+
+      - name: Build GUI
+        run: dotnet build src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test tests/PhotoMapperAI.Tests/PhotoMapperAI.Tests.csproj --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
