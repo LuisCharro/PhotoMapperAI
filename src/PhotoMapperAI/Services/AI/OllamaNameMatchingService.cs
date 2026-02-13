@@ -1,8 +1,6 @@
 using PhotoMapperAI.Models;
 using System.Globalization;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 
 namespace PhotoMapperAI.Services.AI;
 
@@ -41,7 +39,15 @@ public class OllamaNameMatchingService : INameMatchingService
         {
             // Conservative + deterministic.
             var response = await _client.ChatAsync(_modelName, prompt, temperature: 0.0);
-            return ParseNameComparisonResponse(response);
+            return NameComparisonResultParser.Parse(
+                response,
+                _confidenceThreshold,
+                new Dictionary<string, string>
+                {
+                    { "provider", "ollama" },
+                    { "model", _modelName }
+                },
+                _jsonOptions);
         }
         catch (OllamaQuotaExceededException)
         {
@@ -50,12 +56,14 @@ public class OllamaNameMatchingService : INameMatchingService
         }
         catch (Exception ex)
         {
-            return new MatchResult
-            {
-                Confidence = 0,
-                IsMatch = false,
-                Metadata = new Dictionary<string, string> { { "error", ex.Message } }
-            };
+            return NameComparisonResultParser.BuildError(
+                ex.Message,
+                _confidenceThreshold,
+                new Dictionary<string, string>
+                {
+                    { "provider", "ollama" },
+                    { "model", _modelName }
+                });
         }
     }
 
@@ -88,75 +96,4 @@ public class OllamaNameMatchingService : INameMatchingService
     }
 
 
-    private MatchResult ParseNameComparisonResponse(string response)
-    {
-        try
-        {
-            var start = response.IndexOf('{');
-            var end = response.LastIndexOf('}');
-
-            if (start >= 0 && end > start)
-            {
-                var json = response.Substring(start, end - start + 1);
-
-                var data = JsonSerializer.Deserialize<NameComparisonResponse>(json, _jsonOptions);
-                if (data != null)
-                {
-                    // Do NOT trust model isMatch; enforce your threshold.
-                    var isMatch = data.Confidence >= _confidenceThreshold;
-
-                    return new MatchResult
-                    {
-                        Confidence = data.Confidence,
-                        IsMatch = isMatch,
-                        Metadata = new Dictionary<string, string>
-                        {
-                            { "reason", data.Reason ?? "" },
-                            { "raw_json", json },
-                            { "model_isMatch", data.IsMatch.ToString() }
-                        }
-                    };
-                }
-            }
-
-            var confidenceMatch = Regex.Match(response, @"""confidence"":\s*([0-9\.]+)");
-            if (confidenceMatch.Success &&
-                double.TryParse(confidenceMatch.Groups[1].Value, CultureInfo.InvariantCulture, out var confidence))
-            {
-                return new MatchResult
-                {
-                    Confidence = confidence,
-                    IsMatch = confidence >= _confidenceThreshold
-                };
-            }
-        }
-        catch (Exception ex)
-        {
-            return new MatchResult
-            {
-                Confidence = 0,
-                IsMatch = false,
-                Metadata = new Dictionary<string, string> { { "error", ex.Message }, { "raw_response", response } }
-            };
-        }
-
-        return new MatchResult
-        {
-            Confidence = 0,
-            IsMatch = false,
-            Metadata = new Dictionary<string, string> { { "raw_response", response } }
-        };
-    }
-
-    private class NameComparisonResponse
-    {
-        [JsonPropertyName("confidence")]
-        public double Confidence { get; set; }
-
-        [JsonPropertyName("isMatch")]
-        public bool IsMatch { get; set; }
-
-        [JsonPropertyName("reason")]
-        public string? Reason { get; set; }
-    }
 }

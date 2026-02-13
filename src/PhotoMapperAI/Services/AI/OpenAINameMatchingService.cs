@@ -1,10 +1,8 @@
 using PhotoMapperAI.Models;
-using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 
 namespace PhotoMapperAI.Services.AI;
 
@@ -55,16 +53,19 @@ public class OpenAINameMatchingService : INameMatchingService
 
             if (!response.IsSuccessStatusCode)
             {
-                return BuildErrorResult($"OpenAI request failed (HTTP {(int)response.StatusCode}): {Compact(responseBody)}");
+                return NameComparisonResultParser.BuildError(
+                    $"OpenAI request failed (HTTP {(int)response.StatusCode}): {Compact(responseBody)}",
+                    _confidenceThreshold,
+                    BuildMetadata());
             }
 
             var data = JsonSerializer.Deserialize<OpenAIResponse>(responseBody, _jsonOptions);
             var text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
-            return ParseNameComparisonResponse(text);
+            return NameComparisonResultParser.Parse(text, _confidenceThreshold, BuildMetadata(), _jsonOptions);
         }
         catch (Exception ex)
         {
-            return BuildErrorResult(ex.Message);
+            return NameComparisonResultParser.BuildError(ex.Message, _confidenceThreshold, BuildMetadata());
         }
     }
 
@@ -79,79 +80,11 @@ public class OpenAINameMatchingService : INameMatchingService
         return results;
     }
 
-    private MatchResult ParseNameComparisonResponse(string response)
+    private Dictionary<string, string> BuildMetadata() => new()
     {
-        try
-        {
-            var start = response.IndexOf('{');
-            var end = response.LastIndexOf('}');
-            if (start >= 0 && end > start)
-            {
-                var json = response.Substring(start, end - start + 1);
-                var data = JsonSerializer.Deserialize<NameComparisonResponse>(json, _jsonOptions);
-                if (data != null)
-                {
-                    var isMatch = data.Confidence >= _confidenceThreshold;
-                    return new MatchResult
-                    {
-                        Confidence = data.Confidence,
-                        IsMatch = isMatch,
-                        Metadata = new Dictionary<string, string>
-                        {
-                            { "provider", "openai" },
-                            { "model", _modelName },
-                            { "reason", data.Reason ?? string.Empty },
-                            { "raw_json", json },
-                            { "model_isMatch", data.IsMatch.ToString() }
-                        }
-                    };
-                }
-            }
-
-            var confidenceMatch = Regex.Match(response, @"""confidence"":\s*([0-9\.]+)");
-            if (confidenceMatch.Success &&
-                double.TryParse(confidenceMatch.Groups[1].Value, CultureInfo.InvariantCulture, out var confidence))
-            {
-                return new MatchResult
-                {
-                    Confidence = confidence,
-                    IsMatch = confidence >= _confidenceThreshold,
-                    Metadata = new Dictionary<string, string>
-                    {
-                        { "provider", "openai" },
-                        { "model", _modelName },
-                        { "raw_response", response }
-                    }
-                };
-            }
-        }
-        catch (Exception ex)
-        {
-            return BuildErrorResult(ex.Message, response);
-        }
-
-        return BuildErrorResult("Could not parse model response.", response);
-    }
-
-    private MatchResult BuildErrorResult(string error, string? rawResponse = null)
-    {
-        var metadata = new Dictionary<string, string>
-        {
-            { "provider", "openai" },
-            { "model", _modelName },
-            { "threshold", _confidenceThreshold.ToString("0.###", CultureInfo.InvariantCulture) },
-            { "error", error }
-        };
-        if (!string.IsNullOrWhiteSpace(rawResponse))
-            metadata["raw_response"] = rawResponse;
-
-        return new MatchResult
-        {
-            Confidence = 0,
-            IsMatch = false,
-            Metadata = metadata
-        };
-    }
+        { "provider", "openai" },
+        { "model", _modelName }
+    };
 
     private static string Compact(string? text)
     {
@@ -179,15 +112,4 @@ public class OpenAINameMatchingService : INameMatchingService
         public string? Content { get; set; }
     }
 
-    private class NameComparisonResponse
-    {
-        [JsonPropertyName("confidence")]
-        public double Confidence { get; set; }
-
-        [JsonPropertyName("isMatch")]
-        public bool IsMatch { get; set; }
-
-        [JsonPropertyName("reason")]
-        public string? Reason { get; set; }
-    }
 }
