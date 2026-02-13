@@ -452,13 +452,13 @@ Generates portrait photos from full-body images using face and eye detection.
 Supports OpenCV DNN, Haar Cascades, YOLOv8-Face, and Ollama Vision models.
 
 Fallback mode: Provide comma-separated models to try each in order.
-Example: llava:7b,qwen3-vl will try llava:7b first, fall back to qwen3-vl if it fails.
+Example: llava:7b,qwen3-vl will try llava:7b first, then qwen3-vl if available.
 
 Examples:
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
-  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
+  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
 ")]
 public class GeneratePhotosCommand
@@ -475,8 +475,8 @@ public class GeneratePhotosCommand
     [Option(ShortName = "f", LongName = "format", Description = "Output image format (jpg or png)")]
     public string Format { get; set; } = "jpg";
 
-    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model (opencv-dnn, haar-cascade, yolov8-face, llava:7b, qwen3-vl, etc.)")]
-    public string FaceDetection { get; set; } = "llava:7b,qwen3-vl";
+    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model (opencv-dnn, haar-cascade, yolov8-face, llava:7b, qwen3-vl, etc.; default: llava:7b)")]
+    public string FaceDetection { get; set; } = "llava:7b";
 
     [Option(ShortName = "c", LongName = "crop", Description = "Crop method (generic, ai)")]
     public string Crop { get; set; } = "generic";
