@@ -61,9 +61,11 @@ PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/
 - Loads all photo files and extracts metadata
 - **Flexible options:** Uses automatic pattern detection OR user-specified pattern OR photo manifest file
 - Attempts direct ID matching first
-- For unmatched players, uses AI (Ollama LLM) for fuzzy name matching
-- Validates matches with confidence threshold (default: 0.9)
+- Runs deterministic global name matching for unresolved players
+- Uses AI fallback only for unresolved/ambiguous cases
+- Validates matches with confidence threshold (default: 0.8)
 - Updates CSV with `Fifa_Player_ID` and `Valid_Mapping` columns
+- See [`docs/NAME_MAPPING_PIPELINE.md`](docs/NAME_MAPPING_PIPELINE.md) for the full mapping algorithm and tuning knobs
 
 ### Step 3: Generate Portraits (with Face Detection)
 ```bash
@@ -591,7 +593,10 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 | `-filenamePattern` | Filename pattern template | No | Auto-detect |
 | `-photoManifest` | Path to photo manifest JSON | No | - |
 | `-nameModel` | Ollama model for name matching | No | qwen2.5:7b |
-| `-confidenceThreshold` | Minimum confidence for match | No | 0.9 |
+| `-confidenceThreshold` | Minimum confidence for match | No | 0.8 |
+| `-useAI` | Enable AI name matching fallback | No | false |
+| `-aiSecondPass` | Run a second AI pass on unresolved rows | No | false |
+| `-aiOnly` | Skip deterministic name matching and use AI for all unresolved rows | No | false |
 
 ### Generate Photos
 | Parameter | Description | Required | Default |
@@ -661,6 +666,7 @@ If you encounter problems, check [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) for:
 
 For more detailed troubleshooting:
 - See [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) - Comprehensive edge cases guide
+- See [`docs/NAME_MAPPING_PIPELINE.md`](docs/NAME_MAPPING_PIPELINE.md) - Name mapping strategy and decision flow
 - See [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) - Face detection model guide
 - See [`samples/sql-examples/README.md`](samples/sql-examples/README.md) - SQL query adaptation guide
 - Report issues: https://github.com/LuisCharro/PhotoMapperAI/issues
