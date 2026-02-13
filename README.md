@@ -162,6 +162,17 @@ Tip: config supports long-run safeguards:
 - `generateTimeoutSec`
 - `continueOnError` (continue remaining teams even if one team fails)
 
+### Portrait Set Quality/Parity Comparison
+
+Use this helper to compare expected vs generated portraits (ID coverage + basic size stats):
+
+```bash
+python3 scripts/compare_portrait_sets.py \
+  --expectedDir /path/to/expected/portraits/Spain \
+  --generatedDir /path/to/Validation_Run/Spain/Generated \
+  --outputJson /tmp/spain-portrait-compare.json
+```
+
 ### Validation Suite Runner (Overwrite + All/Single Preset)
 
 To run the predefined validation presets and always overwrite previous results:
