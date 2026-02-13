@@ -9,6 +9,17 @@ This file defines a practical merge path for the active parity branches.
 3. `feature/cli-size-profiles`
 4. `feature/ui-size-profile-integration`
 
+## Live PRs (opened)
+
+1. #2 `feature/generate-quality-fix` → `main`
+   - https://github.com/LuisCharro/PhotoMapperAI/pull/2
+2. #3 `feature/validation-config-parity` → `main`
+   - https://github.com/LuisCharro/PhotoMapperAI/pull/3
+3. #4 `feature/cli-size-profiles` → `main`
+   - https://github.com/LuisCharro/PhotoMapperAI/pull/4
+4. #5 `feature/ui-size-profile-integration` → `main`
+   - https://github.com/LuisCharro/PhotoMapperAI/pull/5
+
 Why this order:
 - 1+2 improve output quality and validation reliability first.
 - 3 introduces CLI parity contract.
