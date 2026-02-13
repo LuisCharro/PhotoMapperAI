@@ -603,7 +603,7 @@ ollama pull qwen3-vl:7b
 
 ## Current Status
 
-**Implementation Snapshot (2026-02-12):**
+**Implementation Snapshot (2026-02-13):**
 - ✅ CLI workflow implemented (`extract`, `map`, `generatephotos`, `benchmark`)
 - ✅ Avalonia GUI project implemented with 3-step wizard and navigation
 - ✅ Shared AI and image services integrated into both CLI and GUI flows
@@ -614,6 +614,11 @@ ollama pull qwen3-vl:7b
 - ✅ External private-data validation harness added (config template + runner script + report output)
 - ✅ Canonical external validation suite stabilized (`run`, `opencv`, `llava`) with overwrite semantics
 - 🚧 Benchmark and test-data maturity still in progress
+
+**Readiness Position (for PR to `main`):**
+- ✅ CLI is stable and ready for regular usage
+- 🚧 GUI is working but intentionally still in construction/polish phase
+- ✅ Merge communication should clearly preserve that distinction
 
 **Cross-Machine Commit Bridge (important for agents):**
 - Baseline handoff commit used on Windows: `91e6ee520d4f949a08c07048048608590d1a0e93`
@@ -626,7 +631,8 @@ ollama pull qwen3-vl:7b
 1. Re-run face benchmarks on Windows 11 and compare against macOS baseline (`benchmark-20260212-080146.json`) using `benchmark-compare` or `scripts/run-benchmark-compare.ps1`.
 2. Expand face-image benchmark coverage beyond the current 5 labeled samples (`tests/Data/FaceDetection/face_expected.csv`) and validate on macOS + Windows.
 3. Add next hosted providers (`cerebras:`, `openrouter:`, `groq:`) with preflight/key wiring and benchmark validation.
-4. Prioritize next Phase 9 feature (batch processing, Docker support, or custom portrait presets).
+4. Prioritize GUI polish tasks while keeping CLI as primary supported path.
+5. Select next Phase 9 feature (batch processing, Docker support, or custom portrait presets).
 
 **Agent Handoff File:**
 - `docs/NEXT_STEPS_HANDOFF.md` (authoritative actionable list for any new agent/session)
