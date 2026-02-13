@@ -197,6 +197,8 @@ public partial class MainWindowViewModel : ViewModelBase
             ConnectionStringPath = _extractStep.ConnectionStringPath,
             TeamId = _extractStep.TeamId,
             OutputFileName = _extractStep.OutputFileName,
+            ExtractOutputDirectory = _extractStep.OutputDirectory,
+            ExtractOutputCsvPath = _extractStep.OutputCsvPath,
             DatabaseType = _extractStep.DatabaseType,
             ExtractComplete = _extractStep.IsComplete,
             PlayersExtracted = _extractStep.PlayersExtracted,
@@ -235,11 +237,15 @@ public partial class MainWindowViewModel : ViewModelBase
         _extractStep.ConnectionStringPath = session.ConnectionStringPath ?? string.Empty;
         _extractStep.TeamId = session.TeamId;
         _extractStep.OutputFileName = session.OutputFileName ?? "players.csv";
+        _extractStep.OutputDirectory = session.ExtractOutputDirectory ?? Directory.GetCurrentDirectory();
+        _extractStep.OutputCsvPath = session.ExtractOutputCsvPath ?? string.Empty;
         _extractStep.DatabaseType = session.DatabaseType ?? "SqlServer";
         _extractStep.IsComplete = session.ExtractComplete;
         _extractStep.PlayersExtracted = session.PlayersExtracted;
 
-        _mapStep.InputCsvPath = session.MapInputCsvPath ?? string.Empty;
+        _mapStep.InputCsvPath = session.MapInputCsvPath
+            ?? (session.ExtractComplete ? session.ExtractOutputCsvPath : null)
+            ?? string.Empty;
         _mapStep.PhotosDirectory = session.PhotosDirectory ?? string.Empty;
         _mapStep.FilenamePattern = session.FilenamePattern ?? string.Empty;
         _mapStep.UsePhotoManifest = session.UsePhotoManifest;
@@ -271,6 +277,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void OnStepPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (sender == _extractStep &&
+            e.PropertyName == nameof(ExtractStepViewModel.IsComplete) &&
+            _extractStep.IsComplete &&
+            !string.IsNullOrWhiteSpace(_extractStep.OutputCsvPath))
+        {
+            _mapStep.InputCsvPath = _extractStep.OutputCsvPath;
+            _mapStep.IsComplete = false;
+            StatusMessage = $"Step 2 input CSV set to latest extract: {_extractStep.OutputCsvPath}";
+        }
+
         if (e.PropertyName is nameof(ExtractStepViewModel.IsComplete) or nameof(MapStepViewModel.IsComplete))
         {
             OnPropertyChanged(nameof(CanGoNext));
@@ -293,6 +309,8 @@ Current step: {CurrentStep}
 - Connection string file: {_extractStep.ConnectionStringPath}
 - Team ID: {_extractStep.TeamId}
 - Output file name: {_extractStep.OutputFileName}
+- Output directory: {_extractStep.OutputDirectory}
+- Output CSV path: {_extractStep.OutputCsvPath}
 - Database type: {_extractStep.DatabaseType}
 - Players extracted: {_extractStep.PlayersExtracted}
 - Status: {_extractStep.ProcessingStatus}

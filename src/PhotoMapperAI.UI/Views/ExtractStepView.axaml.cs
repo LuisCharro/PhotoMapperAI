@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.UI.ViewModels;
 
 namespace PhotoMapperAI.UI.Views;
@@ -62,5 +64,90 @@ public partial class ExtractStepView : UserControl
                 }
             }
         }
+    }
+
+    private async void BrowseOutputDirectory_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is ExtractStepViewModel vm)
+        {
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage != null)
+            {
+                var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                {
+                    Title = "Select Output Folder",
+                    AllowMultiple = false
+                });
+
+                if (folders.Count > 0)
+                {
+                    vm.OutputDirectory = folders[0].Path.LocalPath;
+                }
+            }
+        }
+    }
+
+    private async void ExecuteExtract_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not ExtractStepViewModel vm)
+            return;
+
+        if (vm.ExecuteExtractCommand is IAsyncRelayCommand asyncRelayCommand)
+        {
+            await asyncRelayCommand.ExecuteAsync(null);
+        }
+        else
+        {
+            vm.ExecuteExtractCommand.Execute(null);
+        }
+
+        if (!vm.IsComplete || string.IsNullOrWhiteSpace(vm.OutputCsvPath))
+            return;
+
+        await ShowInfoDialogAsync("Extraction Complete", $"CSV generated at:\n{vm.OutputCsvPath}");
+    }
+
+    private async Task ShowInfoDialogAsync(string title, string message)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null)
+            return;
+
+        var closeButton = new Button
+        {
+            Content = "OK",
+            Width = 100,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 760,
+            Height = 220,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Padding = new Avalonia.Thickness(16),
+                Child = new StackPanel
+                {
+                    Spacing = 14,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                            FontSize = 14
+                        },
+                        closeButton
+                    }
+                }
+            }
+        };
+
+        closeButton.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(owner);
     }
 }

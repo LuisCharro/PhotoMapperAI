@@ -23,6 +23,12 @@ public partial class ExtractStepViewModel : ViewModelBase
     private string _outputFileName = "players.csv";
 
     [ObservableProperty]
+    private string _outputDirectory = Directory.GetCurrentDirectory();
+
+    [ObservableProperty]
+    private string _outputCsvPath = string.Empty;
+
+    [ObservableProperty]
     private string _databaseType = "SqlServer";
 
     [ObservableProperty]
@@ -68,6 +74,7 @@ public partial class ExtractStepViewModel : ViewModelBase
         }
 
         IsProcessing = true;
+        IsComplete = false;
         ProcessingStatus = "Extracting player data...";
 
         try
@@ -88,7 +95,14 @@ public partial class ExtractStepViewModel : ViewModelBase
             var extractor = new Services.Database.DatabaseExtractor();
 
             // Determine output path
-            var outputCsvPath = Path.Combine(Directory.GetCurrentDirectory(), OutputFileName);
+            if (string.IsNullOrWhiteSpace(OutputDirectory))
+            {
+                OutputDirectory = Directory.GetCurrentDirectory();
+            }
+
+            Directory.CreateDirectory(OutputDirectory);
+            var outputCsvPath = Path.Combine(OutputDirectory, OutputFileName);
+            OutputCsvPath = outputCsvPath;
 
             // Extract data
             PlayersExtracted = await extractor.ExtractPlayersToCsvAsync(
@@ -98,7 +112,7 @@ public partial class ExtractStepViewModel : ViewModelBase
                 outputCsvPath
             );
 
-            ProcessingStatus = $"✓ Successfully extracted {PlayersExtracted} players to {OutputFileName}";
+            ProcessingStatus = $"✓ Successfully extracted {PlayersExtracted} players to {outputCsvPath}";
             IsComplete = true;
         }
         catch (Exception ex)

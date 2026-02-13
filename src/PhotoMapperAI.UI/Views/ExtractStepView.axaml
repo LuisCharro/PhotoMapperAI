@@ -87,9 +87,26 @@
         </StackPanel>
       </Border>
 
+      <!-- Output Folder -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📂 Output Folder" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Choose where the extracted CSV file will be created"
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" Text="{Binding OutputDirectory}"
+                     Watermark="Path to output folder..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse"
+                    Click="BrowseOutputDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
       <!-- Execute Button -->
       <Button Content="▶ Extract Data" 
-              Command="{Binding ExecuteExtractCommand}"
+              Click="ExecuteExtract_Click"
               IsEnabled="{Binding !IsProcessing}"
               Background="#4CAF50" Foreground="White"
               FontSize="16" Padding="24,12"

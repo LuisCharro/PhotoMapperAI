@@ -18,6 +18,8 @@ public class SessionState
     public string? ConnectionStringPath { get; set; }
     public int TeamId { get; set; }
     public string? OutputFileName { get; set; } = "players.csv";
+    public string? ExtractOutputDirectory { get; set; }
+    public string? ExtractOutputCsvPath { get; set; }
     public string? DatabaseType { get; set; } = "SqlServer";
     public bool ExtractComplete { get; set; }
     public int PlayersExtracted { get; set; }
