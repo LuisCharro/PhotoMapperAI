@@ -28,12 +28,15 @@
           <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold"/>
           <TextBlock Text="Select the CSV file with photo mappings from Step 2"
                      FontSize="12" Foreground="#666"/>
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 
                      Watermark="Path to CSV file..."
                      IsReadOnly="True" Height="36"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowseCsvFile_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearInputCsvCommand}"
                     Margin="8,0,0,0" Padding="16,8"/>
           </Grid>
         </StackPanel>
@@ -45,12 +48,15 @@
           <TextBlock Text="📁 Source Photos Directory" FontSize="16" FontWeight="SemiBold"/>
           <TextBlock Text="Directory containing the original player photos"
                      FontSize="12" Foreground="#666"/>
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding PhotosDirectory}" 
                      Watermark="Path to photos directory..."
                      IsReadOnly="True" Height="36"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowsePhotosDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearPhotosDirectoryCommand}"
                     Margin="8,0,0,0" Padding="16,8"/>
           </Grid>
         </StackPanel>
@@ -62,12 +68,15 @@
           <TextBlock Text="📂 Output Directory" FontSize="16" FontWeight="SemiBold"/>
           <TextBlock Text="Directory where portrait photos will be saved"
                      FontSize="12" Foreground="#666"/>
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" 
                      Watermark="Path to output directory..."
                      IsReadOnly="True" Height="36"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowseOutputDirectory_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearOutputDirectoryCommand}"
                     Margin="8,0,0,0" Padding="16,8"/>
           </Grid>
         </StackPanel>
@@ -191,6 +200,21 @@
         <TextBlock Text="{Binding ProcessingStatus}" 
                    FontSize="14" TextWrapping="Wrap"/>
       </Border>
+
+      <!-- Run Log -->
+      <Expander Header="Run Log" IsExpanded="False">
+        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
+          <ScrollViewer Height="160">
+            <ItemsControl ItemsSource="{Binding LogLines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+      </Expander>
 
       <!-- Success indicator -->
       <Border Background="#E8F5E9" CornerRadius="8" Padding="16"

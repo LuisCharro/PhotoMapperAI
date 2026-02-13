@@ -29,12 +29,6 @@
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button Content="{Binding ThemeToggleText}" Command="{Binding ToggleThemeCommand}"
                   Background="#2196F3" Foreground="White" Padding="12,6"/>
-          <Button Content="💾 Save Session" Command="{Binding SaveSessionCommand}"
-                  Background="#2196F3" Foreground="White" Padding="12,6"/>
-          <Button Content="📂 Load Session" Command="{Binding LoadSessionCommand}"
-                  Background="#2196F3" Foreground="White" Padding="12,6"/>
-          <Button Content="📄 Export Report" Command="{Binding ExportReportCommand}"
-                  Background="#2196F3" Foreground="White" Padding="12,6"/>
         </StackPanel>
       </Grid>
     </Border>
@@ -43,35 +37,44 @@
     <Border Grid.Row="1" Background="#F5F5F5" Padding="16,8">
       <Grid ColumnDefinitions="*,*,*">
         <!-- Step 1 -->
-        <Border Grid.Column="0" Background="{Binding Step1Background}" 
-                CornerRadius="4" Padding="12,8" Margin="0,0,8,0">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-            <TextBlock Text="1" FontSize="16" FontWeight="Bold" 
-                       Foreground="{Binding Step1Foreground}" Margin="0,0,8,0"/>
-            <TextBlock Text="Extract Data" FontSize="14" 
-                       Foreground="{Binding Step1Foreground}"/>
-          </StackPanel>
-        </Border>
+        <Button Grid.Column="0" Command="{Binding GoToStepCommand}" CommandParameter="1"
+          Background="#01FFFFFF" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch">
+          <Border Background="{Binding Step1Background}" 
+                  CornerRadius="4" Padding="12,8" Margin="0,0,8,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+              <TextBlock Text="1" FontSize="16" FontWeight="Bold" 
+                         Foreground="{Binding Step1Foreground}" Margin="0,0,8,0"/>
+              <TextBlock Text="Extract Data" FontSize="14" 
+                         Foreground="{Binding Step1Foreground}"/>
+            </StackPanel>
+          </Border>
+        </Button>
         <!-- Step 2 -->
-        <Border Grid.Column="1" Background="{Binding Step2Background}" 
-                CornerRadius="4" Padding="12,8" Margin="4,0">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-            <TextBlock Text="2" FontSize="16" FontWeight="Bold" 
-                       Foreground="{Binding Step2Foreground}" Margin="0,0,8,0"/>
-            <TextBlock Text="Map Photos" FontSize="14" 
-                       Foreground="{Binding Step2Foreground}"/>
-          </StackPanel>
-        </Border>
+        <Button Grid.Column="1" Command="{Binding GoToStepCommand}" CommandParameter="2"
+          Background="#01FFFFFF" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch">
+          <Border Background="{Binding Step2Background}" 
+                  CornerRadius="4" Padding="12,8" Margin="4,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+              <TextBlock Text="2" FontSize="16" FontWeight="Bold" 
+                         Foreground="{Binding Step2Foreground}" Margin="0,0,8,0"/>
+              <TextBlock Text="Map Players to Photos" FontSize="14" 
+                         Foreground="{Binding Step2Foreground}"/>
+            </StackPanel>
+          </Border>
+        </Button>
         <!-- Step 3 -->
-        <Border Grid.Column="2" Background="{Binding Step3Background}" 
-                CornerRadius="4" Padding="12,8" Margin="8,0,0,0">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-            <TextBlock Text="3" FontSize="16" FontWeight="Bold" 
-                       Foreground="{Binding Step3Foreground}" Margin="0,0,8,0"/>
-            <TextBlock Text="Generate Portraits" FontSize="14" 
-                       Foreground="{Binding Step3Foreground}"/>
-          </StackPanel>
-        </Border>
+        <Button Grid.Column="2" Command="{Binding GoToStepCommand}" CommandParameter="3"
+          Background="#01FFFFFF" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch">
+          <Border Background="{Binding Step3Background}" 
+                  CornerRadius="4" Padding="12,8" Margin="8,0,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+              <TextBlock Text="3" FontSize="16" FontWeight="Bold" 
+                         Foreground="{Binding Step3Foreground}" Margin="0,0,8,0"/>
+              <TextBlock Text="Generate Portraits" FontSize="14" 
+                         Foreground="{Binding Step3Foreground}"/>
+            </StackPanel>
+          </Border>
+        </Button>
       </Grid>
     </Border>
 

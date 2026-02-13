@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -74,6 +75,8 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _previewStatus = string.Empty;
 
+    public ObservableCollection<string> LogLines { get; } = new();
+
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
 
     public List<string> FaceDetectionModels { get; } = new()
@@ -94,15 +97,36 @@ public partial class GenerateStepViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void ClearInputCsv()
+    {
+        InputCsvPath = string.Empty;
+        IsComplete = false;
+    }
+
+    [RelayCommand]
     private async Task BrowsePhotosDirectory()
     {
         await Task.CompletedTask;
     }
 
     [RelayCommand]
+    private void ClearPhotosDirectory()
+    {
+        PhotosDirectory = string.Empty;
+        IsComplete = false;
+    }
+
+    [RelayCommand]
     private async Task BrowseOutputDirectory()
     {
         await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private void ClearOutputDirectory()
+    {
+        OutputDirectory = string.Empty;
+        IsComplete = false;
     }
 
     [RelayCommand]
@@ -187,6 +211,7 @@ public partial class GenerateStepViewModel : ViewModelBase
             return;
         }
 
+        LogLines.Clear();
         IsProcessing = true;
         IsComplete = false;
         PortraitsGenerated = 0;
@@ -236,6 +261,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                 ProcessingStatus = $"Processing {p.processed}/{p.total}: {p.current}";
             });
 
+            var log = new Progress<string>(AppendLog);
+
             var result = await logic.ExecuteWithResultAsync(
                 InputCsvPath,
                 PhotosDirectory,
@@ -249,7 +276,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                 false,
                 4,
                 progress,
-                _cancellationTokenSource.Token
+                _cancellationTokenSource.Token,
+                log
             );
 
             PortraitsGenerated = result.PortraitsGenerated;
@@ -302,6 +330,16 @@ public partial class GenerateStepViewModel : ViewModelBase
             _cancellationTokenSource?.Cancel();
             ProcessingStatus = "Cancelling generation...";
         }
+    }
+
+    private void AppendLog(string message)
+    {
+        if (LogLines.Count >= 200)
+        {
+            LogLines.RemoveAt(0);
+        }
+
+        LogLines.Add(message);
     }
 
 }

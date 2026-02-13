@@ -48,6 +48,9 @@ public partial class MapStepViewModel : ViewModelBase
     private string _photosDirectory = string.Empty;
 
     [ObservableProperty]
+    private string _outputDirectory = string.Empty;
+
+    [ObservableProperty]
     private string _filenamePattern = string.Empty;
 
     [ObservableProperty]
@@ -61,6 +64,9 @@ public partial class MapStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _useAiMapping;
+
+    [ObservableProperty]
+    private bool _aiOnly;
 
     [ObservableProperty]
     private bool _aiSecondPass = true;
@@ -93,6 +99,9 @@ public partial class MapStepViewModel : ViewModelBase
     private bool _isComplete;
 
     [ObservableProperty]
+    private string _outputCsvPath = string.Empty;
+
+    [ObservableProperty]
     private bool _usePhotoManifest;
 
     [ObservableProperty]
@@ -104,7 +113,16 @@ public partial class MapStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _modelDiagnosticStatus = string.Empty;
 
-    public ObservableCollection<string> NameModels { get; } = new();
+    [ObservableProperty]
+    private int _selectedModelTierIndex;
+
+    public ObservableCollection<string> LogLines { get; } = new();
+
+    public ObservableCollection<string> LocalNameModels { get; } = new();
+
+    public ObservableCollection<string> FreeTierNameModels { get; } = new();
+
+    public ObservableCollection<string> PaidNameModels { get; } = new();
 
     public MapStepViewModel()
     {
@@ -120,9 +138,31 @@ public partial class MapStepViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void ClearInputCsv()
+    {
+        InputCsvPath = string.Empty;
+        OutputCsvPath = string.Empty;
+        IsComplete = false;
+    }
+
+    [RelayCommand]
     private async Task BrowsePhotosDirectory()
     {
         await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private void ClearPhotosDirectory()
+    {
+        PhotosDirectory = string.Empty;
+        IsComplete = false;
+    }
+
+    [RelayCommand]
+    private void ClearOutputDirectory()
+    {
+        OutputDirectory = string.Empty;
+        IsComplete = false;
     }
 
     [RelayCommand]
@@ -176,9 +216,9 @@ public partial class MapStepViewModel : ViewModelBase
                 return;
             }
 
-            if (IsCloudModel(NameModel))
+            if (IsFreeTierModel(NameModel))
             {
-                ModelDiagnosticStatus = $"ℹ Cloud model selected: {NameModel}. Availability depends on cloud access/quota.";
+                ModelDiagnosticStatus = $"ℹ Free-tier cloud model selected: {NameModel}. Availability depends on cloud access/quota.";
                 return;
             }
 
@@ -213,6 +253,7 @@ public partial class MapStepViewModel : ViewModelBase
             return;
         }
 
+        LogLines.Clear();
         IsProcessing = true;
         IsComplete = false;
         Progress = 0;
@@ -267,21 +308,27 @@ public partial class MapStepViewModel : ViewModelBase
                 ProcessingStatus = $"Processing {p.processed}/{p.total}: {p.current}";
             });
 
+            var log = new Progress<string>(AppendLog);
+
             var result = await logic.ExecuteAsync(
                 InputCsvPath,
                 PhotosDirectory,
                 string.IsNullOrEmpty(FilenamePattern) ? null : FilenamePattern,
                 UsePhotoManifest ? PhotoManifestPath : null,
+                string.IsNullOrWhiteSpace(OutputDirectory) ? null : OutputDirectory,
                 NameModel,
                 ConfidenceThreshold,
                 UseAiMapping,
                 UseAiMapping && AiSecondPass,
                 progress,
-                _cancellationTokenSource.Token
+                _cancellationTokenSource.Token,
+                aiOnly: UseAiMapping && AiOnly,
+                log: log
             );
 
             PlayersProcessed = result.PlayersProcessed;
             PlayersMatched = result.PlayersMatched;
+            OutputCsvPath = result.OutputPath ?? string.Empty;
             ProcessingStatus = $"✓ Mapped {PlayersMatched}/{PlayersProcessed} players successfully";
             Progress = 100;
             IsComplete = true;
@@ -338,11 +385,12 @@ public partial class MapStepViewModel : ViewModelBase
             }
 
             var localModels = await client.GetAvailableModelsAsync();
-            RebuildNameModelList(localModels);
+            RebuildNameModelLists(localModels);
 
             if (showStatus)
             {
-                ModelDiagnosticStatus = $"✓ Loaded {NameModels.Count} selectable models";
+                var total = LocalNameModels.Count + FreeTierNameModels.Count + PaidNameModels.Count;
+                ModelDiagnosticStatus = $"✓ Loaded {total} models (Local {LocalNameModels.Count}, Free {FreeTierNameModels.Count}, Paid {PaidNameModels.Count})";
             }
         }
         catch (Exception ex)
@@ -357,10 +405,10 @@ public partial class MapStepViewModel : ViewModelBase
 
     private void SeedNameModelList()
     {
-        RebuildNameModelList(Array.Empty<string>());
+        RebuildNameModelLists(Array.Empty<string>());
     }
 
-    private void RebuildNameModelList(IEnumerable<string> discoveredModels)
+    private void RebuildNameModelLists(IEnumerable<string> discoveredModels)
     {
         var previousSelection = NameModel;
         var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -376,35 +424,77 @@ public partial class MapStepViewModel : ViewModelBase
         foreach (var model in KnownHostedNameModels)
             merged.Add(model);
 
-        var ordered = merged
-            .OrderBy(model => IsCloudModel(model) ? 1 : 0)
-            .ThenBy(model => model, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var local = new List<string>();
+        var freeTier = new List<string>();
+        var paid = new List<string>();
 
-        NameModels.Clear();
-        foreach (var model in ordered)
-            NameModels.Add(model);
+        foreach (var model in merged)
+        {
+            if (IsPaidModel(model))
+            {
+                paid.Add(model);
+            }
+            else if (IsFreeTierModel(model))
+            {
+                freeTier.Add(model);
+            }
+            else
+            {
+                local.Add(model);
+            }
+        }
+
+        local.Sort(StringComparer.OrdinalIgnoreCase);
+        freeTier.Sort(StringComparer.OrdinalIgnoreCase);
+        paid.Sort(StringComparer.OrdinalIgnoreCase);
+
+        LocalNameModels.Clear();
+        foreach (var model in local)
+            LocalNameModels.Add(model);
+
+        FreeTierNameModels.Clear();
+        foreach (var model in freeTier)
+            FreeTierNameModels.Add(model);
+
+        PaidNameModels.Clear();
+        foreach (var model in paid)
+            PaidNameModels.Add(model);
 
         if (!string.IsNullOrWhiteSpace(previousSelection) &&
-            NameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)))
+            (LocalNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
+             FreeTierNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
+             PaidNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase))))
         {
-            NameModel = NameModels.First(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase));
+            NameModel = previousSelection;
             return;
         }
 
-        if (NameModels.Contains("qwen2.5:7b"))
+        if (LocalNameModels.Contains("qwen2.5:7b"))
         {
             NameModel = "qwen2.5:7b";
             return;
         }
 
-        NameModel = NameModels.FirstOrDefault() ?? "qwen2.5:7b";
+        NameModel = LocalNameModels.FirstOrDefault()
+                    ?? FreeTierNameModels.FirstOrDefault()
+                    ?? PaidNameModels.FirstOrDefault()
+                    ?? "qwen2.5:7b";
     }
 
     private static bool IsCloudModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
            (modelName.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase) ||
             modelName.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsFreeTierModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (IsCloudModel(modelName) ||
+            modelName.EndsWith(":free", StringComparison.OrdinalIgnoreCase) ||
+            modelName.EndsWith("/free", StringComparison.OrdinalIgnoreCase) ||
+            modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsPaidModel(string modelName)
+        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName);
 
     private static bool IsOpenAiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
@@ -418,11 +508,47 @@ public partial class MapStepViewModel : ViewModelBase
     partial void OnNameModelChanged(string value)
     {
         UpdateProviderKeyInputVisibility();
+        SelectedModelTierIndex = GetTierIndexForModel(value);
+    }
+
+    partial void OnUseAiMappingChanged(bool value)
+    {
+        if (!value)
+        {
+            AiOnly = false;
+        }
+    }
+
+    partial void OnAiOnlyChanged(bool value)
+    {
+        if (value)
+        {
+            UseAiMapping = true;
+        }
+    }
+
+    private void AppendLog(string message)
+    {
+        if (LogLines.Count >= 200)
+        {
+            LogLines.RemoveAt(0);
+        }
+
+        LogLines.Add(message);
     }
 
     private void UpdateProviderKeyInputVisibility()
     {
         ShowOpenAiApiKeyInput = IsOpenAiModel(NameModel);
         ShowAnthropicApiKeyInput = IsAnthropicModel(NameModel);
+    }
+
+    private static int GetTierIndexForModel(string modelName)
+    {
+        if (IsPaidModel(modelName))
+            return 2;
+        if (IsFreeTierModel(modelName))
+            return 1;
+        return 0;
     }
 }

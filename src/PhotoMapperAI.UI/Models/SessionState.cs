@@ -34,6 +34,7 @@ public class SessionState
     public double ConfidenceThreshold { get; set; } = 0.9;
     public bool UseAiMapping { get; set; }
     public bool AiSecondPass { get; set; } = true;
+    public bool AiOnly { get; set; }
     public bool MapComplete { get; set; }
     public int PlayersMatched { get; set; }
     public int PlayersProcessed { get; set; }

@@ -13,6 +13,7 @@ public class ProgressIndicator
     private int _lastPercent;
     private readonly bool _useBar;
     private readonly int _barWidth;
+    private readonly bool _isConsoleAvailable;
 
     /// <summary>
     /// Creates a new progress indicator.
@@ -26,7 +27,8 @@ public class ProgressIndicator
         _total = total;
         _current = 0;
         _lastPercent = -1;
-        _useBar = useBar;
+        _isConsoleAvailable = TryGetConsoleWidth(out _);
+        _useBar = useBar && _isConsoleAvailable;
         _barWidth = 30;
     }
 
@@ -78,6 +80,9 @@ public class ProgressIndicator
 
     private void DisplayBar(int percent, string? itemName)
     {
+        if (!_isConsoleAvailable)
+            return;
+
         var filled = (int)((double)percent / 100 * _barWidth);
         var empty = _barWidth - filled;
         
@@ -100,11 +105,15 @@ public class ProgressIndicator
         }
 
         // Pad with spaces to clear any previous longer line
-        Console.Write(output.PadRight(Console.WindowWidth > 0 ? Console.WindowWidth - 1 : 100));
+        var width = GetConsoleWidthOrDefault();
+        Console.Write(output.PadRight(width > 0 ? width - 1 : 100));
     }
 
     private void DisplaySimple(int percent, string? itemName)
     {
+        if (!_isConsoleAvailable)
+            return;
+
         var status = $"{_current}/{_total} ({percent}%)";
         
         if (!string.IsNullOrEmpty(itemName))
@@ -125,6 +134,30 @@ public class ProgressIndicator
         return new Spinner(message);
     }
 
+    private static bool TryGetConsoleWidth(out int width)
+    {
+        width = 0;
+        try
+        {
+            width = Console.WindowWidth;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private int GetConsoleWidthOrDefault()
+    {
+        if (TryGetConsoleWidth(out var width) && width > 0)
+        {
+            return width;
+        }
+
+        return 120;
+    }
+
     /// <summary>
     /// Spinner for indeterminate progress operations.
     /// </summary>
@@ -136,17 +169,22 @@ public class ProgressIndicator
         private readonly Task _spinnerTask;
         private readonly CancellationTokenSource _cts;
         private bool _disposed;
+        private readonly bool _isConsoleAvailable;
 
         public Spinner(string message)
         {
             _message = message;
             _currentFrame = 0;
             _cts = new CancellationTokenSource();
+            _isConsoleAvailable = TryGetConsoleWidth(out _);
             _spinnerTask = Task.Run(() => Run(_cts.Token));
         }
 
         private void Run(CancellationToken token)
         {
+            if (!_isConsoleAvailable)
+                return;
+
             while (!token.IsCancellationRequested)
             {
                 Console.Write($"\r{_message} {_frames[_currentFrame]}");

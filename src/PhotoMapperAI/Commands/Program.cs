@@ -240,12 +240,14 @@ public class MapCommand
             PhotosDir,
             FilenamePattern,
             PhotoManifest,
+            outputDirectory: null,
             NameModel,
             ConfidenceThreshold,
             UseAi,
             UseAi && AiSecondPass,
             aiTrace: AiTrace,
-            aiOnly: AiOnly
+            aiOnly: AiOnly,
+            log: null
         );
 
         return result.PlayersMatched;

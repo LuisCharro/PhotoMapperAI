@@ -1,14 +1,11 @@
 ﻿using System;
 using System.ComponentModel;
-using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using PhotoMapperAI.UI.Models;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
@@ -70,18 +67,8 @@ public partial class MainWindowViewModel : ViewModelBase
         : new SolidColorBrush(Color.Parse("#666666"));
 
     public bool CanGoBack => CurrentStep > 1;
-    public bool CanGoNext => CurrentStep < 3 && CanProceedToNextStep();
+    public bool CanGoNext => CurrentStep < 3;
     public bool CanFinish => CurrentStep == 3;
-
-    private bool CanProceedToNextStep()
-    {
-        return CurrentStep switch
-        {
-            1 => _extractStep.IsComplete,
-            2 => _mapStep.IsComplete,
-            _ => false
-        };
-    }
 
     [RelayCommand]
     private void Back()
@@ -96,11 +83,23 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void Next()
     {
-        if (CurrentStep < 3 && CanProceedToNextStep())
+        if (CurrentStep < 3)
         {
             CurrentStep++;
             UpdateCurrentView();
         }
+    }
+
+    [RelayCommand]
+    private void GoToStep(int step)
+    {
+        if (step is < 1 or > 3 || step == CurrentStep)
+        {
+            return;
+        }
+
+        CurrentStep = step;
+        UpdateCurrentView();
     }
 
     [RelayCommand]
@@ -110,66 +109,6 @@ public partial class MainWindowViewModel : ViewModelBase
         await Task.CompletedTask;
     }
 
-    [RelayCommand]
-    private async Task SaveSession()
-    {
-        try
-        {
-            var session = BuildSessionState();
-            var sessionPath = SessionState.GetDefaultSessionPath();
-            await session.SaveAsync(sessionPath);
-            StatusMessage = $"Session saved: {sessionPath}";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Failed to save session: {ex.Message}";
-        }
-    }
-
-    [RelayCommand]
-    private async Task LoadSession()
-    {
-        try
-        {
-            var sessionPath = SessionState.GetDefaultSessionPath();
-            if (!File.Exists(sessionPath))
-            {
-                StatusMessage = $"No saved session found at {sessionPath}";
-                return;
-            }
-
-            var session = await SessionState.LoadAsync(sessionPath);
-            ApplySessionState(session);
-            StatusMessage = $"Session loaded: {sessionPath}";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Failed to load session: {ex.Message}";
-        }
-    }
-
-    [RelayCommand]
-    private async Task ExportReport()
-    {
-        try
-        {
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var reportsDir = Path.Combine(appDataPath, "PhotoMapperAI", "reports");
-            Directory.CreateDirectory(reportsDir);
-
-            var fileName = $"report-{DateTime.Now:yyyyMMdd-HHmmss}.md";
-            var reportPath = Path.Combine(reportsDir, fileName);
-
-            var report = BuildMarkdownReport();
-            await File.WriteAllTextAsync(reportPath, report);
-
-            StatusMessage = $"Report exported: {reportPath}";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Failed to export report: {ex.Message}";
-        }
-    }
 
     [RelayCommand]
     private void ToggleTheme()
@@ -187,93 +126,6 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = $"Theme changed to {(IsDarkTheme ? "Dark" : "Light")}";
     }
 
-    private SessionState BuildSessionState()
-    {
-        return new SessionState
-        {
-            CurrentStep = CurrentStep,
-
-            SqlFilePath = _extractStep.SqlFilePath,
-            ConnectionStringPath = _extractStep.ConnectionStringPath,
-            TeamId = _extractStep.TeamId,
-            OutputFileName = _extractStep.OutputFileName,
-            ExtractOutputDirectory = _extractStep.OutputDirectory,
-            ExtractOutputCsvPath = _extractStep.OutputCsvPath,
-            DatabaseType = _extractStep.DatabaseType,
-            ExtractComplete = _extractStep.IsComplete,
-            PlayersExtracted = _extractStep.PlayersExtracted,
-
-            MapInputCsvPath = _mapStep.InputCsvPath,
-            PhotosDirectory = _mapStep.PhotosDirectory,
-            FilenamePattern = _mapStep.FilenamePattern,
-            UsePhotoManifest = _mapStep.UsePhotoManifest,
-            PhotoManifestPath = _mapStep.PhotoManifestPath,
-            NameModel = _mapStep.NameModel,
-            ConfidenceThreshold = _mapStep.ConfidenceThreshold,
-            UseAiMapping = _mapStep.UseAiMapping,
-            AiSecondPass = _mapStep.AiSecondPass,
-            MapComplete = _mapStep.IsComplete,
-            PlayersMatched = _mapStep.PlayersMatched,
-            PlayersProcessed = _mapStep.PlayersProcessed,
-
-            GenerateInputCsvPath = _generateStep.InputCsvPath,
-            GeneratePhotosDirectory = _generateStep.PhotosDirectory,
-            OutputDirectory = _generateStep.OutputDirectory,
-            ImageFormat = _generateStep.ImageFormat,
-            FaceDetectionModel = _generateStep.FaceDetectionModel,
-            PortraitWidth = _generateStep.PortraitWidth,
-            PortraitHeight = _generateStep.PortraitHeight,
-            PortraitOnly = _generateStep.PortraitOnly,
-            DownloadOpenCvModels = _generateStep.DownloadOpenCvModels,
-            GenerateComplete = _generateStep.IsComplete,
-            PortraitsGenerated = _generateStep.PortraitsGenerated,
-            PortraitsFailed = _generateStep.PortraitsFailed
-        };
-    }
-
-    private void ApplySessionState(SessionState session)
-    {
-        _extractStep.SqlFilePath = session.SqlFilePath ?? string.Empty;
-        _extractStep.ConnectionStringPath = session.ConnectionStringPath ?? string.Empty;
-        _extractStep.TeamId = session.TeamId;
-        _extractStep.OutputFileName = session.OutputFileName ?? "players.csv";
-        _extractStep.OutputDirectory = session.ExtractOutputDirectory ?? Directory.GetCurrentDirectory();
-        _extractStep.OutputCsvPath = session.ExtractOutputCsvPath ?? string.Empty;
-        _extractStep.DatabaseType = session.DatabaseType ?? "SqlServer";
-        _extractStep.IsComplete = session.ExtractComplete;
-        _extractStep.PlayersExtracted = session.PlayersExtracted;
-
-        _mapStep.InputCsvPath = session.MapInputCsvPath
-            ?? (session.ExtractComplete ? session.ExtractOutputCsvPath : null)
-            ?? string.Empty;
-        _mapStep.PhotosDirectory = session.PhotosDirectory ?? string.Empty;
-        _mapStep.FilenamePattern = session.FilenamePattern ?? string.Empty;
-        _mapStep.UsePhotoManifest = session.UsePhotoManifest;
-        _mapStep.PhotoManifestPath = session.PhotoManifestPath ?? string.Empty;
-        _mapStep.NameModel = session.NameModel ?? "qwen2.5:7b";
-        _mapStep.ConfidenceThreshold = session.ConfidenceThreshold;
-        _mapStep.UseAiMapping = session.UseAiMapping;
-        _mapStep.AiSecondPass = session.AiSecondPass;
-        _mapStep.IsComplete = session.MapComplete;
-        _mapStep.PlayersMatched = session.PlayersMatched;
-        _mapStep.PlayersProcessed = session.PlayersProcessed;
-
-        _generateStep.InputCsvPath = session.GenerateInputCsvPath ?? string.Empty;
-        _generateStep.PhotosDirectory = session.GeneratePhotosDirectory ?? string.Empty;
-        _generateStep.OutputDirectory = session.OutputDirectory ?? string.Empty;
-        _generateStep.ImageFormat = session.ImageFormat ?? "jpg";
-        _generateStep.FaceDetectionModel = session.FaceDetectionModel ?? "llava:7b,qwen3-vl";
-        _generateStep.PortraitWidth = session.PortraitWidth;
-        _generateStep.PortraitHeight = session.PortraitHeight;
-        _generateStep.PortraitOnly = session.PortraitOnly;
-        _generateStep.DownloadOpenCvModels = session.DownloadOpenCvModels;
-        _generateStep.IsComplete = session.GenerateComplete;
-        _generateStep.PortraitsGenerated = session.PortraitsGenerated;
-        _generateStep.PortraitsFailed = session.PortraitsFailed;
-
-        CurrentStep = session.CurrentStep is >= 1 and <= 3 ? session.CurrentStep : 1;
-        UpdateCurrentView();
-    }
 
     private void OnStepPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -291,59 +143,20 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(CanGoNext));
         }
-    }
 
-    private string BuildMarkdownReport()
-    {
-        var generatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        if (sender == _mapStep &&
+            e.PropertyName == nameof(MapStepViewModel.IsComplete) &&
+            _mapStep.IsComplete &&
+            !string.IsNullOrWhiteSpace(_mapStep.OutputCsvPath))
+        {
+            _generateStep.InputCsvPath = _mapStep.OutputCsvPath;
+            if (!string.IsNullOrWhiteSpace(_mapStep.PhotosDirectory))
+            {
+                _generateStep.PhotosDirectory = _mapStep.PhotosDirectory;
+            }
 
-        return $"""
-# PhotoMapperAI Processing Report
-
-Generated at: {generatedAt}
-Current step: {CurrentStep}
-
-## Step 1 - Extract
-- Completed: {_extractStep.IsComplete}
-- SQL file: {_extractStep.SqlFilePath}
-- Connection string file: {_extractStep.ConnectionStringPath}
-- Team ID: {_extractStep.TeamId}
-- Output file name: {_extractStep.OutputFileName}
-- Output directory: {_extractStep.OutputDirectory}
-- Output CSV path: {_extractStep.OutputCsvPath}
-- Database type: {_extractStep.DatabaseType}
-- Players extracted: {_extractStep.PlayersExtracted}
-- Status: {_extractStep.ProcessingStatus}
-
-## Step 2 - Map
-- Completed: {_mapStep.IsComplete}
-- Input CSV: {_mapStep.InputCsvPath}
-- Photos directory: {_mapStep.PhotosDirectory}
-- Filename pattern: {_mapStep.FilenamePattern}
-- Use photo manifest: {_mapStep.UsePhotoManifest}
-- Photo manifest path: {_mapStep.PhotoManifestPath}
-- Name model: {_mapStep.NameModel}
-- Confidence threshold: {_mapStep.ConfidenceThreshold}
-- Use AI mapping: {_mapStep.UseAiMapping}
-- AI second pass: {_mapStep.AiSecondPass}
-- Players processed: {_mapStep.PlayersProcessed}
-- Players matched: {_mapStep.PlayersMatched}
-- Status: {_mapStep.ProcessingStatus}
-
-## Step 3 - Generate
-- Completed: {_generateStep.IsComplete}
-- Input CSV: {_generateStep.InputCsvPath}
-- Photos directory: {_generateStep.PhotosDirectory}
-- Output directory: {_generateStep.OutputDirectory}
-- Image format: {_generateStep.ImageFormat}
-- Face detection model: {_generateStep.FaceDetectionModel}
-- Portrait size: {_generateStep.PortraitWidth}x{_generateStep.PortraitHeight}
-- Portrait only: {_generateStep.PortraitOnly}
-- Download OpenCV models: {_generateStep.DownloadOpenCvModels}
-- Portraits generated: {_generateStep.PortraitsGenerated}
-- Portraits failed: {_generateStep.PortraitsFailed}
-- Status: {_generateStep.ProcessingStatus}
-""";
+            StatusMessage = $"Step 3 inputs set: {_mapStep.OutputCsvPath}";
+        }
     }
 
     private void UpdateCurrentView()
@@ -359,7 +172,7 @@ Current step: {CurrentStep}
         CurrentStepDescription = CurrentStep switch
         {
             1 => "Step 1: Extract player data from database to CSV",
-            2 => "Step 2: Map photos to players using AI",
+            2 => "Step 2: Map players to photos using filename IDs",
             3 => "Step 3: Generate portrait photos",
             _ => ""
         };

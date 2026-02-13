@@ -47,6 +47,7 @@ public class MapCommandLogic
         string photosDir,
         string? filenamePattern,
         string? photoManifest,
+        string? outputDirectory,
         string nameModel,
         double confidenceThreshold,
         bool useAi,
@@ -54,57 +55,67 @@ public class MapCommandLogic
         IProgress<(int processed, int total, string current)>? uiProgress = null,
         CancellationToken cancellationToken = default,
         bool aiTrace = false,
-        bool aiOnly = false)
+        bool aiOnly = false,
+        IProgress<string>? log = null)
     {
-        Console.WriteLine("Map Command");
-        Console.WriteLine("============");
-        Console.WriteLine($"CSV File: {inputCsvPath}");
-        Console.WriteLine($"Photos Dir: {photosDir}");
-        Console.WriteLine($"Name Model: {nameModel}");
-        Console.WriteLine($"Confidence Threshold: {confidenceThreshold}");
-        Console.WriteLine($"Use AI: {useAi}");
-        Console.WriteLine($"AI Second Pass: {aiSecondPass}");
-        Console.WriteLine($"AI Trace: {aiTrace}");
-        Console.WriteLine($"AI Only: {aiOnly}");
-        Console.WriteLine();
+        void LogLine(string message)
+        {
+            Console.WriteLine(message);
+            log?.Report(message);
+        }
+
+        LogLine("Map Command");
+        LogLine("============");
+        LogLine($"CSV File: {inputCsvPath}");
+        LogLine($"Photos Dir: {photosDir}");
+        LogLine($"Name Model: {nameModel}");
+        LogLine($"Confidence Threshold: {confidenceThreshold}");
+        LogLine($"Use AI: {useAi}");
+        LogLine($"AI Second Pass: {aiSecondPass}");
+        LogLine($"AI Trace: {aiTrace}");
+        LogLine($"AI Only: {aiOnly}");
+        LogLine(string.Empty);
 
         try
         {
             // Step 1: Load players from CSV
-            Console.WriteLine("Loading player data...");
+            LogLine("Loading player data...");
             var extractor = new Services.Database.DatabaseExtractor(_imageProcessor);
             var players = await extractor.ReadCsvAsync(inputCsvPath);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Loaded {players.Count} players from CSV");
             Console.ResetColor();
-            Console.WriteLine();
+            log?.Report($"✓ Loaded {players.Count} players from CSV");
+            LogLine(string.Empty);
 
             // Step 2: Load photos
-            Console.WriteLine("Loading photos...");
+            LogLine("Loading photos...");
             var photoFiles = Directory.GetFiles(photosDir, "*.*", SearchOption.AllDirectories);
             var photos = photoFiles.ToList();
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Loaded {photos.Count} photos");
             Console.ResetColor();
-            Console.WriteLine();
+            log?.Report($"✓ Loaded {photos.Count} photos");
+            LogLine(string.Empty);
 
             // Step 3: Load photo manifest if provided
             Dictionary<string, PhotoMetadata>? manifest = null;
             if (!string.IsNullOrEmpty(photoManifest))
             {
-                Console.WriteLine($"Loading photo manifest: {photoManifest}");
+                LogLine($"Loading photo manifest: {photoManifest}");
                 manifest = FilenameParser.LoadManifest(photoManifest);
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"✓ Loaded {manifest.Count} entries from manifest");
                 Console.ResetColor();
-                Console.WriteLine();
+                log?.Report($"✓ Loaded {manifest.Count} entries from manifest");
+                LogLine(string.Empty);
             }
 
             // Step 4: Match players to photos
-            Console.WriteLine("Matching players to photos...");
+            LogLine("Matching players to photos...");
             var results = new List<MappingResult>();
             var totalPlayers = players.Count;
             var processedCount = 0;
@@ -181,8 +192,8 @@ public class MapCommandLogic
             // Phase 3: AI fallback passes
             if (useAi && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
             {
-                Console.WriteLine();
-                Console.WriteLine("Running AI pass 1 for unresolved players...");
+                LogLine(string.Empty);
+                LogLine("Running AI pass 1 for unresolved players...");
                 var aiFirstPass = await ApplyAiGlobalMatchesAsync(
                     unmatchedPlayers,
                     remainingCandidates,
@@ -209,8 +220,8 @@ public class MapCommandLogic
 
                 if (aiSecondPass && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
                 {
-                    Console.WriteLine();
-                    Console.WriteLine("Running AI pass 2 for remaining unresolved players...");
+                    LogLine(string.Empty);
+                    LogLine("Running AI pass 2 for remaining unresolved players...");
                     var aiSecondPassResult = await ApplyAiGlobalMatchesAsync(
                         unmatchedPlayers,
                         remainingCandidates,
@@ -267,17 +278,34 @@ public class MapCommandLogic
             }
             Console.WriteLine($"✓ Left unmapped: {unmappedCount}");
             Console.ResetColor();
+            log?.Report($"✓ Matched {totalMatched} / {results.Count} players");
+            log?.Report($"✓ First round mapped (ID + String): {firstRoundMapped} (ID: {directIdMatches}, String: {stringMatches})");
+            log?.Report($"✓ AI round mapped: {aiMatches} (Pass 1: {aiFirstPassMatches}, Pass 2: {aiSecondPassMatches})");
+            log?.Report($"✓ AI evaluated: {aiTotalPlayersEvaluated} players (Pass 1: {aiFirstPassPlayersEvaluated}, Pass 2: {aiSecondPassPlayersEvaluated}), {aiTotalComparisons} model comparisons (Pass 1: {aiFirstPassComparisons}, Pass 2: {aiSecondPassComparisons})");
+            if (aiTotalUsageCalls > 0 || aiTotalTokens > 0)
+            {
+                log?.Report(
+                    $"✓ AI usage: {aiTotalUsageCalls} billable calls, {aiTotalPromptTokens} prompt/input tokens, " +
+                    $"{aiTotalCompletionTokens} completion/output tokens, {aiTotalTokens} total tokens " +
+                    $"(Pass 1 calls/tokens: {aiFirstPassUsageCalls}/{aiFirstPassTotalTokens}, Pass 2 calls/tokens: {aiSecondPassUsageCalls}/{aiSecondPassTotalTokens})");
+            }
+            log?.Report($"✓ Left unmapped: {unmappedCount}");
 
             // Step 5: Write updated CSV
             var outputFileName = BuildMappedFileName(inputCsvPath);
-            var outputPath = Path.Combine(Directory.GetCurrentDirectory(), outputFileName);
-            Console.WriteLine();
-            Console.WriteLine($"Writing results to: {outputPath}");
+            var baseOutputDir = string.IsNullOrWhiteSpace(outputDirectory)
+                ? Directory.GetCurrentDirectory()
+                : outputDirectory;
+            Directory.CreateDirectory(baseOutputDir);
+            var outputPath = Path.Combine(baseOutputDir, outputFileName);
+            LogLine(string.Empty);
+            LogLine($"Writing results to: {outputPath}");
             await Services.Database.DatabaseExtractor.WriteCsvAsync(players, outputPath);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Complete! Results saved to {outputPath}");
             Console.ResetColor();
+            log?.Report($"✓ Complete! Results saved to {outputPath}");
 
             return new MapResult
             {
@@ -294,6 +322,7 @@ public class MapCommandLogic
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("⚠ Mapping cancelled by user");
             Console.ResetColor();
+            log?.Report("⚠ Mapping cancelled by user");
             throw;
         }
         catch (FileNotFoundException ex)
@@ -301,6 +330,7 @@ public class MapCommandLogic
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ File not found: {ex.FileName}");
             Console.ResetColor();
+            log?.Report($"✗ File not found: {ex.FileName}");
             throw;
         }
         catch (DirectoryNotFoundException ex)
@@ -308,6 +338,7 @@ public class MapCommandLogic
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ Directory not found: {ex.Message}");
             Console.ResetColor();
+            log?.Report($"✗ Directory not found: {ex.Message}");
             throw;
         }
         catch (Exception ex)
@@ -316,6 +347,7 @@ public class MapCommandLogic
             Console.WriteLine($"✗ Error: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
             Console.ResetColor();
+            log?.Report($"✗ Error: {ex.Message}");
             throw;
         }
     }
