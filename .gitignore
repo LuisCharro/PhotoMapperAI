@@ -94,7 +94,7 @@ benchmark-results/*.md
 benchmark-results/*.json
 
 # OpenCV models (binary files, large)
-models/
+/models/
 *.xml
 *.caffemodel
 *.prototxt
