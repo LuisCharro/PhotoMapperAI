@@ -300,8 +300,11 @@ public class GeneratePhotosCommand
     [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
     public int FaceHeight { get; set; } = 300;
 
-    [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON. First variant overrides faceWidth/faceHeight in this phase.")]
+    [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON.")]
     public string? SizeProfile { get; set; }
+
+    [Option(ShortName = "as", LongName = "allSizes", Description = "When used with --sizeProfile, generate all variants into subfolders.")]
+    public bool AllSizes { get; set; } = false;
 
     [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing (default: false)")]
     public bool Parallel { get; set; } = false;
@@ -320,17 +323,14 @@ public class GeneratePhotosCommand
 
     public async Task<int> OnExecuteAsync()
     {
+        PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
+
         if (!string.IsNullOrWhiteSpace(SizeProfile))
         {
             try
             {
-                var loadedProfile = SizeProfileLoader.LoadFromFile(SizeProfile);
-                var firstVariant = loadedProfile.Variants.First();
-                FaceWidth = firstVariant.Width;
-                FaceHeight = firstVariant.Height;
-
+                loadedProfile = SizeProfileLoader.LoadFromFile(SizeProfile);
                 Console.WriteLine($"Using size profile '{loadedProfile.Name}' from {SizeProfile}");
-                Console.WriteLine($"Active variant (phase 1): {firstVariant.Key} => {FaceWidth}x{FaceHeight}");
             }
             catch (Exception ex)
             {
@@ -377,20 +377,50 @@ public class GeneratePhotosCommand
         // Create generate photos command logic handler
         var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache);
 
-        // Execute generate photos command
-        return await logic.ExecuteAsync(
-            InputCsvPath,
-            PhotosDir,
-            ProcessedPhotosOutputPath,
-            Format,
-            FaceDetection,
-            Crop,
-            PortraitOnly,
-            FaceWidth,
-            FaceHeight,
-            Parallel,
-            ParallelDegree
-        );
+        async Task<int> RunOneVariant(int width, int height, string outputDir, string variantLabel)
+        {
+            Console.WriteLine($"Generating variant '{variantLabel}' => {width}x{height} -> {outputDir}");
+            Directory.CreateDirectory(outputDir);
+
+            return await logic.ExecuteAsync(
+                InputCsvPath,
+                PhotosDir,
+                outputDir,
+                Format,
+                FaceDetection,
+                Crop,
+                PortraitOnly,
+                width,
+                height,
+                Parallel,
+                ParallelDegree
+            );
+        }
+
+        if (loadedProfile == null)
+        {
+            return await RunOneVariant(FaceWidth, FaceHeight, ProcessedPhotosOutputPath, "single");
+        }
+
+        if (!AllSizes)
+        {
+            var firstVariant = loadedProfile.Variants.First();
+            return await RunOneVariant(firstVariant.Width, firstVariant.Height, ProcessedPhotosOutputPath, firstVariant.Key);
+        }
+
+        var worstExitCode = 0;
+        foreach (var variant in loadedProfile.Variants)
+        {
+            var subfolder = string.IsNullOrWhiteSpace(variant.OutputSubfolder) ? variant.Key : variant.OutputSubfolder;
+            var variantOutput = Path.Combine(ProcessedPhotosOutputPath, subfolder);
+            var exitCode = await RunOneVariant(variant.Width, variant.Height, variantOutput, variant.Key);
+            if (exitCode != 0)
+            {
+                worstExitCode = exitCode;
+            }
+        }
+
+        return worstExitCode;
     }
 
 }
