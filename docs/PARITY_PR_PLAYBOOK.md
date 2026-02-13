@@ -29,6 +29,18 @@ Why this order:
 
 Use helper scripts to drive the final gate:
 
+## Optional Makefile shortcuts
+
+```bash
+make parity-status
+make parity-report
+make parity-comment
+make parity-merge
+make parity-merge-apply
+make parity-watch
+make parity-validate
+```
+
 > Tip: override PR scope when needed (example: only PR #4 and #5)
 >
 > `PARITY_PRS="4 5" ./scripts/ops/parity_pipeline.sh status`
