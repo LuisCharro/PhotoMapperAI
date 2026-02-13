@@ -148,6 +148,11 @@ python3 scripts/run_external_validation.py --config samples/external_validation.
 
 # Legacy-ID parity mode (recommended for comparing against old expected portraits)
 python3 scripts/run_external_validation.py --config samples/external_validation.realdata_parity.template.json
+
+# Optional machine-readable summary
+python3 scripts/run_external_validation.py \
+  --config samples/external_validation.realdata_parity.template.json \
+  --summary-json /tmp/external-validation-summary.json
 ```
 
 This will:

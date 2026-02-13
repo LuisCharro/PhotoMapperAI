@@ -213,6 +213,11 @@ def main() -> int:
         action="store_true",
         help="Only validate config and print planned actions.",
     )
+    parser.add_argument(
+        "--summary-json",
+        default=None,
+        help="Optional path to write machine-readable summary JSON.",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config).expanduser().resolve()
@@ -404,6 +409,30 @@ def main() -> int:
                 for item in r.unexpected_generated[:50]:
                     f.write(f"- `{item}`\n")
             f.write("\n")
+
+    if args.summary_json:
+        summary_path = Path(args.summary_json).expanduser().resolve()
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary = {
+            "outputRoot": str(output_root),
+            "reportPath": str(report_path),
+            "teams": [
+                {
+                    "name": r.name,
+                    "status": r.status,
+                    "error": r.error,
+                    "expectedCount": r.expected_count,
+                    "generatedCount": r.generated_count,
+                    "commonCount": r.common_count,
+                    "coveragePercent": round(r.coverage_percent, 2),
+                    "missingExpectedCount": len(r.missing_expected),
+                    "unexpectedGeneratedCount": len(r.unexpected_generated),
+                }
+                for r in results
+            ],
+        }
+        summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(f"Validation summary JSON written to: {summary_path}")
 
     print(f"Validation report written to: {report_path}")
     return 0
