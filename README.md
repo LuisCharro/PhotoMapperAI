@@ -155,7 +155,7 @@ This will:
 - run `map`,
 - run `generatephotos`,
 - compare generated portrait IDs against expected portrait IDs,
-- write a report in the configured `outputRoot`.
+- write a report in the configured `outputRoot` (status, ID coverage %, missing/unexpected IDs, avg file-size stats).
 
 Tip: config supports long-run safeguards:
 - `mapTimeoutSec`

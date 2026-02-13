@@ -41,6 +41,10 @@ class TeamResult:
     input_count: int
     expected_count: int
     generated_count: int
+    common_count: int
+    coverage_percent: float
+    avg_expected_kb: float
+    avg_generated_kb: float
     missing_expected: List[str]
     unexpected_generated: List[str]
     map_csv: Optional[Path]
@@ -191,6 +195,12 @@ def _load_config(path: Path) -> Dict[str, object]:
         return json.load(f)
 
 
+def _avg_file_kb(paths: List[Path]) -> float:
+    if not paths:
+        return 0.0
+    return sum(p.stat().st_size for p in paths if p.exists()) / len(paths) / 1024.0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run external real-data validation.")
     parser.add_argument(
@@ -320,6 +330,9 @@ def main() -> int:
             expected_set = set(expected_ids)
             generated_set = set(generated_ids)
 
+            common_count = len(expected_set & generated_set)
+            coverage_percent = (common_count / len(expected_ids) * 100.0) if expected_ids else 0.0
+
             results.append(
                 TeamResult(
                     name=team.name,
@@ -328,6 +341,10 @@ def main() -> int:
                     input_count=len([p for p in team.input_photos_dir.iterdir() if p.is_file() and _is_image(p)]),
                     expected_count=len(expected_ids),
                     generated_count=len(generated_ids),
+                    common_count=common_count,
+                    coverage_percent=coverage_percent,
+                    avg_expected_kb=_avg_file_kb(list(team.expected_portraits_dir.glob("*"))),
+                    avg_generated_kb=_avg_file_kb(list(generated_out.glob("*"))),
                     missing_expected=sorted(expected_set - generated_set),
                     unexpected_generated=sorted(generated_set - expected_set),
                     map_csv=mapped_csv,
@@ -343,6 +360,10 @@ def main() -> int:
                     input_count=0,
                     expected_count=0,
                     generated_count=0,
+                    common_count=0,
+                    coverage_percent=0.0,
+                    avg_expected_kb=0.0,
+                    avg_generated_kb=0.0,
                     missing_expected=[],
                     unexpected_generated=[],
                     map_csv=None,
@@ -368,8 +389,11 @@ def main() -> int:
             f.write(f"- Generated portraits: {r.generated_count}\n")
             f.write(f"- Mapped CSV: `{r.map_csv}`\n")
             f.write(f"- Generated dir: `{r.generated_dir}`\n")
+            f.write(f"- Common IDs: {r.common_count}\n")
+            f.write(f"- Coverage (% expected IDs generated): {r.coverage_percent:.1f}%\n")
             f.write(f"- Missing expected IDs: {len(r.missing_expected)}\n")
             f.write(f"- Unexpected generated IDs: {len(r.unexpected_generated)}\n")
+            f.write(f"- Avg file size KB (expected/generated): {r.avg_expected_kb:.1f}/{r.avg_generated_kb:.1f}\n")
 
             if r.missing_expected:
                 f.write("\nMissing expected IDs:\n")
