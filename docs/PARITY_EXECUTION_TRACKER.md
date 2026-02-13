@@ -12,39 +12,48 @@ Use this file as the practical checklist while implementing `PLAYERPORTRAITMANAG
   - external validation resilience
   - team-specific source CSV support
   - timeout + continue-on-error + richer report metrics
+  - optional summary JSON + portrait set compare helper
+- `feature/cli-size-profiles` ✅ active
+  - size profile model/loader added
+  - `--sizeProfile`, `--allSizes`, `--outputProfile` implemented
+  - tests for profile loader + output profile resolver
+- `feature/ui-size-profile-integration` ✅ active
+  - generate step supports size profile path / all-sizes / output-profile
+  - manual size controls auto-disable when profile is selected
+  - UI checklist + guide updates completed
 
 ---
 
 ## Phase 1 — CLI parity foundation
 
 ### 1.1 Size profile model + loader
-- [ ] Add models: `SizeProfile`, `SizeVariant`
-- [ ] Add JSON schema/template in `samples/`
-- [ ] Validate profile (non-empty, positive dimensions)
+- [x] Add models: `SizeProfile`, `SizeVariant`
+- [x] Add JSON schema/template in `samples/`
+- [x] Validate profile (non-empty, positive dimensions)
 - Branch: `feature/cli-size-profiles`
 
 ### 1.2 CLI options (non-breaking)
-- [ ] Add `--sizeProfile <name|path>`
-- [ ] Add `--allSizes`
-- [ ] Add optional `--outputProfile <test|prod>`
-- [ ] Keep current single-size path unchanged
+- [x] Add `--sizeProfile <name|path>`
+- [x] Add `--allSizes`
+- [x] Add optional `--outputProfile <test|prod>`
+- [x] Keep current single-size path unchanged
 - Branch: `feature/cli-size-profiles`
 
 ### 1.3 Generate command logic
-- [ ] Iterate variants when `--allSizes` is set
-- [ ] Keep output naming by `PlayerId`
-- [ ] Ensure no stretch regressions in all variants
-- Branch: `feature/generate-multisize-logic`
+- [x] Iterate variants when `--allSizes` is set
+- [x] Keep output naming by `PlayerId`
+- [x] Ensure no stretch regressions in all variants
+- Branch: `feature/cli-size-profiles`
 
 ---
 
 ## Phase 2 — validation and confidence
 
 ### 2.1 Tests
-- [ ] Unit tests for profile parsing and resolution
+- [x] Unit tests for profile parsing and resolution
 - [ ] Integration test for multi-size generation in one run
-- [ ] Regression: output dimensions + format correctness
-- Branch: `feature/parity-tests-and-docs`
+- [x] Regression: output dimensions + format correctness
+- Branch: `feature/cli-size-profiles` + `feature/generate-quality-fix`
 
 ### 2.2 Real-data parity checks (external dataset)
 - [ ] Run Spain + Switzerland with team-specific source CSVs
@@ -57,14 +66,14 @@ Use this file as the practical checklist while implementing `PLAYERPORTRAITMANAG
 ## Phase 3 — UI integration
 
 ### 3.1 Generate step controls
-- [ ] Add size mode toggle: single/profile/all
-- [ ] Add profile selector / path input
+- [x] Add size mode toggle: single/profile/all
+- [x] Add profile selector / path input
 - [ ] Preview resolved size variants in UI
 - Branch: `feature/ui-size-profile-integration`
 
 ### 3.2 UI command wiring
-- [ ] Pass profile options to same command logic
-- [ ] Keep existing defaults for non-advanced users
+- [x] Pass profile options to same command logic
+- [x] Keep existing defaults for non-advanced users
 - Branch: `feature/ui-size-profile-integration`
 
 ---
@@ -74,9 +83,8 @@ Use this file as the practical checklist while implementing `PLAYERPORTRAITMANAG
 1. `feature/generate-quality-fix`
 2. `feature/validation-config-parity`
 3. `feature/cli-size-profiles`
-4. `feature/generate-multisize-logic`
-5. `feature/parity-tests-and-docs`
-6. `feature/ui-size-profile-integration`
+4. `feature/ui-size-profile-integration`
+5. optional follow-up: dedicated integration-tests/docs branch if needed
 
 ---
 
