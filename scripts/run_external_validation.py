@@ -36,13 +36,15 @@ class TeamConfig:
 @dataclass
 class TeamResult:
     name: str
+    status: str
+    error: Optional[str]
     input_count: int
     expected_count: int
     generated_count: int
     missing_expected: List[str]
     unexpected_generated: List[str]
-    map_csv: Path
-    generated_dir: Path
+    map_csv: Optional[Path]
+    generated_dir: Optional[Path]
 
 
 def _run(
@@ -216,6 +218,7 @@ def main() -> int:
 
     map_timeout_sec = int(config.get("mapTimeoutSec", 600))
     generate_timeout_sec = int(config.get("generateTimeoutSec", 1200))
+    continue_on_error = bool(config.get("continueOnError", True))
 
     teams: List[TeamConfig] = []
     for raw in config.get("teams", []):
@@ -242,6 +245,7 @@ def main() -> int:
         print(f"Output root: {output_root}")
         print(f"Map timeout (sec): {map_timeout_sec}")
         print(f"Generate timeout (sec): {generate_timeout_sec}")
+        print(f"Continue on error: {continue_on_error}")
         for t in teams:
             print(f"- Team {t.name}:")
             print(f"  photos   : {t.input_photos_dir}")
@@ -259,80 +263,106 @@ def main() -> int:
             shutil.rmtree(team_workspace)
         team_workspace.mkdir(parents=True, exist_ok=True)
 
-        team_csv = _prepare_team_csv(source_csv_path, team, team_workspace)
+        try:
+            team_csv = _prepare_team_csv(source_csv_path, team, team_workspace)
 
-        # Run map command from team workspace, so mapped_* output lands there.
-        map_cmd = [
-            "dotnet",
-            "run",
-            "--project",
-            str(repo_root / "src/PhotoMapperAI/PhotoMapperAI.csproj"),
-            "--",
-            "map",
-            "--inputCsvPath",
-            str(team_csv),
-            "--photosDir",
-            str(team.input_photos_dir),
-            "--nameModel",
-            str(map_cfg.get("nameModel", "ollama:qwen2.5:7b")),
-            "--confidenceThreshold",
-            str(map_cfg.get("confidenceThreshold", 0.9)),
-        ]
-        # map command currently returns matched-count as exit code, so non-zero can still mean success.
-        _run(map_cmd, cwd=team_workspace, allow_nonzero=True, timeout_sec=map_timeout_sec)
+            # Run map command from team workspace, so mapped_* output lands there.
+            map_cmd = [
+                "dotnet",
+                "run",
+                "--project",
+                str(repo_root / "src/PhotoMapperAI/PhotoMapperAI.csproj"),
+                "--",
+                "map",
+                "--inputCsvPath",
+                str(team_csv),
+                "--photosDir",
+                str(team.input_photos_dir),
+                "--nameModel",
+                str(map_cfg.get("nameModel", "ollama:qwen2.5:7b")),
+                "--confidenceThreshold",
+                str(map_cfg.get("confidenceThreshold", 0.9)),
+            ]
+            # map command currently returns matched-count as exit code, so non-zero can still mean success.
+            _run(map_cmd, cwd=team_workspace, allow_nonzero=True, timeout_sec=map_timeout_sec)
 
-        mapped_csv = team_workspace / f"mapped_{team_csv.name}"
-        if not mapped_csv.exists():
-            raise RuntimeError(f"Mapped CSV not found: {mapped_csv}")
+            mapped_csv = team_workspace / f"mapped_{team_csv.name}"
+            if not mapped_csv.exists():
+                raise RuntimeError(f"Mapped CSV not found: {mapped_csv}")
 
-        generated_out = team_workspace / "Generated"
-        generated_out.mkdir(parents=True, exist_ok=True)
+            generated_out = team_workspace / "Generated"
+            generated_out.mkdir(parents=True, exist_ok=True)
 
-        generate_cmd = [
-            "dotnet",
-            "run",
-            "--project",
-            str(repo_root / "src/PhotoMapperAI/PhotoMapperAI.csproj"),
-            "--",
-            "generatephotos",
-            "--inputCsvPath",
-            str(mapped_csv),
-            "--photosDir",
-            str(team.input_photos_dir),
-            "--processedPhotosOutputPath",
-            str(generated_out),
-            "--format",
-            str(generate_cfg.get("format", "jpg")),
-            "--faceDetection",
-            str(generate_cfg.get("faceDetectionModel", "llava:7b")),
-        ]
-        if bool(generate_cfg.get("portraitOnly", False)):
-            generate_cmd.append("--portraitOnly")
-        _run(generate_cmd, cwd=team_workspace, timeout_sec=generate_timeout_sec)
+            generate_cmd = [
+                "dotnet",
+                "run",
+                "--project",
+                str(repo_root / "src/PhotoMapperAI/PhotoMapperAI.csproj"),
+                "--",
+                "generatephotos",
+                "--inputCsvPath",
+                str(mapped_csv),
+                "--photosDir",
+                str(team.input_photos_dir),
+                "--processedPhotosOutputPath",
+                str(generated_out),
+                "--format",
+                str(generate_cfg.get("format", "jpg")),
+                "--faceDetection",
+                str(generate_cfg.get("faceDetectionModel", "llava:7b")),
+            ]
+            if bool(generate_cfg.get("portraitOnly", False)):
+                generate_cmd.append("--portraitOnly")
+            _run(generate_cmd, cwd=team_workspace, timeout_sec=generate_timeout_sec)
 
-        expected_ids = _list_generated_ids(team.expected_portraits_dir)
-        generated_ids = _list_generated_ids(generated_out)
-        expected_set = set(expected_ids)
-        generated_set = set(generated_ids)
+            expected_ids = _list_generated_ids(team.expected_portraits_dir)
+            generated_ids = _list_generated_ids(generated_out)
+            expected_set = set(expected_ids)
+            generated_set = set(generated_ids)
 
-        results.append(
-            TeamResult(
-                name=team.name,
-                input_count=len([p for p in team.input_photos_dir.iterdir() if p.is_file() and _is_image(p)]),
-                expected_count=len(expected_ids),
-                generated_count=len(generated_ids),
-                missing_expected=sorted(expected_set - generated_set),
-                unexpected_generated=sorted(generated_set - expected_set),
-                map_csv=mapped_csv,
-                generated_dir=generated_out,
+            results.append(
+                TeamResult(
+                    name=team.name,
+                    status="ok",
+                    error=None,
+                    input_count=len([p for p in team.input_photos_dir.iterdir() if p.is_file() and _is_image(p)]),
+                    expected_count=len(expected_ids),
+                    generated_count=len(generated_ids),
+                    missing_expected=sorted(expected_set - generated_set),
+                    unexpected_generated=sorted(generated_set - expected_set),
+                    map_csv=mapped_csv,
+                    generated_dir=generated_out,
+                )
             )
-        )
+        except Exception as ex:
+            results.append(
+                TeamResult(
+                    name=team.name,
+                    status="error",
+                    error=str(ex),
+                    input_count=0,
+                    expected_count=0,
+                    generated_count=0,
+                    missing_expected=[],
+                    unexpected_generated=[],
+                    map_csv=None,
+                    generated_dir=None,
+                )
+            )
+            if not continue_on_error:
+                raise
 
     report_path = output_root / "validation_report.md"
     with report_path.open("w", encoding="utf-8") as f:
         f.write("# External Validation Report\n\n")
         for r in results:
             f.write(f"## {r.name}\n\n")
+            f.write(f"- Status: {r.status}\n")
+
+            if r.status != "ok":
+                f.write(f"- Error: `{r.error}`\n\n")
+                continue
+
             f.write(f"- Input photos: {r.input_count}\n")
             f.write(f"- Expected portraits: {r.expected_count}\n")
             f.write(f"- Generated portraits: {r.generated_count}\n")

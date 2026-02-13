@@ -3,6 +3,7 @@
   "outputRoot": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/Validation_Run",
   "mapTimeoutSec": 600,
   "generateTimeoutSec": 1200,
+  "continueOnError": true,
   "map": {
     "nameModel": "ollama:qwen2.5:7b",
     "confidenceThreshold": 0.9

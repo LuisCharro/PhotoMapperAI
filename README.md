@@ -157,9 +157,10 @@ This will:
 - compare generated portrait IDs against expected portrait IDs,
 - write a report in the configured `outputRoot`.
 
-Tip: config supports command timeouts to avoid long hangs on missing models:
+Tip: config supports long-run safeguards:
 - `mapTimeoutSec`
 - `generateTimeoutSec`
+- `continueOnError` (continue remaining teams even if one team fails)
 
 ### Validation Suite Runner (Overwrite + All/Single Preset)
 
