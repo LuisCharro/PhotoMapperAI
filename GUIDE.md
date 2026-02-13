@@ -138,14 +138,16 @@ Generate portrait photos from full-body images using face detection.
 | Photos Directory | Directory containing source photos | Yes | - |
 | Output Directory | Path for generated portraits | Yes | - |
 | Image Format | Output image format | No | jpg |
-| Face Detection Model | Model for detecting faces | No | llava:7b,qwen3-vl |
+| Face Detection Model | Model for detecting faces | No | llava:7b |
 | Portrait Width | Output portrait width in pixels | No | 200 |
 | Portrait Height | Output portrait height in pixels | No | 300 |
+| Size Profile Path | Optional JSON profile for legacy-compatible dimensions | No | - |
+| Generate All Profile Sizes | Generate all variants from profile into subfolders | No | false |
+| Output Profile | Optional alias for output root (`none`/`test`/`prod`) | No | none |
 | Portrait Only | Skip face detection, use existing detections | No | false |
 
 **Face Detection Models:**
-- `llava:7b,qwen3-vl` - Ollama Vision with fallback (recommended)
-- `llava:7b` - LLaVA 7B vision model
+- `llava:7b` - LLaVA 7B vision model (recommended default)
 - `qwen3-vl` - Qwen3-VL vision model
 - `opencv-dnn` - OpenCV DNN neural network (fast)
 - `yolov8-face` - YOLOv8 face detection (best accuracy)
@@ -158,10 +160,13 @@ Generate portrait photos from full-body images using face detection.
 3. Browse to select output directory for portraits
 4. Select image format (jpg/png)
 5. Choose face detection model from dropdown
-6. Optionally customize portrait dimensions
-7. Optionally enable portrait-only mode to reuse detections
-8. Click "Generate" to create portraits
-9. View progress bar and status updates
+6. Optional: select a size profile JSON for legacy-compatible dimensions
+7. Optional: enable "Generate all profile sizes" to create all variants
+8. Optional: choose output profile (`none`/`test`/`prod`)
+9. If no size profile is selected, customize portrait dimensions manually
+10. Optionally enable portrait-only mode to reuse detections
+11. Click "Generate" to create portraits
+12. View progress bar and status updates
 
 **Output:**
 - Portrait images named by internal PlayerId
@@ -234,7 +239,9 @@ The blue bar at the top shows the 3-step workflow:
 - Use `qwen3:8b` for best name matching accuracy
 
 ### Step 3 Tips
-- Use `llava:7b,qwen3-vl` fallback for best results
+- Start with `llava:7b` (stable default)
+- If you need legacy outputs, use a size profile JSON
+- Use "Generate all profile sizes" only when you need all variants
 - For speed: use `center` mode (no AI) if photos are well-framed
 - For accuracy: use `yolov8-face` if OpenCV models are available
 - Test with a few photos first before processing full dataset
