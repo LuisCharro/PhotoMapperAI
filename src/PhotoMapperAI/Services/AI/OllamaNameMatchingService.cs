@@ -38,14 +38,21 @@ public class OllamaNameMatchingService : INameMatchingService
         try
         {
             // Conservative + deterministic.
-            var response = await _client.ChatAsync(_modelName, prompt, temperature: 0.0);
+            var chat = await _client.ChatWithUsageAsync(_modelName, prompt, temperature: 0.0);
             return NameComparisonResultParser.Parse(
-                response,
+                chat.Content,
                 _confidenceThreshold,
                 new Dictionary<string, string>
                 {
                     { "provider", "ollama" },
-                    { "model", _modelName }
+                    { "model", _modelName },
+                    { "usage_prompt_tokens", chat.PromptEvalCount.ToString() },
+                    { "usage_completion_tokens", chat.EvalCount.ToString() },
+                    { "usage_total_tokens", chat.TotalTokens.ToString() },
+                    { "usage_total_duration_ns", chat.TotalDurationNs.ToString() },
+                    { "usage_prompt_eval_duration_ns", chat.PromptEvalDurationNs.ToString() },
+                    { "usage_eval_duration_ns", chat.EvalDurationNs.ToString() },
+                    { "usage_load_duration_ns", chat.LoadDurationNs.ToString() }
                 },
                 _jsonOptions);
         }

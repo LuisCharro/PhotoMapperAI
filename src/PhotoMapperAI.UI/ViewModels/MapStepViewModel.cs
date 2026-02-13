@@ -66,6 +66,18 @@ public partial class MapStepViewModel : ViewModelBase
     private bool _aiSecondPass = true;
 
     [ObservableProperty]
+    private string _openAiApiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _anthropicApiKey = string.Empty;
+
+    [ObservableProperty]
+    private bool _showOpenAiApiKeyInput;
+
+    [ObservableProperty]
+    private bool _showAnthropicApiKeyInput;
+
+    [ObservableProperty]
     private bool _isProcessing;
 
     [ObservableProperty]
@@ -97,6 +109,7 @@ public partial class MapStepViewModel : ViewModelBase
     public MapStepViewModel()
     {
         SeedNameModelList();
+        UpdateProviderKeyInputVisibility();
         _ = RefreshNameModelsAsync(showStatus: false);
     }
 
@@ -137,19 +150,21 @@ public partial class MapStepViewModel : ViewModelBase
         {
             if (IsOpenAiModel(NameModel))
             {
-                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+                var keyPresent = !string.IsNullOrWhiteSpace(OpenAiApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
                 ModelDiagnosticStatus = keyPresent
-                    ? "✓ OPENAI_API_KEY detected. OpenAI model can be used."
-                    : "✗ OPENAI_API_KEY is missing.";
+                    ? "✓ OpenAI API key available. OpenAI model can be used."
+                    : "✗ OpenAI API key is missing (GUI field or OPENAI_API_KEY).";
                 return;
             }
 
             if (IsAnthropicModel(NameModel))
             {
-                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
+                var keyPresent = !string.IsNullOrWhiteSpace(AnthropicApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
                 ModelDiagnosticStatus = keyPresent
-                    ? "✓ ANTHROPIC_API_KEY detected. Anthropic model can be used."
-                    : "✗ ANTHROPIC_API_KEY is missing.";
+                    ? "✓ Anthropic API key available. Anthropic model can be used."
+                    : "✗ Anthropic API key is missing (GUI field or ANTHROPIC_API_KEY).";
                 return;
             }
 
@@ -213,7 +228,11 @@ public partial class MapStepViewModel : ViewModelBase
                 ConfidenceThreshold = MinConfidenceThreshold;
             }
 
-            var preflight = await PreflightChecker.CheckMapAsync(UseAiMapping, NameModel);
+            var preflight = await PreflightChecker.CheckMapAsync(
+                UseAiMapping,
+                NameModel,
+                openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
             if (!preflight.IsOk)
             {
                 ProcessingStatus = preflight.BuildMessage();
@@ -228,10 +247,11 @@ public partial class MapStepViewModel : ViewModelBase
             }
 
             // Create services
-            var nameMatchingService = new OllamaNameMatchingService(
-                modelName: NameModel,
-                confidenceThreshold: ConfidenceThreshold
-            );
+            var nameMatchingService = NameMatchingServiceFactory.Create(
+                NameModel,
+                confidenceThreshold: ConfidenceThreshold,
+                openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
             var imageProcessor = new ImageProcessor();
 
             // Create map command logic
@@ -394,4 +414,15 @@ public partial class MapStepViewModel : ViewModelBase
         => !string.IsNullOrWhiteSpace(modelName) &&
            (modelName.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
             modelName.StartsWith("claude:", StringComparison.OrdinalIgnoreCase));
+
+    partial void OnNameModelChanged(string value)
+    {
+        UpdateProviderKeyInputVisibility();
+    }
+
+    private void UpdateProviderKeyInputVisibility()
+    {
+        ShowOpenAiApiKeyInput = IsOpenAiModel(NameModel);
+        ShowAnthropicApiKeyInput = IsAnthropicModel(NameModel);
+    }
 }

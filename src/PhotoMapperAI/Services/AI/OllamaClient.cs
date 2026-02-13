@@ -37,12 +37,42 @@ public class OllamaClient
         string? systemPrompt = null,
         double temperature = 0.3)
     {
+        var result = await ChatWithUsageAsync(modelName, prompt, systemPrompt, temperature);
+        return result.Content;
+    }
+
+    /// <summary>
+    /// Sends a chat request to Ollama and returns content plus usage counters when available.
+    /// </summary>
+    public async Task<ChatWithUsageResult> ChatWithUsageAsync(
+        string modelName,
+        string prompt,
+        string? systemPrompt = null,
+        double temperature = 0.3)
+    {
         await EnsureSingleActiveModelAsync(modelName);
+
+        var messages = new List<object>();
+
+        if (!string.IsNullOrEmpty(systemPrompt))
+        {
+            messages.Add(new
+            {
+                role = "system",
+                content = systemPrompt
+            });
+        }
+
+        messages.Add(new
+        {
+            role = "user",
+            content = prompt
+        });
 
         var requestBody = new
         {
             model = modelName,
-            messages = new List<object>(),
+            messages,
             stream = false,
             options = new
             {
@@ -50,33 +80,26 @@ public class OllamaClient
             }
         };
 
-        // Add system prompt if provided
-        if (!string.IsNullOrEmpty(systemPrompt))
-        {
-            requestBody.messages.Add(new
-            {
-                role = "system",
-                content = systemPrompt
-            });
-        }
-
-        // Add user prompt
-        requestBody.messages.Add(new
-        {
-            role = "user",
-            content = prompt
-        });
-
         var json = JsonSerializer.Serialize(requestBody);
-        var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/v1/chat/completions", content);
-        await EnsureSuccessOrThrowAsync(response, modelName, "/v1/chat/completions");
+        using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        using var response = await _httpClient.PostAsync($"{_baseUrl}/api/chat", content);
+        await EnsureSuccessOrThrowAsync(response, modelName, "/api/chat");
 
         var responseJson = await response.Content.ReadAsStringAsync();
-        var responseData = JsonSerializer.Deserialize<OllamaResponse>(responseJson);
+        var responseData = JsonSerializer.Deserialize<OllamaChatApiResponse>(responseJson);
 
-        return responseData?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+        var text = responseData?.Message?.Content ?? string.Empty;
+        var promptEval = responseData?.PromptEvalCount ?? 0;
+        var eval = responseData?.EvalCount ?? 0;
+        return new ChatWithUsageResult(
+            text,
+            promptEval,
+            eval,
+            promptEval + eval,
+            responseData?.TotalDuration ?? 0,
+            responseData?.PromptEvalDuration ?? 0,
+            responseData?.EvalDuration ?? 0,
+            responseData?.LoadDuration ?? 0);
     }
 
     /// <summary>
@@ -267,6 +290,16 @@ public class OllamaClient
 
     #region Response Models
 
+    public sealed record ChatWithUsageResult(
+        string Content,
+        int PromptEvalCount,
+        int EvalCount,
+        int TotalTokens,
+        long TotalDurationNs,
+        long PromptEvalDurationNs,
+        long EvalDurationNs,
+        long LoadDurationNs);
+
     private class OllamaResponse
     {
         [JsonPropertyName("choices")]
@@ -311,6 +344,30 @@ public class OllamaClient
 
         [JsonPropertyName("model")]
         public string? Model { get; set; }
+    }
+
+    private class OllamaChatApiResponse
+    {
+        [JsonPropertyName("message")]
+        public OllamaMessage? Message { get; set; }
+
+        [JsonPropertyName("prompt_eval_count")]
+        public int PromptEvalCount { get; set; }
+
+        [JsonPropertyName("eval_count")]
+        public int EvalCount { get; set; }
+
+        [JsonPropertyName("total_duration")]
+        public long TotalDuration { get; set; }
+
+        [JsonPropertyName("prompt_eval_duration")]
+        public long PromptEvalDuration { get; set; }
+
+        [JsonPropertyName("eval_duration")]
+        public long EvalDuration { get; set; }
+
+        [JsonPropertyName("load_duration")]
+        public long LoadDuration { get; set; }
     }
 
     #endregion

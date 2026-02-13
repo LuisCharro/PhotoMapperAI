@@ -116,6 +116,14 @@ public class MapCommandLogic
             var aiSecondPassPlayersEvaluated = 0;
             var aiFirstPassComparisons = 0;
             var aiSecondPassComparisons = 0;
+            var aiFirstPassUsageCalls = 0;
+            var aiSecondPassUsageCalls = 0;
+            var aiFirstPassPromptTokens = 0;
+            var aiSecondPassPromptTokens = 0;
+            var aiFirstPassCompletionTokens = 0;
+            var aiSecondPassCompletionTokens = 0;
+            var aiFirstPassTotalTokens = 0;
+            var aiSecondPassTotalTokens = 0;
 
             var photoCandidates = BuildPhotoCandidates(photos, photosDir, filenamePattern, manifest);
             var remainingCandidates = new List<PhotoCandidate>(photoCandidates);
@@ -194,6 +202,10 @@ public class MapCommandLogic
                 aiFirstPassMatches = aiFirstPass.Applied;
                 aiFirstPassPlayersEvaluated = aiFirstPass.PlayersEvaluated;
                 aiFirstPassComparisons = aiFirstPass.ModelComparisons;
+                aiFirstPassUsageCalls = aiFirstPass.UsageCalls;
+                aiFirstPassPromptTokens = aiFirstPass.PromptTokens;
+                aiFirstPassCompletionTokens = aiFirstPass.CompletionTokens;
+                aiFirstPassTotalTokens = aiFirstPass.TotalTokens;
 
                 if (aiSecondPass && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
                 {
@@ -218,6 +230,10 @@ public class MapCommandLogic
                     aiSecondPassMatches = aiSecondPassResult.Applied;
                     aiSecondPassPlayersEvaluated = aiSecondPassResult.PlayersEvaluated;
                     aiSecondPassComparisons = aiSecondPassResult.ModelComparisons;
+                    aiSecondPassUsageCalls = aiSecondPassResult.UsageCalls;
+                    aiSecondPassPromptTokens = aiSecondPassResult.PromptTokens;
+                    aiSecondPassCompletionTokens = aiSecondPassResult.CompletionTokens;
+                    aiSecondPassTotalTokens = aiSecondPassResult.TotalTokens;
                 }
             }
 
@@ -232,12 +248,23 @@ public class MapCommandLogic
             var unmappedCount = results.Count - totalMatched;
             var aiTotalPlayersEvaluated = aiFirstPassPlayersEvaluated + aiSecondPassPlayersEvaluated;
             var aiTotalComparisons = aiFirstPassComparisons + aiSecondPassComparisons;
+            var aiTotalUsageCalls = aiFirstPassUsageCalls + aiSecondPassUsageCalls;
+            var aiTotalPromptTokens = aiFirstPassPromptTokens + aiSecondPassPromptTokens;
+            var aiTotalCompletionTokens = aiFirstPassCompletionTokens + aiSecondPassCompletionTokens;
+            var aiTotalTokens = aiFirstPassTotalTokens + aiSecondPassTotalTokens;
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Matched {totalMatched} / {results.Count} players");
             Console.WriteLine($"✓ First round mapped (ID + String): {firstRoundMapped} (ID: {directIdMatches}, String: {stringMatches})");
             Console.WriteLine($"✓ AI round mapped: {aiMatches} (Pass 1: {aiFirstPassMatches}, Pass 2: {aiSecondPassMatches})");
             Console.WriteLine($"✓ AI evaluated: {aiTotalPlayersEvaluated} players (Pass 1: {aiFirstPassPlayersEvaluated}, Pass 2: {aiSecondPassPlayersEvaluated}), {aiTotalComparisons} model comparisons (Pass 1: {aiFirstPassComparisons}, Pass 2: {aiSecondPassComparisons})");
+            if (aiTotalUsageCalls > 0 || aiTotalTokens > 0)
+            {
+                Console.WriteLine(
+                    $"✓ AI usage: {aiTotalUsageCalls} billable calls, {aiTotalPromptTokens} prompt/input tokens, " +
+                    $"{aiTotalCompletionTokens} completion/output tokens, {aiTotalTokens} total tokens " +
+                    $"(Pass 1 calls/tokens: {aiFirstPassUsageCalls}/{aiFirstPassTotalTokens}, Pass 2 calls/tokens: {aiSecondPassUsageCalls}/{aiSecondPassTotalTokens})");
+            }
             Console.WriteLine($"✓ Left unmapped: {unmappedCount}");
             Console.ResetColor();
 
@@ -299,12 +326,23 @@ public class MapCommandLogic
     private sealed record NameSignature(string Normalized, string[] Tokens, HashSet<string> TokenSet);
     private sealed record RankedCandidate(PhotoCandidate Candidate, double Score);
     private sealed record MatchProposal(PlayerRecord Player, PhotoCandidate Candidate, double Confidence, string? Reason = null);
-    private sealed record AiPassResult(int Applied, int PlayersEvaluated, int ModelComparisons);
+    private sealed record AiPassResult(
+        int Applied,
+        int PlayersEvaluated,
+        int ModelComparisons,
+        int UsageCalls,
+        int PromptTokens,
+        int CompletionTokens,
+        int TotalTokens);
     private sealed record AiProposalAttempt(
         MatchProposal? Proposal,
         int Comparisons,
         string Outcome,
         string? Reason = null,
+        int UsageCalls = 0,
+        int PromptTokens = 0,
+        int CompletionTokens = 0,
+        int TotalTokens = 0,
         string? BestExternalId = null,
         string? BestName = null,
         double? BestConfidence = null,
@@ -465,13 +503,17 @@ public class MapCommandLogic
         CancellationToken cancellationToken)
     {
         if (unmatchedPlayers.Count == 0 || remainingCandidates.Count == 0)
-            return new AiPassResult(0, 0, 0);
+            return new AiPassResult(0, 0, 0, 0, 0, 0, 0);
 
         var snapshot = unmatchedPlayers.ToList();
         var proposals = new List<MatchProposal>(snapshot.Count);
         var aiProgress = new ProgressIndicator(progressLabel, snapshot.Count, useBar: true);
         var processed = 0;
         var modelComparisons = 0;
+        var usageCalls = 0;
+        var promptTokens = 0;
+        var completionTokens = 0;
+        var totalTokens = 0;
 
         foreach (var player in snapshot)
         {
@@ -490,6 +532,10 @@ public class MapCommandLogic
                 ambiguityMargin,
                 cancellationToken);
             modelComparisons += attempt.Comparisons;
+            usageCalls += attempt.UsageCalls;
+            promptTokens += attempt.PromptTokens;
+            completionTokens += attempt.CompletionTokens;
+            totalTokens += attempt.TotalTokens;
 
             if (aiTrace)
             {
@@ -524,7 +570,7 @@ public class MapCommandLogic
             applied++;
         }
 
-        return new AiPassResult(applied, snapshot.Count, modelComparisons);
+        return new AiPassResult(applied, snapshot.Count, modelComparisons, usageCalls, promptTokens, completionTokens, totalTokens);
     }
 
     private bool TryBuildDeterministicProposal(
@@ -590,11 +636,16 @@ public class MapCommandLogic
         RankedCandidate? bestCandidate = null;
         MatchResult? bestMatch = null;
         var secondBestConfidence = 0.0;
+        var usageCalls = 0;
+        var promptTokens = 0;
+        var completionTokens = 0;
+        var totalTokens = 0;
 
         foreach (var rankedCandidate in ranked)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var match = await _nameMatchingService.CompareNamesAsync(player.FullName, rankedCandidate.Candidate.DisplayName);
+            AddUsage(match, ref usageCalls, ref promptTokens, ref completionTokens, ref totalTokens);
 
             if (bestMatch == null || match.Confidence > bestMatch.Confidence)
             {
@@ -614,7 +665,11 @@ public class MapCommandLogic
                 Proposal: null,
                 Comparisons: ranked.Count,
                 Outcome: "rejected",
-                Reason: "no_model_result");
+                Reason: "no_model_result",
+                UsageCalls: usageCalls,
+                PromptTokens: promptTokens,
+                CompletionTokens: completionTokens,
+                TotalTokens: totalTokens);
         }
 
         if (bestMatch.Confidence < confidenceThreshold)
@@ -624,6 +679,10 @@ public class MapCommandLogic
                 Comparisons: ranked.Count,
                 Outcome: "rejected",
                 Reason: "below_threshold",
+                UsageCalls: usageCalls,
+                PromptTokens: promptTokens,
+                CompletionTokens: completionTokens,
+                TotalTokens: totalTokens,
                 BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
@@ -639,6 +698,10 @@ public class MapCommandLogic
                 Comparisons: ranked.Count,
                 Outcome: "rejected",
                 Reason: "ambiguous",
+                UsageCalls: usageCalls,
+                PromptTokens: promptTokens,
+                CompletionTokens: completionTokens,
+                TotalTokens: totalTokens,
                 BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
@@ -657,6 +720,10 @@ public class MapCommandLogic
             Comparisons: ranked.Count,
             Outcome: "accepted",
             Reason: "accepted",
+            UsageCalls: usageCalls,
+            PromptTokens: promptTokens,
+            CompletionTokens: completionTokens,
+            TotalTokens: totalTokens,
             BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
             BestName: bestCandidate.Candidate.DisplayName,
             BestConfidence: bestMatch.Confidence,
@@ -701,6 +768,42 @@ public class MapCommandLogic
             return string.Empty;
 
         return value.Value.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
+    private static void AddUsage(
+        MatchResult match,
+        ref int usageCalls,
+        ref int promptTokens,
+        ref int completionTokens,
+        ref int totalTokens)
+    {
+        if (match.Metadata == null || match.Metadata.Count == 0)
+            return;
+
+        var hasPrompt = TryGetInt(match.Metadata, "usage_prompt_tokens", out var prompt);
+        var hasCompletion = TryGetInt(match.Metadata, "usage_completion_tokens", out var completion);
+        var hasTotal = TryGetInt(match.Metadata, "usage_total_tokens", out var total);
+        if (!hasPrompt && !hasCompletion && !hasTotal)
+            return;
+
+        usageCalls++;
+        promptTokens += hasPrompt ? prompt : 0;
+        completionTokens += hasCompletion ? completion : 0;
+
+        if (hasTotal)
+        {
+            totalTokens += total;
+        }
+        else
+        {
+            totalTokens += (hasPrompt ? prompt : 0) + (hasCompletion ? completion : 0);
+        }
+    }
+
+    private static bool TryGetInt(IDictionary<string, string> metadata, string key, out int value)
+    {
+        value = 0;
+        return metadata.TryGetValue(key, out var raw) && int.TryParse(raw, out value);
     }
 
     private List<RankedCandidate> RankCandidatesForPlayer(

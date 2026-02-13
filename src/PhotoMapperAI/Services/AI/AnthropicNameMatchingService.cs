@@ -14,13 +14,19 @@ public class AnthropicNameMatchingService : INameMatchingService
     private readonly string _baseUrl;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public AnthropicNameMatchingService(string modelName = "claude-3-5-sonnet", double confidenceThreshold = 0.9)
+    public AnthropicNameMatchingService(
+        string modelName = "claude-3-5-sonnet",
+        double confidenceThreshold = 0.9,
+        string? apiKey = null,
+        string? baseUrl = null)
     {
-        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        apiKey ??= Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("ANTHROPIC_API_KEY is missing. Anthropic provider is not configured.");
 
-        _baseUrl = Environment.GetEnvironmentVariable("ANTHROPIC_BASE_URL")?.TrimEnd('/') ?? "https://api.anthropic.com";
+        _baseUrl = string.IsNullOrWhiteSpace(baseUrl)
+            ? (Environment.GetEnvironmentVariable("ANTHROPIC_BASE_URL")?.TrimEnd('/') ?? "https://api.anthropic.com")
+            : baseUrl.TrimEnd('/');
         _modelName = modelName;
         _confidenceThreshold = confidenceThreshold;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
@@ -64,7 +70,15 @@ public class AnthropicNameMatchingService : INameMatchingService
 
             var data = JsonSerializer.Deserialize<AnthropicResponse>(responseBody, _jsonOptions);
             var text = data?.Content?.FirstOrDefault(c => string.Equals(c.Type, "text", StringComparison.OrdinalIgnoreCase))?.Text ?? string.Empty;
-            return NameComparisonResultParser.Parse(text, _confidenceThreshold, BuildMetadata(), _jsonOptions);
+            var metadata = BuildMetadata();
+            if (data?.Usage != null)
+            {
+                metadata["usage_prompt_tokens"] = data.Usage.InputTokens.ToString();
+                metadata["usage_completion_tokens"] = data.Usage.OutputTokens.ToString();
+                metadata["usage_total_tokens"] = (data.Usage.InputTokens + data.Usage.OutputTokens).ToString();
+            }
+
+            return NameComparisonResultParser.Parse(text, _confidenceThreshold, metadata, _jsonOptions);
         }
         catch (Exception ex)
         {
@@ -101,6 +115,9 @@ public class AnthropicNameMatchingService : INameMatchingService
     {
         [JsonPropertyName("content")]
         public List<AnthropicContent>? Content { get; set; }
+
+        [JsonPropertyName("usage")]
+        public AnthropicUsage? Usage { get; set; }
     }
 
     private class AnthropicContent
@@ -110,6 +127,15 @@ public class AnthropicNameMatchingService : INameMatchingService
 
         [JsonPropertyName("text")]
         public string? Text { get; set; }
+    }
+
+    private class AnthropicUsage
+    {
+        [JsonPropertyName("input_tokens")]
+        public int InputTokens { get; set; }
+
+        [JsonPropertyName("output_tokens")]
+        public int OutputTokens { get; set; }
     }
 
 }

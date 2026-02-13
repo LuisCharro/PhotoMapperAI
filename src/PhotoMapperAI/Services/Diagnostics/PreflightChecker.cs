@@ -77,7 +77,11 @@ public sealed class PreflightResult
 
 public static class PreflightChecker
 {
-    public static async Task<PreflightResult> CheckMapAsync(bool useAi, string nameModel)
+    public static async Task<PreflightResult> CheckMapAsync(
+        bool useAi,
+        string nameModel,
+        string? openAiApiKey = null,
+        string? anthropicApiKey = null)
     {
         var result = new PreflightResult();
 
@@ -87,14 +91,16 @@ public static class PreflightChecker
         var (provider, model) = ParseProviderAndModel(nameModel);
         if (provider == "openai")
         {
-            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
+            var key = openAiApiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            if (string.IsNullOrWhiteSpace(key))
                 result.Errors.Add("OPENAI_API_KEY is missing for OpenAI name model.");
             return result;
         }
 
         if (provider is "anthropic" or "claude")
         {
-            if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")))
+            var key = anthropicApiKey ?? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+            if (string.IsNullOrWhiteSpace(key))
                 result.Errors.Add("ANTHROPIC_API_KEY is missing for Anthropic name model.");
             return result;
         }

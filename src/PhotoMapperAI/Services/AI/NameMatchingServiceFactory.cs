@@ -13,7 +13,11 @@ public static class NameMatchingServiceFactory
     /// - "openai:gpt-4o-mini"
     /// - "anthropic:claude-3-5-sonnet"
     /// </summary>
-    public static INameMatchingService Create(string modelIdentifier, double confidenceThreshold = 0.9)
+    public static INameMatchingService Create(
+        string modelIdentifier,
+        double confidenceThreshold = 0.9,
+        string? openAiApiKey = null,
+        string? anthropicApiKey = null)
     {
         if (string.IsNullOrWhiteSpace(modelIdentifier))
             throw new ArgumentException("Name matching model cannot be empty.", nameof(modelIdentifier));
@@ -24,8 +28,14 @@ public static class NameMatchingServiceFactory
         return provider switch
         {
             "ollama" => new OllamaNameMatchingService(modelName: modelName, confidenceThreshold: confidenceThreshold),
-            "openai" => new OpenAINameMatchingService(modelName: modelName, confidenceThreshold: confidenceThreshold),
-            "anthropic" or "claude" => new AnthropicNameMatchingService(modelName: modelName, confidenceThreshold: confidenceThreshold),
+            "openai" => new OpenAINameMatchingService(
+                modelName: modelName,
+                confidenceThreshold: confidenceThreshold,
+                apiKey: openAiApiKey),
+            "anthropic" or "claude" => new AnthropicNameMatchingService(
+                modelName: modelName,
+                confidenceThreshold: confidenceThreshold,
+                apiKey: anthropicApiKey),
             _ => throw new ArgumentException($"Unknown name matching provider: {provider}")
         };
     }

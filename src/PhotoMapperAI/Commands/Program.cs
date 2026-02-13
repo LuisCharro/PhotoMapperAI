@@ -180,6 +180,12 @@ public class MapCommand
     [Option(ShortName = "at", LongName = "aiTrace", Description = "Print structured per-player AI evaluation trace lines")]
     public bool AiTrace { get; set; } = false;
 
+    [Option(ShortName = "oak", LongName = "openaiApiKey", Description = "OpenAI API key override (optional, in-memory only for this command run)")]
+    public string? OpenAiApiKey { get; set; }
+
+    [Option(ShortName = "aak", LongName = "anthropicApiKey", Description = "Anthropic API key override (optional, in-memory only for this command run)")]
+    public string? AnthropicApiKey { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         if (AiOnly && !UseAi)
@@ -194,7 +200,11 @@ public class MapCommand
             ConfidenceThreshold = MinConfidenceThreshold;
         }
 
-        var preflight = await PreflightChecker.CheckMapAsync(UseAi, NameModel);
+        var preflight = await PreflightChecker.CheckMapAsync(
+            UseAi,
+            NameModel,
+            openAiApiKey: OpenAiApiKey,
+            anthropicApiKey: AnthropicApiKey);
         if (!preflight.IsOk)
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -213,7 +223,9 @@ public class MapCommand
         // Create provider-aware name matching service.
         var nameMatchingService = NameMatchingServiceFactory.Create(
             NameModel,
-            confidenceThreshold: ConfidenceThreshold
+            confidenceThreshold: ConfidenceThreshold,
+            openAiApiKey: OpenAiApiKey,
+            anthropicApiKey: AnthropicApiKey
         );
 
         // Create image processor

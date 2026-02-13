@@ -592,7 +592,9 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 | `-photosDir` | Path to photos directory | Yes | - |
 | `-filenamePattern` | Filename pattern template | No | Auto-detect |
 | `-photoManifest` | Path to photo manifest JSON | No | - |
-| `-nameModel` | Ollama model for name matching | No | qwen2.5:7b |
+| `-nameModel` | Name model identifier (e.g., `qwen2.5:7b`, `openai:gpt-4o-mini`, `anthropic:claude-3-5-sonnet`) | No | qwen2.5:7b |
+| `-openaiApiKey` | OpenAI API key override for this run (optional, in-memory only) | No | env `OPENAI_API_KEY` |
+| `-anthropicApiKey` | Anthropic API key override for this run (optional, in-memory only) | No | env `ANTHROPIC_API_KEY` |
 | `-confidenceThreshold` | Minimum confidence for match | No | 0.8 |
 | `-useAI` | Enable AI name matching fallback | No | false |
 | `-aiSecondPass` | Run a second AI pass on unresolved rows | No | false |

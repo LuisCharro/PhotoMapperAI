@@ -14,13 +14,19 @@ public class OpenAINameMatchingService : INameMatchingService
     private readonly string _baseUrl;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public OpenAINameMatchingService(string modelName = "gpt-4o-mini", double confidenceThreshold = 0.9)
+    public OpenAINameMatchingService(
+        string modelName = "gpt-4o-mini",
+        double confidenceThreshold = 0.9,
+        string? apiKey = null,
+        string? baseUrl = null)
     {
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        apiKey ??= Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("OPENAI_API_KEY is missing. OpenAI provider is not configured.");
 
-        _baseUrl = Environment.GetEnvironmentVariable("OPENAI_BASE_URL")?.TrimEnd('/') ?? "https://api.openai.com";
+        _baseUrl = string.IsNullOrWhiteSpace(baseUrl)
+            ? (Environment.GetEnvironmentVariable("OPENAI_BASE_URL")?.TrimEnd('/') ?? "https://api.openai.com")
+            : baseUrl.TrimEnd('/');
         _modelName = modelName;
         _confidenceThreshold = confidenceThreshold;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
@@ -61,7 +67,15 @@ public class OpenAINameMatchingService : INameMatchingService
 
             var data = JsonSerializer.Deserialize<OpenAIResponse>(responseBody, _jsonOptions);
             var text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
-            return NameComparisonResultParser.Parse(text, _confidenceThreshold, BuildMetadata(), _jsonOptions);
+            var metadata = BuildMetadata();
+            if (data?.Usage != null)
+            {
+                metadata["usage_prompt_tokens"] = data.Usage.PromptTokens.ToString();
+                metadata["usage_completion_tokens"] = data.Usage.CompletionTokens.ToString();
+                metadata["usage_total_tokens"] = data.Usage.TotalTokens.ToString();
+            }
+
+            return NameComparisonResultParser.Parse(text, _confidenceThreshold, metadata, _jsonOptions);
         }
         catch (Exception ex)
         {
@@ -98,6 +112,9 @@ public class OpenAINameMatchingService : INameMatchingService
     {
         [JsonPropertyName("choices")]
         public List<OpenAIChoice>? Choices { get; set; }
+
+        [JsonPropertyName("usage")]
+        public OpenAIUsage? Usage { get; set; }
     }
 
     private class OpenAIChoice
@@ -110,6 +127,18 @@ public class OpenAINameMatchingService : INameMatchingService
     {
         [JsonPropertyName("content")]
         public string? Content { get; set; }
+    }
+
+    private class OpenAIUsage
+    {
+        [JsonPropertyName("prompt_tokens")]
+        public int PromptTokens { get; set; }
+
+        [JsonPropertyName("completion_tokens")]
+        public int CompletionTokens { get; set; }
+
+        [JsonPropertyName("total_tokens")]
+        public int TotalTokens { get; set; }
     }
 
 }
