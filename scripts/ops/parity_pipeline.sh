@@ -7,6 +7,7 @@ set -euo pipefail
 #   request <reviewer1> [reviewer2...]
 #   comment
 #   merge [--apply]
+#   watch
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -35,6 +36,9 @@ case "$cmd" in
       ./scripts/ops/merge_parity_prs.sh
     fi
     ;;
+  watch)
+    ./scripts/ops/watch_and_merge_parity_prs.sh
+    ;;
   *)
     cat <<EOF
 Unknown command: $cmd
@@ -44,6 +48,7 @@ Usage:
   $0 request <reviewer1> [reviewer2 ...]
   $0 comment
   $0 merge [--apply]
+  $0 watch
 EOF
     exit 1
     ;;

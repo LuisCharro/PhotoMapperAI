@@ -33,6 +33,8 @@ Latest verification via `./scripts/ops/parity_pipeline.sh status` still shows ap
 ```bash
 ./scripts/ops/check_parity_pr_merge_readiness.sh
 ./scripts/ops/merge_parity_prs.sh --apply
+# or keep it running and auto-merge once approvals appear:
+./scripts/ops/watch_and_merge_parity_prs.sh
 ```
 
 ## Notes
