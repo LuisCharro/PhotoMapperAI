@@ -8,6 +8,7 @@ set -euo pipefail
 #   comment
 #   merge [--apply]
 #   watch
+#   report
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -39,6 +40,9 @@ case "$cmd" in
   watch)
     ./scripts/ops/watch_and_merge_parity_prs.sh
     ;;
+  report)
+    ./scripts/ops/update_parity_gate_report.sh
+    ;;
   *)
     cat <<EOF
 Unknown command: $cmd
@@ -49,6 +53,7 @@ Usage:
   $0 comment
   $0 merge [--apply]
   $0 watch
+  $0 report
 EOF
     exit 1
     ;;

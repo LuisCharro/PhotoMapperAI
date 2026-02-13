@@ -37,6 +37,7 @@ Use helper scripts to drive the final gate:
 ./scripts/ops/parity_pipeline.sh merge
 ./scripts/ops/parity_pipeline.sh merge --apply
 ./scripts/ops/parity_pipeline.sh watch
+./scripts/ops/parity_pipeline.sh report
 
 # Low-level scripts (equivalent)
 ./scripts/ops/request_parity_reviews.sh <github-user> [more-users...]
