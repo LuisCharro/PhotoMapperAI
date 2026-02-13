@@ -418,6 +418,9 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 
 # Size profile (all variants)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -sizeProfile samples/size_profiles.default.json -allSizes
+
+# Output profile alias (uses PHOTOMAPPER_OUTPUT_TEST/PROD env when set)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -outputProfile test
 ```
 
 #### Benchmark
@@ -624,6 +627,7 @@ Operational note for MAP command:
 | `-faceHeight` | Portrait height in pixels | No | 300 |
 | `-sizeProfile` | Path to size profile JSON | No | - |
 | `-allSizes` | With `-sizeProfile`, generate all variants into subfolders | No | false |
+| `-outputProfile` | Output profile alias (`test`/`prod`) | No | - |
 
 **Face Detection Models:**
 | Model | Description |
