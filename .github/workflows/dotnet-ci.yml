@@ -36,6 +36,9 @@ jobs:
       - name: Restore solution
         run: dotnet restore PhotoMapperAI.sln
 
+      - name: Restore GUI project
+        run: dotnet restore src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
+
       - name: Build CLI
         run: dotnet build src/PhotoMapperAI/PhotoMapperAI.csproj --configuration Release --no-restore
 
@@ -43,7 +46,7 @@ jobs:
         run: dotnet build src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test tests/PhotoMapperAI.Tests/PhotoMapperAI.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+        run: dotnet test tests/PhotoMapperAI.Tests/PhotoMapperAI.Tests.csproj --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
 
       - name: Upload test results
         if: always()
