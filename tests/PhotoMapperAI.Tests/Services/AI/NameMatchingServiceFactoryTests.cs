@@ -21,21 +21,21 @@ public class NameMatchingServiceFactoryTests
     [Fact]
     public void Create_OpenAIProvider_ReturnsOpenAIService()
     {
-        var service = NameMatchingServiceFactory.Create("openai:gpt-4o-mini");
+        var service = NameMatchingServiceFactory.Create("openai:gpt-4o-mini", openAiApiKey: "test-key");
         Assert.IsType<OpenAINameMatchingService>(service);
     }
 
     [Fact]
     public void Create_AnthropicProvider_ReturnsAnthropicService()
     {
-        var service = NameMatchingServiceFactory.Create("anthropic:claude-3-5-sonnet");
+        var service = NameMatchingServiceFactory.Create("anthropic:claude-3-5-sonnet", anthropicApiKey: "test-key");
         Assert.IsType<AnthropicNameMatchingService>(service);
     }
 
     [Fact]
     public void Create_ClaudeAliasProvider_ReturnsAnthropicService()
     {
-        var service = NameMatchingServiceFactory.Create("claude:claude-3-5-sonnet");
+        var service = NameMatchingServiceFactory.Create("claude:claude-3-5-sonnet", anthropicApiKey: "test-key");
         Assert.IsType<AnthropicNameMatchingService>(service);
     }
 
