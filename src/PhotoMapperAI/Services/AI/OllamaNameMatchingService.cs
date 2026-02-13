@@ -54,6 +54,11 @@ public class OllamaNameMatchingService : INameMatchingService
             var response = await _client.ChatAsync(_modelName, prompt, temperature: 0.0);
             return ParseNameComparisonResponse(response);
         }
+        catch (OllamaQuotaExceededException)
+        {
+            // Fail fast: continuing would only produce repeated quota errors.
+            throw;
+        }
         catch (Exception ex)
         {
             return new MatchResult

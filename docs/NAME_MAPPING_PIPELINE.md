@@ -99,6 +99,20 @@ Then resolve conflicts globally:
 
 This reduces early-lock mistakes that happen with simple first-come-first-serve matching.
 
+### First-Round Confidence ("Probability") Behavior
+
+The first round uses deterministic confidence (0.0-1.0), not LLM confidence.
+
+How it works:
+- CLI `-t/--confidenceThreshold` sets the minimum deterministic confidence accepted as a safe match.
+- A proposal must also pass an ambiguity margin check against the next-best candidate.
+- If score is high enough but margin is too small, the row is deferred to AI fallback instead of forcing a risky match.
+
+Practical effect:
+- Lower threshold increases automatic mapping recall, but can increase false positives.
+- Higher threshold is safer, but sends more rows to AI (slower overall).
+- Recommended operating window for most runs is usually around `0.7` to `0.8`, with validation against a trusted reference before locking values.
+
 ## Step 5: AI Fallback (Only for Unresolved Rows)
 
 AI is used only after deterministic matching finishes.
@@ -143,6 +157,76 @@ Main tuning knobs live in `/Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI/Com
 - AI preselect minimum score
 - AI score-gap-from-top
 - AI ambiguity margin (pass 1 vs pass 2)
+
+## Ollama Name-Model Benchmark Snapshot
+
+The following is a local benchmark snapshot from the built-in map-reference harness, captured as a model-comparison baseline for the current pipeline design. Values are workload/hardware dependent and should be treated as directional.
+
+| Model | Pass | Diff | Failed (timeout) | Avg time per run | Not found | Wrong ID |
+|---|---:|---:|---:|---:|---:|---:|
+| `qwen2.5:7b` | 12 | 4 | 0 | 23.96s | 7 | 0 |
+| `qwen2.5-coder:7b-instruct-q4_K_M` | 12 | 2 | 2 | 37.36s | 3 | 0 |
+| `qwen3:8b` | 10 | 0 | 6 | 68.97s | 0* | 0* |
+
+\*`qwen3:8b` had multiple timeouts on AI-heavy teams, so those quality counters are not fully representative.
+
+### Interpretation
+
+- `qwen2.5:7b`: strongest stability/performance balance in this pipeline.
+- `qwen2.5-coder:7b-instruct-q4_K_M`: can recover some difficult rows but currently less stable (timeouts observed).
+- `qwen3:8b`: deterministic-only teams complete fast, but AI-fallback teams can stall/timeout in this setup.
+
+### Current Recommendation
+
+- Default: `qwen2.5:7b`
+- Alternative for targeted experiments: `qwen2.5-coder:7b-instruct-q4_K_M`
+- Avoid for unattended batch runs (current setup): `qwen3:8b` unless timeout/serving behavior is improved
+
+## Ollama Cloud Candidates (Name Comparison Use Case)
+
+This section summarizes cloud models currently relevant to MAP name-comparison runs. It is intentionally focused on this task (short text-pair matching with strict precision requirements), not general coding-agent benchmarks.
+
+### Cloud Model Fit Snapshot
+
+| Cloud model | Official positioning | Fit for MAP name comparison | Main risk in this pipeline | Recommendation |
+|---|---|---|---|---|
+| `gemini-3-flash-preview:cloud` | Fast frontier general model | Good first cloud candidate (speed-oriented) | Can still produce variability in confidence formatting/behavior | Priority 1 test |
+| `qwen3-coder-next:cloud` | Agentic coding model, non-thinking mode, 256K | Strong reasoning candidate for hard cases | May be slower/costlier than needed for short pairwise comparisons | Priority 2 test |
+| `kimi-k2.5:cloud` | Multimodal/agentic model, 256K | Potentially strong reasoning on ambiguous names | Multimodal/agentic overhead can hurt latency consistency | Priority 2 test |
+| `glm-4.7:cloud` | Coding/reasoning/tool-using model | Reasonable candidate for difficult edge cases | Thinking-style behavior can increase response latency | Priority 3 test |
+| `minimax-m2:cloud` | Coding/agentic efficiency focus | Possible alternative if above are unstable | Tends to be tuned for broader agent loops, not strict name linkage | Priority 3 test |
+| `qwen3-coder:480b-cloud` | Very large cloud coding model | Likely high ceiling on difficult disambiguation | Too slow for high-throughput MAP fallback in many environments | Use only for spot checks |
+
+### Suggested Test Order
+
+To minimize retries and compare fairly against local baselines:
+1. `gemini-3-flash-preview:cloud`
+2. `qwen3-coder-next:cloud`
+3. `kimi-k2.5:cloud`
+4. `glm-4.7:cloud`
+5. `minimax-m2:cloud`
+
+Use `qwen3-coder:480b-cloud` only for very small, hard subsets where quality is more important than throughput.
+
+### Decision Criteria (Same as Local Benchmarks)
+
+When choosing cloud vs local for MAP, rank by:
+1. Completion stability (`FAILED`/timeout rate)
+2. Quality (`DIFF`, `Not found`, `Wrong ID`)
+3. Throughput (average team runtime)
+4. AI trace behavior (accepted vs rejected, and reject reasons)
+
+In practice, a cloud model that is slightly more accurate but frequently times out is usually worse for end-to-end team mapping than a stable local model.
+
+### Sources
+
+- Ollama model search (cloud filter): [ollama.com/search?c=cloud](https://ollama.com/search?c=cloud)
+- Gemini 3 Flash Preview: [ollama.com/library/gemini-3-flash-preview:cloud](https://ollama.com/library/gemini-3-flash-preview%3Acloud)
+- Qwen3-Coder-Next: [ollama.com/library/qwen3-coder-next:cloud](https://ollama.com/library/qwen3-coder-next%3Acloud)
+- Kimi K2.5: [ollama.com/library/kimi-k2.5:cloud](https://ollama.com/library/kimi-k2.5%3Acloud)
+- GLM-4.7: [ollama.com/library/glm-4.7:cloud](https://ollama.com/library/glm-4.7%3Acloud)
+- MiniMax M2: [ollama.com/library/minimax-m2:cloud](https://ollama.com/library/minimax-m2%3Acloud)
+- Qwen3-Coder 480B Cloud: [ollama.com/library/qwen3-coder:480b-cloud](https://ollama.com/library/qwen3-coder%3A480b-cloud)
 
 ## Validation Workflow
 

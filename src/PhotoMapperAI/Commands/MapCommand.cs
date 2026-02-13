@@ -1,3 +1,4 @@
+using System.Globalization;
 using PhotoMapperAI.Models;
 using PhotoMapperAI.Services;
 using PhotoMapperAI.Services.AI;
@@ -52,6 +53,7 @@ public class MapCommandLogic
         bool aiSecondPass,
         IProgress<(int processed, int total, string current)>? uiProgress = null,
         CancellationToken cancellationToken = default,
+        bool aiTrace = false,
         bool aiOnly = false)
     {
         Console.WriteLine("Map Command");
@@ -62,6 +64,7 @@ public class MapCommandLogic
         Console.WriteLine($"Confidence Threshold: {confidenceThreshold}");
         Console.WriteLine($"Use AI: {useAi}");
         Console.WriteLine($"AI Second Pass: {aiSecondPass}");
+        Console.WriteLine($"AI Trace: {aiTrace}");
         Console.WriteLine($"AI Only: {aiOnly}");
         Console.WriteLine();
 
@@ -109,6 +112,10 @@ public class MapCommandLogic
             var stringMatches = 0;
             var aiFirstPassMatches = 0;
             var aiSecondPassMatches = 0;
+            var aiFirstPassPlayersEvaluated = 0;
+            var aiSecondPassPlayersEvaluated = 0;
+            var aiFirstPassComparisons = 0;
+            var aiSecondPassComparisons = 0;
 
             var photoCandidates = BuildPhotoCandidates(photos, photosDir, filenamePattern, manifest);
             var remainingCandidates = new List<PhotoCandidate>(photoCandidates);
@@ -168,7 +175,7 @@ public class MapCommandLogic
             {
                 Console.WriteLine();
                 Console.WriteLine("Running AI pass 1 for unresolved players...");
-                aiFirstPassMatches = await ApplyAiGlobalMatchesAsync(
+                var aiFirstPass = await ApplyAiGlobalMatchesAsync(
                     unmatchedPlayers,
                     remainingCandidates,
                     remainingByExternalId,
@@ -181,13 +188,18 @@ public class MapCommandLogic
                     ambiguityMargin: 0.06,
                     progressLabel: "AI Pass 1",
                     uiProgress: uiProgress,
+                    aiTrace: aiTrace,
+                    passNumber: 1,
                     cancellationToken: cancellationToken);
+                aiFirstPassMatches = aiFirstPass.Applied;
+                aiFirstPassPlayersEvaluated = aiFirstPass.PlayersEvaluated;
+                aiFirstPassComparisons = aiFirstPass.ModelComparisons;
 
                 if (aiSecondPass && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
                 {
                     Console.WriteLine();
                     Console.WriteLine("Running AI pass 2 for remaining unresolved players...");
-                    aiSecondPassMatches = await ApplyAiGlobalMatchesAsync(
+                    var aiSecondPassResult = await ApplyAiGlobalMatchesAsync(
                         unmatchedPlayers,
                         remainingCandidates,
                         remainingByExternalId,
@@ -200,7 +212,12 @@ public class MapCommandLogic
                         ambiguityMargin: 0.03,
                         progressLabel: "AI Pass 2",
                         uiProgress: uiProgress,
+                        aiTrace: aiTrace,
+                        passNumber: 2,
                         cancellationToken: cancellationToken);
+                    aiSecondPassMatches = aiSecondPassResult.Applied;
+                    aiSecondPassPlayersEvaluated = aiSecondPassResult.PlayersEvaluated;
+                    aiSecondPassComparisons = aiSecondPassResult.ModelComparisons;
                 }
             }
 
@@ -213,11 +230,14 @@ public class MapCommandLogic
             var aiMatches = aiFirstPassMatches + aiSecondPassMatches;
             var totalMatched = results.Count(r => r.IsValidMatch);
             var unmappedCount = results.Count - totalMatched;
+            var aiTotalPlayersEvaluated = aiFirstPassPlayersEvaluated + aiSecondPassPlayersEvaluated;
+            var aiTotalComparisons = aiFirstPassComparisons + aiSecondPassComparisons;
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Matched {totalMatched} / {results.Count} players");
             Console.WriteLine($"✓ First round mapped (ID + String): {firstRoundMapped} (ID: {directIdMatches}, String: {stringMatches})");
             Console.WriteLine($"✓ AI round mapped: {aiMatches} (Pass 1: {aiFirstPassMatches}, Pass 2: {aiSecondPassMatches})");
+            Console.WriteLine($"✓ AI evaluated: {aiTotalPlayersEvaluated} players (Pass 1: {aiFirstPassPlayersEvaluated}, Pass 2: {aiSecondPassPlayersEvaluated}), {aiTotalComparisons} model comparisons (Pass 1: {aiFirstPassComparisons}, Pass 2: {aiSecondPassComparisons})");
             Console.WriteLine($"✓ Left unmapped: {unmappedCount}");
             Console.ResetColor();
 
@@ -279,6 +299,20 @@ public class MapCommandLogic
     private sealed record NameSignature(string Normalized, string[] Tokens, HashSet<string> TokenSet);
     private sealed record RankedCandidate(PhotoCandidate Candidate, double Score);
     private sealed record MatchProposal(PlayerRecord Player, PhotoCandidate Candidate, double Confidence, string? Reason = null);
+    private sealed record AiPassResult(int Applied, int PlayersEvaluated, int ModelComparisons);
+    private sealed record AiProposalAttempt(
+        MatchProposal? Proposal,
+        int Comparisons,
+        string Outcome,
+        string? Reason = null,
+        string? BestExternalId = null,
+        string? BestName = null,
+        double? BestConfidence = null,
+        double? SecondBestConfidence = null,
+        double? Margin = null,
+        string? SelectedExternalId = null,
+        string? SelectedName = null,
+        double? SelectedConfidence = null);
 
     private List<PhotoCandidate> BuildPhotoCandidates(
         List<string> photos,
@@ -413,7 +447,7 @@ public class MapCommandLogic
         return applied;
     }
 
-    private async Task<int> ApplyAiGlobalMatchesAsync(
+    private async Task<AiPassResult> ApplyAiGlobalMatchesAsync(
         List<PlayerRecord> unmatchedPlayers,
         List<PhotoCandidate> remainingCandidates,
         Dictionary<string, PhotoCandidate> remainingByExternalId,
@@ -426,15 +460,18 @@ public class MapCommandLogic
         double ambiguityMargin,
         string progressLabel,
         IProgress<(int processed, int total, string current)>? uiProgress,
+        bool aiTrace,
+        int passNumber,
         CancellationToken cancellationToken)
     {
         if (unmatchedPlayers.Count == 0 || remainingCandidates.Count == 0)
-            return 0;
+            return new AiPassResult(0, 0, 0);
 
         var snapshot = unmatchedPlayers.ToList();
         var proposals = new List<MatchProposal>(snapshot.Count);
         var aiProgress = new ProgressIndicator(progressLabel, snapshot.Count, useBar: true);
         var processed = 0;
+        var modelComparisons = 0;
 
         foreach (var player in snapshot)
         {
@@ -443,7 +480,7 @@ public class MapCommandLogic
             processed++;
             uiProgress?.Report((processed, snapshot.Count, $"AI: {player.FullName}"));
 
-            var proposal = await TryBuildAiProposalAsync(
+            var attempt = await TryBuildAiProposalAsync(
                 player,
                 remainingCandidates,
                 confidenceThreshold,
@@ -452,10 +489,16 @@ public class MapCommandLogic
                 maxGapFromTop,
                 ambiguityMargin,
                 cancellationToken);
+            modelComparisons += attempt.Comparisons;
 
-            if (proposal != null)
+            if (aiTrace)
             {
-                proposals.Add(proposal);
+                LogAiTrace(passNumber, player, attempt);
+            }
+
+            if (attempt.Proposal != null)
+            {
+                proposals.Add(attempt.Proposal);
             }
         }
 
@@ -481,7 +524,7 @@ public class MapCommandLogic
             applied++;
         }
 
-        return applied;
+        return new AiPassResult(applied, snapshot.Count, modelComparisons);
     }
 
     private bool TryBuildDeterministicProposal(
@@ -520,7 +563,7 @@ public class MapCommandLogic
         return true;
     }
 
-    private async Task<MatchProposal?> TryBuildAiProposalAsync(
+    private async Task<AiProposalAttempt> TryBuildAiProposalAsync(
         PlayerRecord player,
         List<PhotoCandidate> candidates,
         double confidenceThreshold,
@@ -538,7 +581,11 @@ public class MapCommandLogic
             maxGapFromTop);
 
         if (ranked.Count == 0)
-            return null;
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: 0,
+                Outcome: "rejected",
+                Reason: "no_ranked_candidates");
 
         RankedCandidate? bestCandidate = null;
         MatchResult? bestMatch = null;
@@ -562,14 +609,42 @@ public class MapCommandLogic
         }
 
         if (bestMatch == null || bestCandidate == null)
-            return null;
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "no_model_result");
+        }
 
         if (bestMatch.Confidence < confidenceThreshold)
-            return null;
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "below_threshold",
+                BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+                BestName: bestCandidate.Candidate.DisplayName,
+                BestConfidence: bestMatch.Confidence,
+                SecondBestConfidence: secondBestConfidence,
+                Margin: bestMatch.Confidence - secondBestConfidence);
+        }
 
         var margin = bestMatch.Confidence - secondBestConfidence;
         if (margin < ambiguityMargin && bestMatch.Confidence < 0.95)
-            return null;
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "ambiguous",
+                BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+                BestName: bestCandidate.Candidate.DisplayName,
+                BestConfidence: bestMatch.Confidence,
+                SecondBestConfidence: secondBestConfidence,
+                Margin: margin);
+        }
 
         var reason = bestMatch.Metadata.GetValueOrDefault("reason", string.Empty);
         if (string.IsNullOrWhiteSpace(reason))
@@ -577,7 +652,55 @@ public class MapCommandLogic
             reason = $"ai_confidence={bestMatch.Confidence:0.###};margin={margin:0.###};pre_rank_score={bestCandidate.Score:0.###}";
         }
 
-        return new MatchProposal(player, bestCandidate.Candidate, bestMatch.Confidence, reason);
+        return new AiProposalAttempt(
+            Proposal: new MatchProposal(player, bestCandidate.Candidate, bestMatch.Confidence, reason),
+            Comparisons: ranked.Count,
+            Outcome: "accepted",
+            Reason: "accepted",
+            BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+            BestName: bestCandidate.Candidate.DisplayName,
+            BestConfidence: bestMatch.Confidence,
+            SecondBestConfidence: secondBestConfidence,
+            Margin: margin,
+            SelectedExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+            SelectedName: bestCandidate.Candidate.DisplayName,
+            SelectedConfidence: bestMatch.Confidence);
+    }
+
+    private static void LogAiTrace(int passNumber, PlayerRecord player, AiProposalAttempt attempt)
+    {
+        Console.WriteLine(
+            "AI_TRACE" +
+            $"|pass={passNumber}" +
+            $"|player_id={FormatTraceValue(player.PlayerId.ToString(CultureInfo.InvariantCulture))}" +
+            $"|player_name={FormatTraceValue(player.FullName)}" +
+            $"|outcome={FormatTraceValue(attempt.Outcome)}" +
+            $"|reason={FormatTraceValue(attempt.Reason)}" +
+            $"|compared={attempt.Comparisons}" +
+            $"|best_external_id={FormatTraceValue(attempt.BestExternalId)}" +
+            $"|best_name={FormatTraceValue(attempt.BestName)}" +
+            $"|best_conf={FormatTraceDouble(attempt.BestConfidence)}" +
+            $"|second_conf={FormatTraceDouble(attempt.SecondBestConfidence)}" +
+            $"|margin={FormatTraceDouble(attempt.Margin)}" +
+            $"|selected_external_id={FormatTraceValue(attempt.SelectedExternalId)}" +
+            $"|selected_name={FormatTraceValue(attempt.SelectedName)}" +
+            $"|selected_conf={FormatTraceDouble(attempt.SelectedConfidence)}");
+    }
+
+    private static string FormatTraceValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return value.Replace('|', '/').Replace('\n', ' ').Replace('\r', ' ').Trim();
+    }
+
+    private static string FormatTraceDouble(double? value)
+    {
+        if (!value.HasValue)
+            return string.Empty;
+
+        return value.Value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
     private List<RankedCandidate> RankCandidatesForPlayer(

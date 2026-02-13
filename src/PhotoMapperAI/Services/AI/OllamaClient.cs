@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Net;
 
 namespace PhotoMapperAI.Services.AI;
 
@@ -70,7 +71,7 @@ public class OllamaClient
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync($"{_baseUrl}/v1/chat/completions", content);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, modelName, "/v1/chat/completions");
 
         var responseJson = await response.Content.ReadAsStringAsync();
         var responseData = JsonSerializer.Deserialize<OllamaResponse>(responseJson);
@@ -117,7 +118,7 @@ public class OllamaClient
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync($"{_baseUrl}/api/chat", content, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, modelName, "/api/chat");
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         
@@ -238,6 +239,30 @@ public class OllamaClient
 
         var response = await _httpClient.PostAsync($"{_baseUrl}/api/generate", content, cancellationToken);
         response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response, string modelName, string endpoint)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var statusCode = (int)response.StatusCode;
+        var responseBody = await response.Content.ReadAsStringAsync();
+        var compactBody = string.IsNullOrWhiteSpace(responseBody)
+            ? "no response body"
+            : responseBody.Replace('\n', ' ').Replace('\r', ' ').Trim();
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new OllamaQuotaExceededException(
+                $"Ollama Cloud quota exhausted for model '{modelName}' (HTTP 409). " +
+                "Wait for quota reset or switch model. " +
+                $"Endpoint: {endpoint}. Response: {compactBody}");
+        }
+
+        throw new HttpRequestException(
+            $"Ollama request failed for model '{modelName}' (HTTP {statusCode}) on {endpoint}. " +
+            $"Response: {compactBody}");
     }
 
     #region Response Models

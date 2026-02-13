@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,6 +17,22 @@ public partial class MapStepViewModel : ViewModelBase
 {
     private const double MinConfidenceThreshold = 0.8;
     private CancellationTokenSource? _cancellationTokenSource;
+    private static readonly string[] DefaultLocalNameModels =
+    {
+        "qwen2.5:7b",
+        "qwen2.5-coder:7b-instruct-q4_K_M",
+        "qwen3:8b",
+        "llava:7b"
+    };
+    private static readonly string[] KnownCloudNameModels =
+    {
+        "gemini-3-flash-preview:cloud",
+        "qwen3-coder-next:cloud",
+        "kimi-k2.5:cloud",
+        "glm-4.7:cloud",
+        "minimax-m2:cloud",
+        "qwen3-coder:480b-cloud"
+    };
 
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
@@ -68,12 +85,13 @@ public partial class MapStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _modelDiagnosticStatus = string.Empty;
 
-    public List<string> NameModels { get; } = new()
+    public ObservableCollection<string> NameModels { get; } = new();
+
+    public MapStepViewModel()
     {
-        "qwen2.5:7b",
-        "qwen3:8b",
-        "llava:7b"
-    };
+        SeedNameModelList();
+        _ = RefreshNameModelsAsync(showStatus: false);
+    }
 
     [RelayCommand]
     private async Task BrowseCsvFile()
@@ -118,6 +136,12 @@ public partial class MapStepViewModel : ViewModelBase
                 return;
             }
 
+            if (IsCloudModel(NameModel))
+            {
+                ModelDiagnosticStatus = $"ℹ Cloud model selected: {NameModel}. Availability depends on cloud access/quota.";
+                return;
+            }
+
             var models = await client.GetAvailableModelsAsync();
             var exists = models.Any(m => string.Equals(m, NameModel, StringComparison.OrdinalIgnoreCase));
             ModelDiagnosticStatus = exists
@@ -132,6 +156,12 @@ public partial class MapStepViewModel : ViewModelBase
         {
             IsCheckingModel = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task RefreshNameModels()
+    {
+        await RefreshNameModelsAsync(showStatus: true);
     }
 
     [RelayCommand]
@@ -238,4 +268,94 @@ public partial class MapStepViewModel : ViewModelBase
             ProcessingStatus = "Cancelling mapping...";
         }
     }
+
+    private async Task RefreshNameModelsAsync(bool showStatus)
+    {
+        if (showStatus)
+        {
+            ModelDiagnosticStatus = "Refreshing models from Ollama...";
+        }
+
+        try
+        {
+            var client = new OllamaClient();
+            var available = await client.IsAvailableAsync();
+
+            if (!available)
+            {
+                if (showStatus)
+                {
+                    ModelDiagnosticStatus = "Ollama server is not reachable. Showing fallback model list.";
+                }
+
+                SeedNameModelList();
+                return;
+            }
+
+            var localModels = await client.GetAvailableModelsAsync();
+            RebuildNameModelList(localModels);
+
+            if (showStatus)
+            {
+                ModelDiagnosticStatus = $"✓ Loaded {NameModels.Count} selectable models";
+            }
+        }
+        catch (Exception ex)
+        {
+            SeedNameModelList();
+            if (showStatus)
+            {
+                ModelDiagnosticStatus = $"✗ Failed to refresh model list: {ex.Message}";
+            }
+        }
+    }
+
+    private void SeedNameModelList()
+    {
+        RebuildNameModelList(Array.Empty<string>());
+    }
+
+    private void RebuildNameModelList(IEnumerable<string> discoveredModels)
+    {
+        var previousSelection = NameModel;
+        var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var model in DefaultLocalNameModels)
+            merged.Add(model);
+
+        foreach (var model in discoveredModels.Where(m => !string.IsNullOrWhiteSpace(m)))
+            merged.Add(model.Trim());
+
+        foreach (var model in KnownCloudNameModels)
+            merged.Add(model);
+
+        var ordered = merged
+            .OrderBy(model => IsCloudModel(model) ? 1 : 0)
+            .ThenBy(model => model, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        NameModels.Clear();
+        foreach (var model in ordered)
+            NameModels.Add(model);
+
+        if (!string.IsNullOrWhiteSpace(previousSelection) &&
+            NameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)))
+        {
+            NameModel = NameModels.First(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase));
+            return;
+        }
+
+        if (NameModels.Contains("qwen2.5:7b"))
+        {
+            NameModel = "qwen2.5:7b";
+            return;
+        }
+
+        NameModel = NameModels.FirstOrDefault() ?? "qwen2.5:7b";
+    }
+
+    private static bool IsCloudModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (modelName.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase) ||
+            modelName.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase));
 }

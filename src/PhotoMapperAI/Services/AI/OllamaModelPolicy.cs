@@ -13,8 +13,13 @@ public static class OllamaModelPolicy
         if (string.IsNullOrWhiteSpace(modelName))
             return false;
 
-        // Primary cloud naming convention in Ollama model list.
-        return modelName.Trim().EndsWith(":cloud", StringComparison.OrdinalIgnoreCase);
+        var normalized = modelName.Trim();
+
+        // Cloud naming conventions in Ollama:
+        // - suffix ":cloud" (e.g. kimi-k2.5:cloud)
+        // - cloud tag in variant suffix (e.g. qwen3-coder:480b-cloud)
+        return normalized.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase)
+            || normalized.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

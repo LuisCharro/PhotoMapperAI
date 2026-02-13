@@ -177,6 +177,9 @@ public class MapCommand
     [Option(ShortName = "ao", LongName = "aiOnly", Description = "Skip deterministic name matching and use AI for all unresolved players")]
     public bool AiOnly { get; set; } = false;
 
+    [Option(ShortName = "at", LongName = "aiTrace", Description = "Print structured per-player AI evaluation trace lines")]
+    public bool AiTrace { get; set; } = false;
+
     public async Task<int> OnExecuteAsync()
     {
         if (AiOnly && !UseAi)
@@ -229,6 +232,7 @@ public class MapCommand
             ConfidenceThreshold,
             UseAi,
             UseAi && AiSecondPass,
+            aiTrace: AiTrace,
             aiOnly: AiOnly
         );
 

@@ -596,6 +596,7 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 | `-confidenceThreshold` | Minimum confidence for match | No | 0.8 |
 | `-useAI` | Enable AI name matching fallback | No | false |
 | `-aiSecondPass` | Run a second AI pass on unresolved rows | No | false |
+| `-aiTrace` | Print structured per-player AI outcomes (accepted/rejected + reason) | No | false |
 | `-aiOnly` | Skip deterministic name matching and use AI for all unresolved rows | No | false |
 
 ### Generate Photos

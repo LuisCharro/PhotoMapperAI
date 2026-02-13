@@ -30,6 +30,8 @@ public class SessionState
     public string? PhotoManifestPath { get; set; }
     public string? NameModel { get; set; } = "qwen2.5:7b";
     public double ConfidenceThreshold { get; set; } = 0.9;
+    public bool UseAiMapping { get; set; }
+    public bool AiSecondPass { get; set; } = true;
     public bool MapComplete { get; set; }
     public int PlayersMatched { get; set; }
     public int PlayersProcessed { get; set; }
@@ -43,6 +45,7 @@ public class SessionState
     public int PortraitWidth { get; set; } = 200;
     public int PortraitHeight { get; set; } = 300;
     public bool PortraitOnly { get; set; }
+    public bool DownloadOpenCvModels { get; set; }
     public bool GenerateComplete { get; set; }
     public int PortraitsGenerated { get; set; }
     public int PortraitsFailed { get; set; }
