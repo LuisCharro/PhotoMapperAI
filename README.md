@@ -81,7 +81,7 @@ PhotoMapperAI generatePhotos \
   -inputCsvPath path/to/SpainTeam.csv \
   -processedPhotosOutputPath portraits/SpainTeam \
   -format jpg \
-  -faceDetection llava:7b,qwen3-vl
+  -faceDetection llava:7b
 
 # Using center crop (fastest, no AI)
 PhotoMapperAI generatePhotos \
@@ -399,7 +399,7 @@ dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest mani
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
 
 # Ollama Vision with fallback (recommended for best results)
-dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b
 
 # Qwen3-VL only (best for challenging angles)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
@@ -612,7 +612,7 @@ Operational note for MAP command:
 | `-processedPhotosOutputPath` | Output path for portraits | Yes | - |
 | `-photosDir` | Directory containing source photos | Yes | - |
 | `-format` | Image format (jpg/png) | No | jpg |
-| `-faceDetection` | Face detection model (see below) | No | llava:7b,qwen3-vl |
+| `-faceDetection` | Face detection model (see below) | No | llava:7b |
 | `-portraitOnly` | Skip face detection, use existing | No | false |
 | `-faceWidth` | Portrait width in pixels | No | 200 |
 | `-faceHeight` | Portrait height in pixels | No | 300 |
