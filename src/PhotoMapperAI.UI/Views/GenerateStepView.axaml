@@ -111,6 +111,36 @@
         </StackPanel>
       </Border>
 
+      <!-- Size Profile Settings -->
+      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="📐 Size Profile (Optional)" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="Use a size profile for legacy-compatible dimensions."
+                     FontSize="12" Foreground="#666"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding SizeProfilePath}"
+                     Watermark="Path to size profile JSON..."
+                     IsReadOnly="True" Height="36"/>
+            <Button Grid.Column="1" Content="Browse"
+                    Click="BrowseSizeProfileFile_Click"
+                    Margin="8,0,0,0" Padding="16,8"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearSizeProfilePathCommand}"
+                    Margin="8,0,0,0" Padding="16,8"/>
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <CheckBox Content="Generate all profile sizes"
+                      IsChecked="{Binding AllSizes}"/>
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <TextBlock Text="Output Profile:" VerticalAlignment="Center"/>
+              <ComboBox ItemsSource="{Binding OutputProfiles}"
+                        SelectedItem="{Binding OutputProfile}"
+                        Width="140" Height="30"/>
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
       <!-- Portrait Settings -->
       <Grid ColumnDefinitions="*,*,*" Margin="0,8">
         <!-- Width -->

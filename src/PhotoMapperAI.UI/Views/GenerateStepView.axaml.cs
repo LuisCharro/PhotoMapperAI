@@ -78,4 +78,30 @@ public partial class GenerateStepView : UserControl
             }
         }
     }
+
+    private async void BrowseSizeProfileFile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is GenerateStepViewModel vm)
+        {
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage != null)
+            {
+                var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+                {
+                    Title = "Select Size Profile JSON",
+                    AllowMultiple = false,
+                    FileTypeFilter = new[]
+                    {
+                        new FilePickerFileType("JSON Files") { Patterns = new[] { "*.json" } },
+                        new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+                    }
+                });
+
+                if (files.Count > 0)
+                {
+                    vm.SizeProfilePath = files[0].Path.LocalPath;
+                }
+            }
+        }
+    }
 }
