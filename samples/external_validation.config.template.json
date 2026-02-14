@@ -8,7 +8,7 @@
   },
   "generate": {
     "format": "jpg",
-    "faceDetectionModel": "llava:7b,qwen3-vl",
+    "faceDetectionModel": "llava:7b",
     "portraitOnly": false
   },
   "teams": [

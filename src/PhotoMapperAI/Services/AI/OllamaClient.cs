@@ -134,7 +134,12 @@ public class OllamaClient
                     images = new List<string> { base64Image }
                 }
             },
-            stream = false
+            stream = false,
+            format = "json",
+            options = new
+            {
+                temperature = 0.0
+            }
         };
 
         var json = JsonSerializer.Serialize(requestBody);

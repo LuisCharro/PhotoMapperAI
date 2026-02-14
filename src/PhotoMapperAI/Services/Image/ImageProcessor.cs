@@ -1,6 +1,7 @@
 using PhotoMapperAI.Models;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 
 namespace PhotoMapperAI.Services.Image;
@@ -56,10 +57,18 @@ public class ImageProcessor : IImageProcessor
             // Crop
             var cropped = image.Clone(img => img.Crop(rect));
 
-            // Resize to exact portrait dimensions
+            // Resize to exact portrait dimensions using high-quality settings.
+            // Use Crop mode to avoid stretching when source ratio is slightly off.
             if (cropped.Width != portraitWidth || cropped.Height != portraitHeight)
             {
-                cropped.Mutate(img => img.Resize(portraitWidth, portraitHeight));
+                cropped.Mutate(img => img.Resize(new ResizeOptions
+                {
+                    Size = new SixLabors.ImageSharp.Size(portraitWidth, portraitHeight),
+                    Mode = ResizeMode.Crop,
+                    Position = AnchorPositionMode.Center,
+                    Sampler = KnownResamplers.Lanczos3,
+                    Compand = true
+                }));
             }
 
             return cropped;
@@ -73,7 +82,20 @@ public class ImageProcessor : IImageProcessor
     {
         await Task.Run(() =>
         {
-            image.Save(outputPath, new JpegEncoder { Quality = 90 });
+            var normalized = (format ?? "jpg").Trim().ToLowerInvariant();
+
+            switch (normalized)
+            {
+                case "png":
+                    image.Save(outputPath, new PngEncoder());
+                    break;
+
+                case "jpg":
+                case "jpeg":
+                default:
+                    image.Save(outputPath, new JpegEncoder { Quality = 92 });
+                    break;
+            }
         });
     }
 
