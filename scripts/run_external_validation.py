@@ -328,6 +328,8 @@ def main() -> int:
             ]
             if bool(generate_cfg.get("portraitOnly", False)):
                 generate_cmd.append("--portraitOnly")
+            if bool(generate_cfg.get("downloadOpenCvModels", False)):
+                generate_cmd.append("--downloadOpenCvModels")
             _run(generate_cmd, cwd=team_workspace, timeout_sec=generate_timeout_sec)
 
             expected_ids = _list_generated_ids(team.expected_portraits_dir)

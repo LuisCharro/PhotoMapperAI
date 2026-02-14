@@ -11,8 +11,9 @@
   },
   "generate": {
     "format": "jpg",
-    "faceDetectionModel": "llava:7b,qwen3-vl",
-    "portraitOnly": false
+    "faceDetectionModel": "opencv-dnn",
+    "portraitOnly": false,
+    "downloadOpenCvModels": true
   },
   "teams": [
     {
