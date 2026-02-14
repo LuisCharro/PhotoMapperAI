@@ -250,7 +250,7 @@ public class MapCommand
             log: null
         );
 
-        return result.PlayersMatched;
+        return 0;
     }
 }
 

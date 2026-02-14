@@ -5,18 +5,33 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
-using PhotoMapperAI.Services.Image;
+using PhotoMapperAI.UI.Execution;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class GenerateStepViewModel : ViewModelBase
 {
+    private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
+
+    public GenerateStepViewModel()
+    {
+        _cliRunner = new ExternalGenerateCliRunner();
+
+        // Prefer a convenient default profile path when available.
+        // User can clear it to use manual single-size mode.
+        var defaultProfile = ResolveDefaultSizeProfilePath();
+        if (!string.IsNullOrWhiteSpace(defaultProfile))
+        {
+            SizeProfilePath = defaultProfile;
+        }
+    }
 
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
@@ -31,7 +46,19 @@ public partial class GenerateStepViewModel : ViewModelBase
     private string _imageFormat = "jpg";
 
     [ObservableProperty]
-    private string _faceDetectionModel = "llava:7b";
+    private string _faceDetectionModel = "opencv-dnn";
+
+    [ObservableProperty]
+    private string _sizeProfilePath = string.Empty;
+
+    public bool ManualSizeControlsEnabled => string.IsNullOrWhiteSpace(SizeProfilePath);
+    public bool CanUseAllSizes => !string.IsNullOrWhiteSpace(SizeProfilePath);
+
+    [ObservableProperty]
+    private bool _allSizes;
+
+    [ObservableProperty]
+    private string _outputProfile = "none";
 
     [ObservableProperty]
     private int _portraitWidth = 200;
@@ -44,6 +71,9 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _downloadOpenCvModels;
+
+    [ObservableProperty]
+    private bool _writeDebugArtifacts = true;
 
     [ObservableProperty]
     private bool _isProcessing;
@@ -79,12 +109,13 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
 
+    public List<string> OutputProfiles { get; } = new() { "none", "test", "prod" };
+
     public List<string> FaceDetectionModels { get; } = new()
     {
-        "llava:7b",
+        "opencv-dnn",
         "llava:7b",
         "qwen3-vl",
-        "opencv-dnn",
         "yolov8-face",
         "haar-cascade",
         "center"
@@ -127,6 +158,25 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         OutputDirectory = string.Empty;
         IsComplete = false;
+    }
+
+    [RelayCommand]
+    private void ClearSizeProfilePath()
+    {
+        SizeProfilePath = string.Empty;
+        AllSizes = false;
+        IsComplete = false;
+    }
+
+    partial void OnSizeProfilePathChanged(string value)
+    {
+        OnPropertyChanged(nameof(ManualSizeControlsEnabled));
+        OnPropertyChanged(nameof(CanUseAllSizes));
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            AllSizes = false;
+        }
     }
 
     [RelayCommand]
@@ -183,12 +233,17 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         try
         {
-            var service = FaceDetectionServiceFactory.Create(FaceDetectionModel);
-            var initialized = await service.InitializeAsync();
+            var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetectionModel, DownloadOpenCvModels);
+            if (!preflight.IsOk)
+            {
+                ModelDiagnosticStatus = preflight.BuildMessage();
+                return;
+            }
 
-            ModelDiagnosticStatus = initialized
+            var warningMessage = preflight.BuildWarningMessage();
+            ModelDiagnosticStatus = string.IsNullOrWhiteSpace(warningMessage)
                 ? $"✓ Face detection model ready: {FaceDetectionModel}"
-                : $"✗ Face detection model unavailable: {FaceDetectionModel}";
+                : $"✓ Face detection model ready: {FaceDetectionModel}\n{warningMessage}";
         }
         catch (Exception ex)
         {
@@ -220,9 +275,11 @@ public partial class GenerateStepViewModel : ViewModelBase
         Progress = 0;
         _cancellationTokenSource = new CancellationTokenSource();
 
+        var selectedFaceDetectionModel = FaceDetectionModel;
+
         try
         {
-            var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetectionModel, DownloadOpenCvModels);
+            var preflight = await PreflightChecker.CheckGenerateAsync(selectedFaceDetectionModel, DownloadOpenCvModels);
             if (!preflight.IsOk)
             {
                 ProcessingStatus = preflight.BuildMessage();
@@ -236,66 +293,128 @@ public partial class GenerateStepViewModel : ViewModelBase
                 ModelDiagnosticStatus = warningMessage;
             }
 
-            // Create face detection service
-            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
-            await faceDetectionService.InitializeAsync();
+            var resolvedService = FaceDetectionServiceFactory.Create(selectedFaceDetectionModel);
+            AppendLog($"Resolved face detection service: {resolvedService.ModelName}");
 
-            // Create image processor
-            var imageProcessor = new ImageProcessor();
-
-            // Create generate photos command logic
-            var logic = new Commands.GeneratePhotosCommandLogic(
-                faceDetectionService, 
-                imageProcessor, 
-                cache: null
-            );
-
-            // Execute generation
-            var progress = new Progress<(int processed, int total, string current)>(p =>
+            var baseOutputDirectory = OutputDirectory;
+            if (!string.Equals(OutputProfile, "none", StringComparison.OrdinalIgnoreCase))
             {
-                var percent = p.total > 0
-                    ? (double)p.processed / p.total * 100.0
-                    : 0.0;
-
-                Progress = Math.Clamp(percent, 0, 100);
-                ProcessingStatus = $"Processing {p.processed}/{p.total}: {p.current}";
-            });
-
-            var log = new Progress<string>(AppendLog);
-
-            var result = await logic.ExecuteWithResultAsync(
-                InputCsvPath,
-                PhotosDirectory,
-                OutputDirectory,
-                ImageFormat,
-                FaceDetectionModel,
-                "generic",
-                PortraitOnly,
-                PortraitWidth,
-                PortraitHeight,
-                false,
-                4,
-                progress,
-                _cancellationTokenSource.Token,
-                log
-            );
-
-            PortraitsGenerated = result.PortraitsGenerated;
-            PortraitsFailed = result.PortraitsFailed;
-            Progress = result.TotalPlayers > 0
-                ? Math.Clamp((double)result.ProcessedPlayers / result.TotalPlayers * 100.0, 0, 100)
-                : Progress;
-
-            if (result.IsCancelled)
-            {
-                ProcessingStatus = $"⚠ Generation cancelled ({result.ProcessedPlayers}/{result.TotalPlayers} processed)";
-                IsComplete = false;
-                return;
+                baseOutputDirectory = ResolveOutputProfile(OutputProfile, OutputDirectory);
+                AppendLog($"Using output profile '{OutputProfile}' => {baseOutputDirectory}");
             }
 
-            if (result.ExitCode != 0)
+            var variants = new List<(string key, int width, int height, string outputDir)>();
+
+            if (!string.IsNullOrWhiteSpace(SizeProfilePath))
             {
-                ProcessingStatus = $"✗ Generation failed ({PortraitsGenerated} generated, {PortraitsFailed} failed)";
+                var profile = LoadSizeProfile(SizeProfilePath);
+                AppendLog($"Using size profile '{profile.Name}' with {profile.Variants.Count} variants");
+
+                if (AllSizes)
+                {
+                    variants.AddRange(profile.Variants.Select(v => (
+                        v.Key,
+                        v.Width,
+                        v.Height,
+                        Path.Combine(baseOutputDirectory, string.IsNullOrWhiteSpace(v.OutputSubfolder) ? v.Key : v.OutputSubfolder)
+                    )));
+                }
+                else
+                {
+                    var v = profile.Variants.FirstOrDefault(x =>
+                                string.Equals(x.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
+                                || (x.Width == 200 && x.Height == 300))
+                            ?? profile.Variants.First();
+                    variants.Add((v.Key, v.Width, v.Height, baseOutputDirectory));
+                }
+            }
+            else
+            {
+                variants.Add(("single", PortraitWidth, PortraitHeight, baseOutputDirectory));
+            }
+
+            var totalGenerated = 0;
+            var totalFailed = 0;
+            var anyFailure = false;
+
+            foreach (var variant in variants)
+            {
+                Directory.CreateDirectory(variant.outputDir);
+                AppendLog($"Running variant '{variant.key}' => {variant.width}x{variant.height} -> {variant.outputDir}");
+                AppendLog(_cliRunner.BuildCommandPreview(
+                    Directory.GetCurrentDirectory(),
+                    InputCsvPath,
+                    PhotosDirectory,
+                    variant.outputDir,
+                    ImageFormat,
+                    selectedFaceDetectionModel,
+                    PortraitOnly,
+                    variant.width,
+                    variant.height,
+                    DownloadOpenCvModels));
+
+                var log = new Progress<string>(AppendLog);
+
+                if (WriteDebugArtifacts)
+                {
+                    try
+                    {
+                        var debugPath = _cliRunner.WriteDebugArtifact(
+                            variant.outputDir,
+                            Directory.GetCurrentDirectory(),
+                            InputCsvPath,
+                            PhotosDirectory,
+                            ImageFormat,
+                            selectedFaceDetectionModel,
+                            PortraitOnly,
+                            variant.width,
+                            variant.height,
+                            DownloadOpenCvModels);
+                        AppendLog($"Debug artifact: {debugPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendLog($"Debug artifact write failed: {ex.Message}");
+                    }
+                }
+
+                var result = await _cliRunner.ExecuteAsync(
+                    Directory.GetCurrentDirectory(),
+                    InputCsvPath,
+                    PhotosDirectory,
+                    variant.outputDir,
+                    ImageFormat,
+                    selectedFaceDetectionModel,
+                    PortraitOnly,
+                    variant.width,
+                    variant.height,
+                    DownloadOpenCvModels,
+                    _cancellationTokenSource.Token,
+                    log);
+
+                totalGenerated += result.PortraitsGenerated;
+                totalFailed += result.PortraitsFailed;
+
+                if (result.IsCancelled)
+                {
+                    ProcessingStatus = $"⚠ Generation cancelled ({result.ProcessedPlayers}/{result.TotalPlayers} processed)";
+                    IsComplete = false;
+                    return;
+                }
+
+                if (result.ExitCode != 0)
+                {
+                    anyFailure = true;
+                    AppendLog($"Variant '{variant.key}' failed with exit code {result.ExitCode}");
+                }
+            }
+
+            PortraitsGenerated = totalGenerated;
+            PortraitsFailed = totalFailed;
+
+            if (anyFailure)
+            {
+                ProcessingStatus = $"✗ Generation completed with failures ({PortraitsGenerated} generated, {PortraitsFailed} failed)";
                 IsComplete = false;
                 return;
             }
@@ -342,4 +461,72 @@ public partial class GenerateStepViewModel : ViewModelBase
         LogLines.Add(message);
     }
 
+    private static string ResolveOutputProfile(string profile, string baseOutputPath)
+    {
+        var normalized = (profile ?? "none").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "none" => baseOutputPath,
+            "test" => Environment.GetEnvironmentVariable("PHOTOMAPPER_OUTPUT_TEST") ?? Path.Combine(baseOutputPath, "test"),
+            "prod" => Environment.GetEnvironmentVariable("PHOTOMAPPER_OUTPUT_PROD") ?? Path.Combine(baseOutputPath, "prod"),
+            _ => throw new InvalidOperationException($"Unsupported output profile '{profile}'. Use none/test/prod.")
+        };
+    }
+
+    private static string? ResolveDefaultSizeProfilePath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "samples", "size_profiles.default.json"),
+            Path.Combine(AppContext.BaseDirectory, "samples", "size_profiles.default.json"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "samples", "size_profiles.default.json")),
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    private static UiSizeProfile LoadSizeProfile(string profilePath)
+    {
+        if (string.IsNullOrWhiteSpace(profilePath) || !File.Exists(profilePath))
+        {
+            throw new FileNotFoundException($"Size profile file not found: {profilePath}");
+        }
+
+        var json = File.ReadAllText(profilePath);
+        var profile = JsonSerializer.Deserialize<UiSizeProfile>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        });
+
+        if (profile == null || profile.Variants == null || profile.Variants.Count == 0)
+        {
+            throw new InvalidOperationException("Size profile must contain at least one variant.");
+        }
+
+        foreach (var variant in profile.Variants)
+        {
+            if (string.IsNullOrWhiteSpace(variant.Key) || variant.Width <= 0 || variant.Height <= 0)
+            {
+                throw new InvalidOperationException("Each size profile variant requires key, width > 0, and height > 0.");
+            }
+        }
+
+        return profile;
+    }
+
+    private sealed class UiSizeProfile
+    {
+        public string Name { get; set; } = "default";
+        public List<UiSizeVariant> Variants { get; set; } = new();
+    }
+
+    private sealed class UiSizeVariant
+    {
+        public string Key { get; set; } = string.Empty;
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public string? OutputSubfolder { get; set; }
+    }
 }
