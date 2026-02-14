@@ -1,6 +1,5 @@
 {
   "repoRoot": "/Users/luis/Repos/PhotoMapperAI",
-  "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/metadata/players_test.csv",
   "outputRoot": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/Validation_Run",
   "mapTimeoutSec": 600,
   "generateTimeoutSec": 1200,
@@ -11,19 +10,20 @@
   },
   "generate": {
     "format": "jpg",
-    "faceDetectionModel": "llava:7b",
-    "portraitOnly": false
+    "faceDetectionModel": "opencv-dnn",
+    "portraitOnly": false,
+    "downloadOpenCvModels": true
   },
   "teams": [
     {
       "name": "Spain",
-      "teamId": 7535,
+      "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/DataPrep/03_transformed_with_map_data/Spain.csv",
       "inputPhotosDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/inputs/Spain",
       "expectedPortraitsDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/expected/portraits/Spain"
     },
     {
       "name": "Switzerland",
-      "teamId": 7536,
+      "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/DataPrep/03_transformed_with_map_data/Switzerland.csv",
       "inputPhotosDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/inputs/Switzerland",
       "expectedPortraitsDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/expected/portraits/Switzerland"
     }

@@ -43,7 +43,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     private string _imageFormat = "jpg";
 
     [ObservableProperty]
-    private string _faceDetectionModel = "llava:7b";
+    private string _faceDetectionModel = "opencv-dnn";
 
     [ObservableProperty]
     private string _sizeProfilePath = string.Empty;
@@ -107,9 +107,9 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     public List<string> FaceDetectionModels { get; } = new()
     {
+        "opencv-dnn",
         "llava:7b",
         "qwen3-vl",
-        "opencv-dnn",
         "yolov8-face",
         "haar-cascade",
         "center"
