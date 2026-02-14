@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using PhotoMapperAI.UI.ViewModels;
+using System.Linq;
 
 namespace PhotoMapperAI.UI.Views;
 
@@ -103,5 +104,20 @@ public partial class GenerateStepView : UserControl
                 }
             }
         }
+    }
+
+    private async void CopyRunLog_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not GenerateStepViewModel vm)
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard == null)
+            return;
+
+        var text = string.Join(System.Environment.NewLine, vm.LogLines);
+        await topLevel.Clipboard.SetTextAsync(text);
+
+        vm.ProcessingStatus = "Run log copied to clipboard.";
     }
 }

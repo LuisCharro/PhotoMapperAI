@@ -252,12 +252,15 @@ public class ImageProcessor : IImageProcessor
         int cropY;
         if (landmarks.BothEyesDetected && landmarks.FaceRect != null)
         {
-            // Put eyes lower in the final portrait to preserve more top hair/headroom.
-            cropY = eyeY - (int)(cropHeight * 0.60);
+            // Legacy PlayerPortraitManager alignment:
+            // centerY = eyeMidY - 10% faceHeight, then center crop around that point.
+            var centerY = eyeY - (int)(landmarks.FaceRect.Height * 0.10);
+            cropY = centerY - (cropHeight / 2);
         }
         else
         {
-            cropY = eyeY - (int)(cropHeight * 0.55); // Slightly more top margin for non-ideal landmark cases.
+            // Keep a slightly lower eye anchor for less aggressive head cuts in fallback cases.
+            cropY = eyeY - (int)(cropHeight * 0.52);
         }
         
         // Ensure crop stays within image bounds
