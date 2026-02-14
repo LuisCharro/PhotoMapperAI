@@ -300,6 +300,15 @@ public class GeneratePhotosCommand
     [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
     public int FaceHeight { get; set; } = 300;
 
+    [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON.")]
+    public string? SizeProfile { get; set; }
+
+    [Option(ShortName = "as", LongName = "allSizes", Description = "When used with --sizeProfile, generate all variants into subfolders.")]
+    public bool AllSizes { get; set; } = false;
+
+    [Option(ShortName = "op", LongName = "outputProfile", Description = "Optional output profile alias: test|prod")]
+    public string? OutputProfile { get; set; }
+
     [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing (default: false)")]
     public bool Parallel { get; set; } = false;
 
@@ -317,6 +326,24 @@ public class GeneratePhotosCommand
 
     public async Task<int> OnExecuteAsync()
     {
+        PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
+
+        if (!string.IsNullOrWhiteSpace(SizeProfile))
+        {
+            try
+            {
+                loadedProfile = SizeProfileLoader.LoadFromFile(SizeProfile);
+                Console.WriteLine($"Using size profile '{loadedProfile.Name}' from {SizeProfile}");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Invalid --sizeProfile: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
+        }
+
         var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetection, DownloadOpenCvModels);
         if (!preflight.IsOk)
         {
@@ -353,20 +380,67 @@ public class GeneratePhotosCommand
         // Create generate photos command logic handler
         var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache);
 
-        // Execute generate photos command
-        return await logic.ExecuteAsync(
-            InputCsvPath,
-            PhotosDir,
-            ProcessedPhotosOutputPath,
-            Format,
-            FaceDetection,
-            Crop,
-            PortraitOnly,
-            FaceWidth,
-            FaceHeight,
-            Parallel,
-            ParallelDegree
-        );
+        var baseOutputPath = ProcessedPhotosOutputPath;
+        if (!string.IsNullOrWhiteSpace(OutputProfile))
+        {
+            try
+            {
+                baseOutputPath = OutputProfileResolver.Resolve(OutputProfile, ProcessedPhotosOutputPath);
+                Console.WriteLine($"Using output profile '{OutputProfile}' => {baseOutputPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Invalid --outputProfile: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
+        }
+
+        async Task<int> RunOneVariant(int width, int height, string outputDir, string variantLabel)
+        {
+            Console.WriteLine($"Generating variant '{variantLabel}' => {width}x{height} -> {outputDir}");
+            Directory.CreateDirectory(outputDir);
+
+            return await logic.ExecuteAsync(
+                InputCsvPath,
+                PhotosDir,
+                outputDir,
+                Format,
+                FaceDetection,
+                Crop,
+                PortraitOnly,
+                width,
+                height,
+                Parallel,
+                ParallelDegree
+            );
+        }
+
+        if (loadedProfile == null)
+        {
+            return await RunOneVariant(FaceWidth, FaceHeight, baseOutputPath, "single");
+        }
+
+        if (!AllSizes)
+        {
+            var firstVariant = loadedProfile.Variants.First();
+            return await RunOneVariant(firstVariant.Width, firstVariant.Height, baseOutputPath, firstVariant.Key);
+        }
+
+        var worstExitCode = 0;
+        foreach (var variant in loadedProfile.Variants)
+        {
+            var subfolder = string.IsNullOrWhiteSpace(variant.OutputSubfolder) ? variant.Key : variant.OutputSubfolder;
+            var variantOutput = Path.Combine(baseOutputPath, subfolder);
+            var exitCode = await RunOneVariant(variant.Width, variant.Height, variantOutput, variant.Key);
+            if (exitCode != 0)
+            {
+                worstExitCode = exitCode;
+            }
+        }
+
+        return worstExitCode;
     }
 
 }
