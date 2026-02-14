@@ -6,23 +6,24 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
-using PhotoMapperAI.Commands;
+using PhotoMapperAI.UI.Execution;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class GenerateStepViewModel : ViewModelBase
 {
+    private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
 
     public GenerateStepViewModel()
     {
+        _cliRunner = new ExternalGenerateCliRunner();
+
         // Prefer a convenient default profile path when available.
         // User can clear it to use manual single-size mode.
         var defaultProfile = ResolveDefaultSizeProfilePath();
@@ -295,7 +296,6 @@ public partial class GenerateStepViewModel : ViewModelBase
             var resolvedService = FaceDetectionServiceFactory.Create(selectedFaceDetectionModel);
             AppendLog($"Resolved face detection service: {resolvedService.ModelName}");
 
-            // Execute generation
             var baseOutputDirectory = OutputDirectory;
             if (!string.Equals(OutputProfile, "none", StringComparison.OrdinalIgnoreCase))
             {
@@ -321,7 +321,6 @@ public partial class GenerateStepViewModel : ViewModelBase
                 }
                 else
                 {
-                    // Prefer a legacy-compatible default when profile is selected but all-sizes is off.
                     var v = profile.Variants.FirstOrDefault(x =>
                                 string.Equals(x.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
                                 || (x.Width == 200 && x.Height == 300))
@@ -342,7 +341,8 @@ public partial class GenerateStepViewModel : ViewModelBase
             {
                 Directory.CreateDirectory(variant.outputDir);
                 AppendLog($"Running variant '{variant.key}' => {variant.width}x{variant.height} -> {variant.outputDir}");
-                AppendLog(BuildGenerateCommandPreview(
+                AppendLog(_cliRunner.BuildCommandPreview(
+                    Directory.GetCurrentDirectory(),
                     InputCsvPath,
                     PhotosDirectory,
                     variant.outputDir,
@@ -357,15 +357,29 @@ public partial class GenerateStepViewModel : ViewModelBase
 
                 if (WriteDebugArtifacts)
                 {
-                    WriteVariantDebugArtifact(
-                        variant.key,
-                        variant.width,
-                        variant.height,
-                        variant.outputDir,
-                        selectedFaceDetectionModel);
+                    try
+                    {
+                        var debugPath = _cliRunner.WriteDebugArtifact(
+                            variant.outputDir,
+                            Directory.GetCurrentDirectory(),
+                            InputCsvPath,
+                            PhotosDirectory,
+                            ImageFormat,
+                            selectedFaceDetectionModel,
+                            PortraitOnly,
+                            variant.width,
+                            variant.height,
+                            DownloadOpenCvModels);
+                        AppendLog($"Debug artifact: {debugPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendLog($"Debug artifact write failed: {ex.Message}");
+                    }
                 }
 
-                var result = await ExecuteVariantViaCliAsync(
+                var result = await _cliRunner.ExecuteAsync(
+                    Directory.GetCurrentDirectory(),
                     InputCsvPath,
                     PhotosDirectory,
                     variant.outputDir,
@@ -445,159 +459,6 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
 
         LogLines.Add(message);
-    }
-
-    private async Task<GeneratePhotosResult> ExecuteVariantViaCliAsync(
-        string inputCsvPath,
-        string photosDir,
-        string outputDir,
-        string format,
-        string faceDetectionModel,
-        bool portraitOnly,
-        int width,
-        int height,
-        bool downloadOpenCvModels,
-        CancellationToken cancellationToken,
-        IProgress<string>? log)
-    {
-        var args = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels);
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            WorkingDirectory = Directory.GetCurrentDirectory(),
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        foreach (var a in args)
-        {
-            psi.ArgumentList.Add(a);
-        }
-
-        using var process = new Process { StartInfo = psi };
-        process.Start();
-
-        var generated = 0;
-        var failed = 0;
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var line = await process.StandardOutput.ReadLineAsync();
-            if (line == null)
-                break;
-
-            log?.Report(line);
-
-            var m = Regex.Match(line, @"Generated\s+(\d+)\s+portraits\s+\((\d+)\s+failed\)", RegexOptions.IgnoreCase);
-            if (m.Success)
-            {
-                generated = int.Parse(m.Groups[1].Value);
-                failed = int.Parse(m.Groups[2].Value);
-            }
-        }
-
-        var stdErr = await process.StandardError.ReadToEndAsync();
-        if (!string.IsNullOrWhiteSpace(stdErr))
-        {
-            foreach (var line in stdErr.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-            {
-                log?.Report(line.TrimEnd('\r'));
-            }
-        }
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        return new GeneratePhotosResult
-        {
-            ExitCode = process.ExitCode,
-            PortraitsGenerated = generated,
-            PortraitsFailed = failed,
-            IsCancelled = cancellationToken.IsCancellationRequested
-        };
-    }
-
-    private static List<string> BuildGenerateArgs(
-        string inputCsvPath,
-        string photosDir,
-        string outputDir,
-        string format,
-        string faceDetectionModel,
-        bool portraitOnly,
-        int width,
-        int height,
-        bool downloadOpenCvModels)
-    {
-        var args = new List<string>
-        {
-            "run", "--project", "src/PhotoMapperAI", "--", "generatephotos",
-            "--inputCsvPath", inputCsvPath,
-            "--photosDir", photosDir,
-            "--processedPhotosOutputPath", outputDir,
-            "--format", format,
-            "--faceDetection", faceDetectionModel,
-            "--faceWidth", width.ToString(),
-            "--faceHeight", height.ToString(),
-            "--noCache"
-        };
-
-        if (portraitOnly)
-            args.Add("--portraitOnly");
-
-        if (downloadOpenCvModels)
-            args.Add("--downloadOpenCvModels");
-
-        return args;
-    }
-
-    private void WriteVariantDebugArtifact(string key, int width, int height, string outputDir, string selectedFaceDetectionModel)
-    {
-        try
-        {
-            var payload = new
-            {
-                utc = DateTime.UtcNow,
-                workingDirectory = Directory.GetCurrentDirectory(),
-                inputCsvPath = InputCsvPath,
-                photosDirectory = PhotosDirectory,
-                outputDirectory = outputDir,
-                imageFormat = ImageFormat,
-                faceDetectionModel = selectedFaceDetectionModel,
-                portraitOnly = PortraitOnly,
-                width,
-                height,
-                downloadOpenCvModels = DownloadOpenCvModels,
-                executionMode = "external-cli",
-                args = BuildGenerateArgs(InputCsvPath, PhotosDirectory, outputDir, ImageFormat, selectedFaceDetectionModel, PortraitOnly, width, height, DownloadOpenCvModels)
-            };
-
-            Directory.CreateDirectory(outputDir);
-            var path = Path.Combine(outputDir, "_gui_run_debug.json");
-            File.WriteAllText(path, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
-            AppendLog($"Debug artifact: {path}");
-        }
-        catch (Exception ex)
-        {
-            AppendLog($"Debug artifact write failed: {ex.Message}");
-        }
-    }
-
-    private static string BuildGenerateCommandPreview(
-        string inputCsvPath,
-        string photosDir,
-        string outputDir,
-        string format,
-        string faceDetectionModel,
-        bool portraitOnly,
-        int width,
-        int height,
-        bool downloadOpenCvModels)
-    {
-        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels);
-        return $"Working directory: {Directory.GetCurrentDirectory()}\nCommand: dotnet " + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
     }
 
     private static string ResolveOutputProfile(string profile, string baseOutputPath)

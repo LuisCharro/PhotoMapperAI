@@ -237,15 +237,18 @@
       <!-- Run Log -->
       <Expander Header="Run Log" IsExpanded="False">
         <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
-          <ScrollViewer Height="160">
-            <ItemsControl ItemsSource="{Binding LogLines}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
+          <StackPanel Spacing="8">
+            <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="12,6"/>
+            <ScrollViewer Height="160">
+              <ItemsControl ItemsSource="{Binding LogLines}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
         </Border>
       </Expander>
 

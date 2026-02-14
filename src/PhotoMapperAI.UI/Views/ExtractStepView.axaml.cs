@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -105,6 +106,20 @@ public partial class ExtractStepView : UserControl
             return;
 
         await ShowInfoDialogAsync("Extraction Complete", $"CSV generated at:\n{vm.OutputCsvPath}");
+    }
+
+    private async void CopyRunLog_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not ExtractStepViewModel vm)
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard == null)
+            return;
+
+        var text = string.Join(Environment.NewLine, vm.LogLines);
+        await topLevel.Clipboard.SetTextAsync(text);
+        vm.ProcessingStatus = "Run log copied to clipboard.";
     }
 
     private async Task ShowInfoDialogAsync(string title, string message)

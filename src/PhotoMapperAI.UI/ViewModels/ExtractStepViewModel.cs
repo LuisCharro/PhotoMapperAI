@@ -1,15 +1,19 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.UI.Execution;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class ExtractStepViewModel : ViewModelBase
 {
+    private readonly ExternalExtractCliRunner _extractRunner = new();
     [ObservableProperty]
     private string _sqlFilePath = string.Empty;
 
@@ -43,6 +47,8 @@ public partial class ExtractStepViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isComplete;
 
+    public ObservableCollection<string> LogLines { get; } = new();
+
     public List<string> DatabaseTypes { get; } = new()
     {
         "SqlServer",
@@ -73,28 +79,13 @@ public partial class ExtractStepViewModel : ViewModelBase
             return;
         }
 
+        LogLines.Clear();
         IsProcessing = true;
         IsComplete = false;
         ProcessingStatus = "Extracting player data...";
 
         try
         {
-            // Read SQL query
-            var sqlQuery = await File.ReadAllTextAsync(SqlFilePath);
-
-            // Read connection string
-            var connectionString = await File.ReadAllTextAsync(ConnectionStringPath);
-
-            // Build parameters
-            var parameters = new Dictionary<string, object>
-            {
-                { "TeamId", TeamId }
-            };
-
-            // Create database extractor
-            var extractor = new Services.Database.DatabaseExtractor();
-
-            // Determine output path
             if (string.IsNullOrWhiteSpace(OutputDirectory))
             {
                 OutputDirectory = Directory.GetCurrentDirectory();
@@ -104,15 +95,26 @@ public partial class ExtractStepViewModel : ViewModelBase
             var outputCsvPath = Path.Combine(OutputDirectory, OutputFileName);
             OutputCsvPath = outputCsvPath;
 
-            // Extract data
-            PlayersExtracted = await extractor.ExtractPlayersToCsvAsync(
-                connectionString,
-                sqlQuery,
-                parameters,
-                outputCsvPath
-            );
+            var log = new Progress<string>(AppendLog);
 
-            ProcessingStatus = $"✓ Successfully extracted {PlayersExtracted} players to {outputCsvPath}";
+            var result = await _extractRunner.ExecuteAsync(
+                Directory.GetCurrentDirectory(),
+                SqlFilePath,
+                ConnectionStringPath,
+                TeamId,
+                outputCsvPath,
+                CancellationToken.None,
+                log);
+
+            if (result.ExitCode != 0)
+            {
+                ProcessingStatus = $"✗ Extract failed with exit code {result.ExitCode}";
+                IsComplete = false;
+                return;
+            }
+
+            PlayersExtracted = result.PlayersExtracted;
+            ProcessingStatus = $"✓ Successfully extracted {PlayersExtracted} players to {result.OutputCsvPath}";
             IsComplete = true;
         }
         catch (Exception ex)
@@ -124,5 +126,15 @@ public partial class ExtractStepViewModel : ViewModelBase
         {
             IsProcessing = false;
         }
+    }
+
+    private void AppendLog(string message)
+    {
+        if (LogLines.Count >= 200)
+        {
+            LogLines.RemoveAt(0);
+        }
+
+        LogLines.Add(message);
     }
 }
