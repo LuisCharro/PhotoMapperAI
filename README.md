@@ -138,20 +138,45 @@ PhotoMapperAI benchmark-compare \
 If you keep private test data outside this repo (for example in `PhotoMapperAI_ExternalData`), use:
 
 1. Config template: `samples/external_validation.config.template.json`
-2. Runner script: `scripts/run_external_validation.py`
+2. Legacy-parity config template (team-specific CSVs): `samples/external_validation.realdata_parity.template.json`
+3. Runner script: `scripts/run_external_validation.py`
 
-Example:
+Examples:
 
 ```bash
 python3 scripts/run_external_validation.py --config samples/external_validation.config.template.json
+
+# Legacy-ID parity mode (recommended for comparing against old expected portraits)
+python3 scripts/run_external_validation.py --config samples/external_validation.realdata_parity.template.json
+
+# Optional machine-readable summary
+python3 scripts/run_external_validation.py \
+  --config samples/external_validation.realdata_parity.template.json \
+  --summary-json /tmp/external-validation-summary.json
 ```
 
 This will:
-- prepare team CSVs (from source players CSV, or synthesize from filenames if needed),
+- prepare team CSVs (team-specific source CSV if configured, otherwise shared source CSV, or synthesize from filenames),
 - run `map`,
 - run `generatephotos`,
 - compare generated portrait IDs against expected portrait IDs,
-- write a report in the configured `outputRoot`.
+- write a report in the configured `outputRoot` (status, ID coverage %, missing/unexpected IDs, avg file-size stats).
+
+Tip: config supports long-run safeguards:
+- `mapTimeoutSec`
+- `generateTimeoutSec`
+- `continueOnError` (continue remaining teams even if one team fails)
+
+### Portrait Set Quality/Parity Comparison
+
+Use this helper to compare expected vs generated portraits (ID coverage + basic size stats):
+
+```bash
+python3 scripts/compare_portrait_sets.py \
+  --expectedDir /path/to/expected/portraits/Spain \
+  --generatedDir /path/to/Validation_Run/Spain/Generated \
+  --outputJson /tmp/spain-portrait-compare.json
+```
 
 ### Validation Suite Runner (Overwrite + All/Single Preset)
 
