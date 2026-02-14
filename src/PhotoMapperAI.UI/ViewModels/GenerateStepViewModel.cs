@@ -19,6 +19,17 @@ public partial class GenerateStepViewModel : ViewModelBase
 {
     private CancellationTokenSource? _cancellationTokenSource;
 
+    public GenerateStepViewModel()
+    {
+        // Prefer a convenient default profile path when available.
+        // User can clear it to use manual single-size mode.
+        var defaultProfile = ResolveDefaultSizeProfilePath();
+        if (!string.IsNullOrWhiteSpace(defaultProfile))
+        {
+            SizeProfilePath = defaultProfile;
+        }
+    }
+
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
 
@@ -216,12 +227,19 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         try
         {
-            var service = FaceDetectionServiceFactory.Create(FaceDetectionModel);
-            var initialized = await service.InitializeAsync();
+            var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetectionModel, DownloadOpenCvModels);
+            if (!preflight.IsOk)
+            {
+                ModelDiagnosticStatus = preflight.BuildMessage();
+                return;
+            }
 
-            ModelDiagnosticStatus = initialized
+            using var service = FaceDetectionServiceFactory.Create(FaceDetectionModel) as IDisposable;
+
+            var warningMessage = preflight.BuildWarningMessage();
+            ModelDiagnosticStatus = string.IsNullOrWhiteSpace(warningMessage)
                 ? $"✓ Face detection model ready: {FaceDetectionModel}"
-                : $"✗ Face detection model unavailable: {FaceDetectionModel}";
+                : $"✓ Face detection model ready: {FaceDetectionModel}\n{warningMessage}";
         }
         catch (Exception ex)
         {
@@ -253,6 +271,8 @@ public partial class GenerateStepViewModel : ViewModelBase
         Progress = 0;
         _cancellationTokenSource = new CancellationTokenSource();
 
+        IFaceDetectionService? faceDetectionService = null;
+
         try
         {
             var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetectionModel, DownloadOpenCvModels);
@@ -270,7 +290,7 @@ public partial class GenerateStepViewModel : ViewModelBase
             }
 
             // Create face detection service
-            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
+            faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
             await faceDetectionService.InitializeAsync();
 
             // Create image processor
@@ -278,8 +298,8 @@ public partial class GenerateStepViewModel : ViewModelBase
 
             // Create generate photos command logic
             var logic = new Commands.GeneratePhotosCommandLogic(
-                faceDetectionService, 
-                imageProcessor, 
+                faceDetectionService,
+                imageProcessor,
                 cache: null
             );
 
@@ -399,6 +419,11 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
         finally
         {
+            if (faceDetectionService is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
             IsProcessing = false;
@@ -435,6 +460,18 @@ public partial class GenerateStepViewModel : ViewModelBase
             "prod" => Environment.GetEnvironmentVariable("PHOTOMAPPER_OUTPUT_PROD") ?? Path.Combine(baseOutputPath, "prod"),
             _ => throw new InvalidOperationException($"Unsupported output profile '{profile}'. Use none/test/prod.")
         };
+    }
+
+    private static string? ResolveDefaultSizeProfilePath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "samples", "size_profiles.default.json"),
+            Path.Combine(AppContext.BaseDirectory, "samples", "size_profiles.default.json"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "samples", "size_profiles.default.json")),
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
     }
 
     private static UiSizeProfile LoadSizeProfile(string profilePath)
