@@ -16,18 +16,18 @@
       <!-- Header -->
       <TextBlock Text="Step 1: Extract Player Data" 
                  FontSize="24" FontWeight="Bold" 
-                 Foreground="#1976D2"/>
+                 Foreground="{DynamicResource ThemeForegroundBrush}"/>
       <TextBlock Text="Extract player data from your database to a CSV file. This CSV will be used in the next steps."
-                 FontSize="14" Foreground="#666" TextWrapping="Wrap"/>
+                 FontSize="14" Foreground="{DynamicResource ThemeForegroundBrush}" TextWrapping="Wrap"/>
 
       <Separator Margin="0,8"/>
 
       <!-- SQL File Selection -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource ThemeControlMidBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
           <TextBlock Text="📁 SQL Query File" FontSize="16" FontWeight="SemiBold"/>
           <TextBlock Text="Select a SQL file containing the query to extract player data"
-                     FontSize="12" Foreground="#666"/>
+                     FontSize="12" Foreground="{DynamicResource ThemeForegroundBrush}"/>
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding SqlFilePath}" 
                      Watermark="Path to SQL file..."
@@ -40,11 +40,11 @@
       </Border>
 
       <!-- Connection String File -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource ThemeControlMidBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
           <TextBlock Text="🔐 Connection String File" FontSize="16" FontWeight="SemiBold"/>
           <TextBlock Text="Select a file containing your database connection string (kept separate for security)"
-                     FontSize="12" Foreground="#666"/>
+                     FontSize="12" Foreground="{DynamicResource ThemeForegroundBrush}"/>
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding ConnectionStringPath}" 
                      Watermark="Path to connection string file..."
@@ -58,7 +58,7 @@
 
       <!-- Database Type and Team ID -->
       <Grid ColumnDefinitions="*,*" Margin="0,8">
-        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
+        <Border Grid.Column="0" Background="{DynamicResource ThemeControlMidBrush}" CornerRadius="8" Padding="16" Margin="0,0,8,0">
           <StackPanel Spacing="12">
             <TextBlock Text="🗄️ Database Type" FontSize="16" FontWeight="SemiBold"/>
             <ComboBox ItemsSource="{Binding DatabaseTypes}" 
@@ -67,7 +67,7 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="8,0,0,0">
+        <Border Grid.Column="1" Background="{DynamicResource ThemeControlMidBrush}" CornerRadius="8" Padding="16" Margin="8,0,0,0">
           <StackPanel Spacing="12">
             <TextBlock Text="🏷️ Team ID" FontSize="16" FontWeight="SemiBold"/>
             <NumericUpDown Value="{Binding TeamId}" 
@@ -78,7 +78,7 @@
       </Grid>
 
       <!-- Output File Name -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource ThemeControlMidBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
           <TextBlock Text="📄 Output File Name" FontSize="16" FontWeight="SemiBold"/>
           <TextBox Text="{Binding OutputFileName}" 
@@ -88,11 +88,11 @@
       </Border>
 
       <!-- Output Folder -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource ThemeControlMidBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
           <TextBlock Text="📂 Output Folder" FontSize="16" FontWeight="SemiBold"/>
           <TextBlock Text="Choose where the extracted CSV file will be created"
-                     FontSize="12" Foreground="#666"/>
+                     FontSize="12" Foreground="{DynamicResource ThemeForegroundBrush}"/>
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding OutputDirectory}"
                      Watermark="Path to output folder..."
@@ -113,7 +113,7 @@
               HorizontalAlignment="Center"/>
 
       <!-- Status -->
-      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+      <Border Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="8" Padding="16" 
               IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <StackPanel Spacing="8">
           <TextBlock Text="{Binding ProcessingStatus}" 
@@ -126,7 +126,7 @@
 
       <!-- Run Log -->
       <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch">
-        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+        <Border Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="8" Padding="12" Margin="0,8,0,0" HorizontalAlignment="Stretch">
           <StackPanel Spacing="8" HorizontalAlignment="Stretch">
             <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="12,6"/>
             <ScrollViewer Height="160" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -143,12 +143,12 @@
       </Expander>
 
       <!-- Success indicator -->
-      <Border Background="#E8F5E9" CornerRadius="8" Padding="16"
+      <Border Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="8" Padding="16"
               IsVisible="{Binding IsComplete}">
         <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="✓" FontSize="20" Foreground="#4CAF50"/>
+          <TextBlock Text="✓" FontSize="20" Foreground="{DynamicResource ThemeForegroundBrush}"/>
           <TextBlock Text="{Binding PlayersExtracted, StringFormat='Successfully extracted {0} players'}"
-                     FontSize="14" Foreground="#2E7D32"/>
+                     FontSize="14" Foreground="{DynamicResource ThemeForegroundBrush}"/>
         </StackPanel>
       </Border>
     </StackPanel>
