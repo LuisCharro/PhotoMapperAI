@@ -1,6 +1,7 @@
 using PhotoMapperAI.Models;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 
 namespace PhotoMapperAI.Services.Image;
@@ -56,10 +57,41 @@ public class ImageProcessor : IImageProcessor
             // Crop
             var cropped = image.Clone(img => img.Crop(rect));
 
-            // Resize to exact portrait dimensions
+            // Normalize to target aspect ratio first (top-centered) to avoid stretching
+            // while still preserving headroom.
+            var targetAspectRatio = (double)portraitWidth / portraitHeight;
+            var currentAspectRatio = (double)cropped.Width / cropped.Height;
+
+            if (Math.Abs(currentAspectRatio - targetAspectRatio) > 0.01)
+            {
+                if (currentAspectRatio < targetAspectRatio)
+                {
+                    // Too narrow: trim height (prefer trimming from bottom by anchoring near top).
+                    var desiredHeight = Math.Max(1, (int)Math.Round(cropped.Width / targetAspectRatio));
+                    desiredHeight = Math.Min(desiredHeight, cropped.Height);
+                    var aspectCropY = 0; // keep top hair/headroom
+                    cropped.Mutate(img => img.Crop(new SixLabors.ImageSharp.Rectangle(0, aspectCropY, cropped.Width, desiredHeight)));
+                }
+                else
+                {
+                    // Too wide: trim width symmetrically.
+                    var desiredWidth = Math.Max(1, (int)Math.Round(cropped.Height * targetAspectRatio));
+                    desiredWidth = Math.Min(desiredWidth, cropped.Width);
+                    var aspectCropX = Math.Max(0, (cropped.Width - desiredWidth) / 2);
+                    cropped.Mutate(img => img.Crop(new SixLabors.ImageSharp.Rectangle(aspectCropX, 0, desiredWidth, cropped.Height)));
+                }
+            }
+
+            // Final exact resize (aspect already aligned, so no visible distortion).
             if (cropped.Width != portraitWidth || cropped.Height != portraitHeight)
             {
-                cropped.Mutate(img => img.Resize(portraitWidth, portraitHeight));
+                cropped.Mutate(img => img.Resize(new ResizeOptions
+                {
+                    Size = new SixLabors.ImageSharp.Size(portraitWidth, portraitHeight),
+                    Mode = ResizeMode.Stretch,
+                    Sampler = KnownResamplers.Lanczos3,
+                    Compand = true
+                }));
             }
 
             return cropped;
@@ -73,7 +105,20 @@ public class ImageProcessor : IImageProcessor
     {
         await Task.Run(() =>
         {
-            image.Save(outputPath, new JpegEncoder { Quality = 90 });
+            var normalized = (format ?? "jpg").Trim().ToLowerInvariant();
+
+            switch (normalized)
+            {
+                case "png":
+                    image.Save(outputPath, new PngEncoder());
+                    break;
+
+                case "jpg":
+                case "jpeg":
+                default:
+                    image.Save(outputPath, new JpegEncoder { Quality = 92 });
+                    break;
+            }
         });
     }
 
@@ -163,9 +208,9 @@ public class ImageProcessor : IImageProcessor
             cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
             cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
             
-            // Eyes are typically in the upper 35% of the face rectangle
+            // Eyes are typically in the upper 40% of the face rectangle
             centerX = faceRect.X + faceRect.Width / 2;
-            eyeY = faceRect.Y + (int)(faceRect.Height * 0.35);
+            eyeY = faceRect.Y + (int)(faceRect.Height * 0.40);
         }
         
         // Case 4: No face detected - use upper portion of image (center crop mode)
@@ -201,9 +246,22 @@ public class ImageProcessor : IImageProcessor
         }
         
         // Calculate crop rectangle
-        // Eyes should be at ~35% from top of the portrait (standard portrait composition)
+        // Keep more headroom so top hair is not cut (closer to legacy framing).
         var cropX = centerX - (cropWidth / 2);
-        var cropY = eyeY - (int)(cropHeight * 0.35); // Eyes at 35% from top
+
+        int cropY;
+        if (landmarks.BothEyesDetected && landmarks.FaceRect != null)
+        {
+            // Legacy PlayerPortraitManager alignment:
+            // centerY = eyeMidY - 10% faceHeight, then center crop around that point.
+            var centerY = eyeY - (int)(landmarks.FaceRect.Height * 0.10);
+            cropY = centerY - (cropHeight / 2);
+        }
+        else
+        {
+            // Keep a slightly lower eye anchor for less aggressive head cuts in fallback cases.
+            cropY = eyeY - (int)(cropHeight * 0.52);
+        }
         
         // Ensure crop stays within image bounds
         cropX = Math.Max(0, Math.Min(cropX, imageWidth - cropWidth));

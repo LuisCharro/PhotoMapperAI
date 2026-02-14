@@ -250,7 +250,7 @@ public class MapCommand
             log: null
         );
 
-        return result.PlayersMatched;
+        return 0;
     }
 }
 
@@ -262,13 +262,13 @@ Generates portrait photos from full-body images using face and eye detection.
 Supports OpenCV DNN, Haar Cascades, YOLOv8-Face, and Ollama Vision models.
 
 Fallback mode: Provide comma-separated models to try each in order.
-Example: llava:7b,qwen3-vl will try llava:7b first, fall back to qwen3-vl if it fails.
+Example: llava:7b will try llava:7b first, fall back to qwen3-vl if it fails.
 
 Examples:
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
-  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
+  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
 ")]
 public class GeneratePhotosCommand
@@ -285,8 +285,8 @@ public class GeneratePhotosCommand
     [Option(ShortName = "f", LongName = "format", Description = "Image format: jpg, png (default: jpg)")]
     public string Format { get; set; } = "jpg";
 
-    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b,qwen3-vl)")]
-    public string FaceDetection { get; set; } = "llava:7b,qwen3-vl";
+    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b)")]
+    public string FaceDetection { get; set; } = "llava:7b";
 
     [Option(ShortName = "c", LongName = "crop", Description = "Crop method: generic, ai (default: generic)")]
     public string Crop { get; set; } = "generic";
@@ -299,6 +299,15 @@ public class GeneratePhotosCommand
 
     [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
     public int FaceHeight { get; set; } = 300;
+
+    [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON.")]
+    public string? SizeProfile { get; set; }
+
+    [Option(ShortName = "as", LongName = "allSizes", Description = "When used with --sizeProfile, generate all variants into subfolders.")]
+    public bool AllSizes { get; set; } = false;
+
+    [Option(ShortName = "op", LongName = "outputProfile", Description = "Optional output profile alias: test|prod")]
+    public string? OutputProfile { get; set; }
 
     [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing (default: false)")]
     public bool Parallel { get; set; } = false;
@@ -317,6 +326,24 @@ public class GeneratePhotosCommand
 
     public async Task<int> OnExecuteAsync()
     {
+        PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
+
+        if (!string.IsNullOrWhiteSpace(SizeProfile))
+        {
+            try
+            {
+                loadedProfile = SizeProfileLoader.LoadFromFile(SizeProfile);
+                Console.WriteLine($"Using size profile '{loadedProfile.Name}' from {SizeProfile}");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Invalid --sizeProfile: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
+        }
+
         var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetection, DownloadOpenCvModels);
         if (!preflight.IsOk)
         {
@@ -353,20 +380,67 @@ public class GeneratePhotosCommand
         // Create generate photos command logic handler
         var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache);
 
-        // Execute generate photos command
-        return await logic.ExecuteAsync(
-            InputCsvPath,
-            PhotosDir,
-            ProcessedPhotosOutputPath,
-            Format,
-            FaceDetection,
-            Crop,
-            PortraitOnly,
-            FaceWidth,
-            FaceHeight,
-            Parallel,
-            ParallelDegree
-        );
+        var baseOutputPath = ProcessedPhotosOutputPath;
+        if (!string.IsNullOrWhiteSpace(OutputProfile))
+        {
+            try
+            {
+                baseOutputPath = OutputProfileResolver.Resolve(OutputProfile, ProcessedPhotosOutputPath);
+                Console.WriteLine($"Using output profile '{OutputProfile}' => {baseOutputPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Invalid --outputProfile: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
+        }
+
+        async Task<int> RunOneVariant(int width, int height, string outputDir, string variantLabel)
+        {
+            Console.WriteLine($"Generating variant '{variantLabel}' => {width}x{height} -> {outputDir}");
+            Directory.CreateDirectory(outputDir);
+
+            return await logic.ExecuteAsync(
+                InputCsvPath,
+                PhotosDir,
+                outputDir,
+                Format,
+                FaceDetection,
+                Crop,
+                PortraitOnly,
+                width,
+                height,
+                Parallel,
+                ParallelDegree
+            );
+        }
+
+        if (loadedProfile == null)
+        {
+            return await RunOneVariant(FaceWidth, FaceHeight, baseOutputPath, "single");
+        }
+
+        if (!AllSizes)
+        {
+            var firstVariant = loadedProfile.Variants.First();
+            return await RunOneVariant(firstVariant.Width, firstVariant.Height, baseOutputPath, firstVariant.Key);
+        }
+
+        var worstExitCode = 0;
+        foreach (var variant in loadedProfile.Variants)
+        {
+            var subfolder = string.IsNullOrWhiteSpace(variant.OutputSubfolder) ? variant.Key : variant.OutputSubfolder;
+            var variantOutput = Path.Combine(baseOutputPath, subfolder);
+            var exitCode = await RunOneVariant(variant.Width, variant.Height, variantOutput, variant.Key);
+            if (exitCode != 0)
+            {
+                worstExitCode = exitCode;
+            }
+        }
+
+        return worstExitCode;
     }
 
 }
@@ -380,7 +454,7 @@ Collects accuracy, speed, and confidence scores for name matching and face detec
 
 Examples:
   photomapperai benchmark -nameModels qwen2.5:7b,qwen3:8b,llava:7b -testDataPath ./tests/Data
-  photomapperai benchmark -faceModels opencv-dnn,yolov8-face,llava:7b,qwen3-vl -testDataPath ./tests/Data
+  photomapperai benchmark -faceModels opencv-dnn,yolov8-face,llava:7b -testDataPath ./tests/Data
   photomapperai benchmark -nameModels qwen2.5:7b,qwen3:8b -faceModels opencv-dnn,llava:7b -testDataPath ./tests/Data
 ")]
 public class BenchmarkCommand

@@ -9,13 +9,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
-using PhotoMapperAI.Services.Image;
+using PhotoMapperAI.UI.Execution;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class MapStepViewModel : ViewModelBase
 {
     private const double MinConfidenceThreshold = 0.8;
+    private readonly ExternalMapCliRunner _mapRunner = new();
     private CancellationTokenSource? _cancellationTokenSource;
     private static readonly string[] DefaultLocalNameModels =
     {
@@ -287,48 +288,52 @@ public partial class MapStepViewModel : ViewModelBase
                 ModelDiagnosticStatus = warningMessage;
             }
 
-            // Create services
-            var nameMatchingService = NameMatchingServiceFactory.Create(
-                NameModel,
-                confidenceThreshold: ConfidenceThreshold,
-                openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
-            var imageProcessor = new ImageProcessor();
-
-            // Create map command logic
-            var logic = new Commands.MapCommandLogic(nameMatchingService, imageProcessor);
-
-            // Execute mapping
-            var progress = new Progress<(int processed, int total, string current)>(p =>
+            var log = new Progress<string>(line =>
             {
-                var percent = p.total > 0
-                    ? (double)p.processed / p.total * 100.0
-                    : 0.0;
-                Progress = Math.Clamp(percent, 0, 100);
-                ProcessingStatus = $"Processing {p.processed}/{p.total}: {p.current}";
+                AppendLog(line);
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"Matched\s+(\d+)\s*/\s*(\d+)\s*players", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (m.Success)
+                {
+                    PlayersMatched = int.Parse(m.Groups[1].Value);
+                    PlayersProcessed = int.Parse(m.Groups[2].Value);
+                    var percent = PlayersProcessed > 0 ? (double)PlayersMatched / PlayersProcessed * 100.0 : 0;
+                    Progress = Math.Clamp(percent, 0, 100);
+                    ProcessingStatus = $"Matched {PlayersMatched}/{PlayersProcessed} players...";
+                }
             });
 
-            var log = new Progress<string>(AppendLog);
+            var effectiveOutputDirectory = string.IsNullOrWhiteSpace(OutputDirectory)
+                ? Directory.GetCurrentDirectory()
+                : OutputDirectory;
+            Directory.CreateDirectory(effectiveOutputDirectory);
 
-            var result = await logic.ExecuteAsync(
+            var result = await _mapRunner.ExecuteAsync(
+                Directory.GetCurrentDirectory(),
+                effectiveOutputDirectory,
                 InputCsvPath,
                 PhotosDirectory,
-                string.IsNullOrEmpty(FilenamePattern) ? null : FilenamePattern,
+                string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
                 UsePhotoManifest ? PhotoManifestPath : null,
-                string.IsNullOrWhiteSpace(OutputDirectory) ? null : OutputDirectory,
                 NameModel,
                 ConfidenceThreshold,
                 UseAiMapping,
                 UseAiMapping && AiSecondPass,
-                progress,
+                UseAiMapping && AiOnly,
+                string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                 _cancellationTokenSource.Token,
-                aiOnly: UseAiMapping && AiOnly,
-                log: log
-            );
+                log);
+
+            if (result.ExitCode != 0)
+            {
+                ProcessingStatus = $"✗ Mapping failed with exit code {result.ExitCode}";
+                IsComplete = false;
+                return;
+            }
 
             PlayersProcessed = result.PlayersProcessed;
             PlayersMatched = result.PlayersMatched;
-            OutputCsvPath = result.OutputPath ?? string.Empty;
+            OutputCsvPath = result.OutputCsvPath ?? string.Empty;
             ProcessingStatus = $"✓ Mapped {PlayersMatched}/{PlayersProcessed} players successfully";
             Progress = 100;
             IsComplete = true;
