@@ -31,6 +31,8 @@ public partial class GenerateStepViewModel : ViewModelBase
         {
             SizeProfilePath = defaultProfile;
         }
+
+        SelectedFaceModelTierIndex = GetTierIndexForModel(FaceDetectionModel);
     }
 
     [ObservableProperty]
@@ -105,17 +107,28 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _previewStatus = string.Empty;
 
+    [ObservableProperty]
+    private int _selectedFaceModelTierIndex;
+
     public ObservableCollection<string> LogLines { get; } = new();
 
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
 
     public List<string> OutputProfiles { get; } = new() { "none", "test", "prod" };
 
-    public List<string> FaceDetectionModels { get; } = new()
+    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new()
     {
-        "opencv-dnn",
+        "opencv-dnn"
+    };
+
+    public ObservableCollection<string> LocalVisionFaceDetectionModels { get; } = new()
+    {
         "llava:7b",
-        "qwen3-vl",
+        "qwen3-vl"
+    };
+
+    public ObservableCollection<string> AdvancedFaceDetectionModels { get; } = new()
+    {
         "yolov8-face",
         "haar-cascade",
         "center"
@@ -177,6 +190,11 @@ public partial class GenerateStepViewModel : ViewModelBase
         {
             AllSizes = false;
         }
+    }
+
+    partial void OnFaceDetectionModelChanged(string value)
+    {
+        SelectedFaceModelTierIndex = GetTierIndexForModel(value);
     }
 
     [RelayCommand]
@@ -459,6 +477,19 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
 
         LogLines.Add(message);
+    }
+
+    private static int GetTierIndexForModel(string modelName)
+    {
+        if (string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        if (string.Equals(modelName, "llava:7b", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "qwen3-vl", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "qwen3-vl:latest", StringComparison.OrdinalIgnoreCase))
+            return 1;
+
+        return 2;
     }
 
     private static string ResolveOutputProfile(string profile, string baseOutputPath)

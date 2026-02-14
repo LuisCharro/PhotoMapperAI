@@ -86,15 +86,56 @@
       <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
           <TextBlock Text="🤖 Face Detection Model" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Select AI model for face detection (LLM models require Ollama)"
+          <TextBlock Text="OpenCV is recommended (fastest). Ollama vision models are slower."
                      FontSize="12" Foreground="#666"/>
-          <ComboBox ItemsSource="{Binding FaceDetectionModels}" 
-                    SelectedItem="{Binding FaceDetectionModel}"
-                    HorizontalAlignment="Stretch" Height="36"/>
+
+          <TabControl SelectedIndex="{Binding SelectedFaceModelTierIndex}">
+            <TabItem Header="Recommended">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Fast and stable for portrait generation."
+                           FontSize="12" Foreground="#666"/>
+                <ComboBox ItemsSource="{Binding RecommendedFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="360" Height="36"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Local Vision (Ollama)">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Runs locally through Ollama (slower, higher CPU/RAM)."
+                           FontSize="12" Foreground="#666"/>
+                <ComboBox ItemsSource="{Binding LocalVisionFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="360" Height="36"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Advanced">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Fallback/troubleshooting detectors."
+                           FontSize="12" Foreground="#666"/>
+                <ComboBox ItemsSource="{Binding AdvancedFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="360" Height="36"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Paid (coming soon)">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Paid API-based face detection providers are not wired yet."
+                           FontSize="12" Foreground="#666" TextWrapping="Wrap"/>
+                <TextBlock Text="For now use OpenCV or Ollama models."
+                           FontSize="12" Foreground="#666"/>
+              </StackPanel>
+            </TabItem>
+          </TabControl>
+
           <CheckBox Content="Download missing OpenCV DNN files"
                     IsChecked="{Binding DownloadOpenCvModels}"/>
-          <CheckBox Content="Write debug artifact JSON per variant"
-                    IsChecked="{Binding WriteDebugArtifacts}"/>
+
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Button Content="Check Model"
                     Command="{Binding CheckFaceModelCommand}"
@@ -105,11 +146,19 @@
                          Height="4"
                          IsVisible="{Binding IsCheckingModel}"/>
           </StackPanel>
+
           <TextBlock Text="{Binding ModelDiagnosticStatus}"
                      FontSize="12"
                      Foreground="#666"
                      TextWrapping="Wrap"
                      IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+          <Expander Header="Advanced diagnostics" IsExpanded="False">
+            <StackPanel Spacing="8" Margin="0,8,0,0">
+              <CheckBox Content="Write debug artifact JSON per variant"
+                        IsChecked="{Binding WriteDebugArtifacts}"/>
+            </StackPanel>
+          </Expander>
         </StackPanel>
       </Border>
 
