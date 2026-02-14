@@ -10,8 +10,9 @@
   },
   "generate": {
     "format": "jpg",
-    "faceDetectionModel": "llava:7b",
-    "portraitOnly": false
+    "faceDetectionModel": "opencv-dnn",
+    "portraitOnly": false,
+    "downloadOpenCvModels": true
   },
   "teams": [
     {
