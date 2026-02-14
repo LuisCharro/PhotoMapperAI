@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
+using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
 
 namespace PhotoMapperAI.UI.ViewModels;
@@ -33,6 +34,17 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
 
         SelectedFaceModelTierIndex = GetTierIndexForModel(FaceDetectionModel);
+
+        var configuredPaidModels = UiModelConfigLoader.Load().GeneratePaidModels;
+        if (configuredPaidModels.Count == 0)
+        {
+            PaidFaceDetectionModels.Add("NotYetImplemented:ComingSoon");
+        }
+        else
+        {
+            foreach (var model in configuredPaidModels)
+                PaidFaceDetectionModels.Add(model);
+        }
     }
 
     [ObservableProperty]
@@ -133,6 +145,8 @@ public partial class GenerateStepViewModel : ViewModelBase
         "haar-cascade",
         "center"
     };
+
+    public ObservableCollection<string> PaidFaceDetectionModels { get; } = new();
 
     [RelayCommand]
     private async Task BrowseCsvFile()

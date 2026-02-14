@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
+using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
 
 namespace PhotoMapperAI.UI.ViewModels;
@@ -34,13 +35,16 @@ public partial class MapStepViewModel : ViewModelBase
         "minimax-m2:cloud",
         "qwen3-coder:480b-cloud"
     };
-    private static readonly string[] KnownHostedNameModels =
+    private static readonly string[] DefaultPaidNameModels =
     {
-        "openai:gpt-4o-mini",
-        "openai:gpt-4.1-mini",
-        "anthropic:claude-3-5-sonnet",
-        "anthropic:claude-3-5-haiku"
+        "openai:gpt-4.1",
+        "openai:gpt-4o",
+        "openai:o3-mini",
+        "anthropic:claude-3-5-sonnet"
     };
+
+    private static readonly string[] ConfiguredPaidNameModels =
+        UiModelConfigLoader.Load().MapPaidModels.ToArray();
 
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
@@ -270,9 +274,11 @@ public partial class MapStepViewModel : ViewModelBase
                 ConfidenceThreshold = MinConfidenceThreshold;
             }
 
+            var effectiveNameModel = NameModel;
+
             var preflight = await PreflightChecker.CheckMapAsync(
                 UseAiMapping,
-                NameModel,
+                effectiveNameModel,
                 openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                 anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
             if (!preflight.IsOk)
@@ -314,7 +320,7 @@ public partial class MapStepViewModel : ViewModelBase
                 PhotosDirectory,
                 string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
                 UsePhotoManifest ? PhotoManifestPath : null,
-                NameModel,
+                effectiveNameModel,
                 ConfidenceThreshold,
                 UseAiMapping,
                 UseAiMapping && AiSecondPass,
@@ -426,7 +432,11 @@ public partial class MapStepViewModel : ViewModelBase
 
         foreach (var model in KnownCloudNameModels)
             merged.Add(model);
-        foreach (var model in KnownHostedNameModels)
+        var paidModels = ConfiguredPaidNameModels.Length > 0
+            ? ConfiguredPaidNameModels
+            : DefaultPaidNameModels;
+
+        foreach (var model in paidModels)
             merged.Add(model);
 
         var local = new List<string>();
@@ -451,7 +461,23 @@ public partial class MapStepViewModel : ViewModelBase
 
         local.Sort(StringComparer.OrdinalIgnoreCase);
         freeTier.Sort(StringComparer.OrdinalIgnoreCase);
-        paid.Sort(StringComparer.OrdinalIgnoreCase);
+
+        // Keep configured paid model order (power order) when provided.
+        var paidOrdered = new List<string>();
+        foreach (var model in paidModels)
+        {
+            var found = paid.FirstOrDefault(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(found))
+                paidOrdered.Add(found);
+        }
+
+        foreach (var model in paid)
+        {
+            if (!paidOrdered.Any(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase)))
+                paidOrdered.Add(model);
+        }
+
+        paid = paidOrdered;
 
         LocalNameModels.Clear();
         foreach (var model in local)
@@ -553,7 +579,8 @@ public partial class MapStepViewModel : ViewModelBase
         if (IsPaidModel(modelName))
             return 2;
         if (IsFreeTierModel(modelName))
-            return 1;
-        return 0;
+            return 0;
+        return 1;
     }
+
 }

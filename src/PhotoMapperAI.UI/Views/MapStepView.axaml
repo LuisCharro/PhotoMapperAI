@@ -83,9 +83,9 @@
       </Border>
 
       <!-- Options Grid -->
-      <Grid ColumnDefinitions="3*,1.4*" Margin="0,8">
+      <Grid ColumnDefinitions="1.4*,3*" Margin="0,8">
         <!-- Name Model -->
-        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
+        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="8,0,0,0">
           <StackPanel Spacing="12">
             <TextBlock Text="🤖 AI Model for Name Matching" FontSize="16" FontWeight="SemiBold"/>
             <CheckBox Content="Enable AI name matching (slower)"
@@ -93,21 +93,21 @@
 
             <TabControl IsEnabled="{Binding UseAiMapping}"
                         SelectedIndex="{Binding SelectedModelTierIndex}">
-              <TabItem Header="Local (Ollama)">
+              <TabItem Header="Free Tier (Ollama)">
                 <StackPanel Spacing="8" Margin="0,8,0,0">
-                  <TextBlock Text="Runs locally via Ollama on this machine."
+                  <TextBlock Text="Cloud models from Ollama with free-tier access (quota dependent)."
                              FontSize="12" Foreground="#666"/>
-                  <ComboBox ItemsSource="{Binding LocalNameModels}"
+                  <ComboBox ItemsSource="{Binding FreeTierNameModels}"
                             SelectedItem="{Binding NameModel, Mode=OneWay}"
                             SelectionChanged="NameModelSelectionChanged"
                             HorizontalAlignment="Left" Width="320" Height="36"/>
                 </StackPanel>
               </TabItem>
-              <TabItem Header="Free Tier">
+              <TabItem Header="Local (Ollama)">
                 <StackPanel Spacing="8" Margin="0,8,0,0">
-                  <TextBlock Text="Cloud models with free-tier access (quota dependent)."
+                  <TextBlock Text="Runs locally via Ollama on this machine."
                              FontSize="12" Foreground="#666"/>
-                  <ComboBox ItemsSource="{Binding FreeTierNameModels}"
+                  <ComboBox ItemsSource="{Binding LocalNameModels}"
                             SelectedItem="{Binding NameModel, Mode=OneWay}"
                             SelectionChanged="NameModelSelectionChanged"
                             HorizontalAlignment="Left" Width="320" Height="36"/>
@@ -168,11 +168,24 @@
         </Border>
 
         <!-- Confidence Threshold -->
-        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="12" Margin="8,0,0,0">
-          <StackPanel Spacing="8">
-            <TextBlock Text="📊 Confidence Threshold" FontSize="15" FontWeight="SemiBold"/>
-            <TextBlock Text="Applies to deterministic and AI matches."
-                       FontSize="11" Foreground="#777"/>
+        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+          <StackPanel Spacing="10">
+            <TextBlock Text="📊 Deterministic Matching (before AI)" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="This step compares player names and filenames using probability/string similarity first."
+                       FontSize="11" Foreground="#666" TextWrapping="Wrap"/>
+
+            <Border Background="#FFFFFF" CornerRadius="6" Padding="8" BorderBrush="#E0E0E0" BorderThickness="1">
+              <StackPanel Spacing="4">
+                <TextBlock Text="Flow:" FontSize="11" FontWeight="SemiBold" Foreground="#555"/>
+                <TextBlock Text="1) Deterministic name comparison" FontSize="11" Foreground="#555"/>
+                <TextBlock Text="2) If unresolved and AI enabled → AI model pass" FontSize="11" Foreground="#555"/>
+              </StackPanel>
+            </Border>
+
+            <TextBlock Text="Confidence threshold" FontSize="11" FontWeight="SemiBold" Foreground="#555"/>
+            <TextBlock Text="Higher = stricter matching (fewer false positives, more unmatched)."
+                       FontSize="11" Foreground="#777" TextWrapping="Wrap"/>
+
             <Grid ColumnDefinitions="*,Auto">
               <Slider Grid.Column="0" Value="{Binding ConfidenceThreshold}"
                       Minimum="0.8" Maximum="1.0"
@@ -235,15 +248,15 @@
       </Border>
 
       <!-- Run Log -->
-      <Expander Header="Run Log" IsExpanded="False">
-        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
-          <StackPanel Spacing="8">
+      <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8" HorizontalAlignment="Stretch">
             <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="12,6"/>
-            <ScrollViewer Height="160">
-              <ItemsControl ItemsSource="{Binding LogLines}">
+            <ScrollViewer Height="160" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding LogLines}" HorizontalAlignment="Stretch">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="NoWrap"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>

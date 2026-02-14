@@ -125,15 +125,15 @@
       </Border>
 
       <!-- Run Log -->
-      <Expander Header="Run Log" IsExpanded="False">
-        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
-          <StackPanel Spacing="8">
+      <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8" HorizontalAlignment="Stretch">
             <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="12,6"/>
-            <ScrollViewer Height="160">
-              <ItemsControl ItemsSource="{Binding LogLines}">
+            <ScrollViewer Height="160" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding LogLines}" HorizontalAlignment="Stretch">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="NoWrap"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
