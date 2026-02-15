@@ -56,7 +56,8 @@ public class GeneratePhotosCommandLogic
         int portraitWidth,
         int portraitHeight,
         bool parallel,
-        int parallelDegree)
+        int parallelDegree,
+        string? onlyPlayerId = null)
     {
         var result = await ExecuteWithResultAsync(
             inputCsvPath,
@@ -69,7 +70,8 @@ public class GeneratePhotosCommandLogic
             portraitWidth,
             portraitHeight,
             parallel,
-            parallelDegree
+            parallelDegree,
+            onlyPlayerId
         );
 
         return result.ExitCode;
@@ -90,6 +92,7 @@ public class GeneratePhotosCommandLogic
         int portraitHeight,
         bool parallel,
         int parallelDegree,
+        string? onlyPlayerId = null,
         IProgress<(int processed, int total, string current)>? progress = null,
         CancellationToken cancellationToken = default,
         IProgress<string>? log = null)
@@ -116,6 +119,10 @@ public class GeneratePhotosCommandLogic
         LogLine($"Portrait Only: {portraitOnly}");
         LogLine($"Portrait Size: {portraitWidth}x{portraitHeight}");
         LogLine($"Parallel: {parallel} (Degree: {parallelDegree})");
+        if (!string.IsNullOrWhiteSpace(onlyPlayerId))
+        {
+            LogLine($"Filter: Only processing player ID: {onlyPlayerId}");
+        }
         LogLine(string.Empty);
 
         try
@@ -136,6 +143,34 @@ public class GeneratePhotosCommandLogic
 
             // Step 3: Process each player
             var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.ExternalId)).ToList();
+            
+            // Filter by specific player ID if provided
+            if (!string.IsNullOrWhiteSpace(onlyPlayerId))
+            {
+                playersToProcess = playersToProcess
+                    .Where(p => string.Equals(p.PlayerId.ToString(), onlyPlayerId, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(p.ExternalId, onlyPlayerId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                
+                if (playersToProcess.Count == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠ No player found with ID: {onlyPlayerId}");
+                    Console.ResetColor();
+                    log?.Report($"⚠ No player found with ID: {onlyPlayerId}");
+                    return new GeneratePhotosResult
+                    {
+                        ExitCode = 0,
+                        TotalPlayers = 0
+                    };
+                }
+                
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"🔍 Filtering to {playersToProcess.Count} player(s) with ID: {onlyPlayerId}");
+                Console.ResetColor();
+                log?.Report($"🔍 Filtering to {playersToProcess.Count} player(s) with ID: {onlyPlayerId}");
+            }
+            
             totalPlayers = playersToProcess.Count;
 
             if (totalPlayers == 0)
@@ -503,6 +538,9 @@ public class GeneratePhotosCommand
     [Option(ShortName = "cp", LongName = "cachePath", Description = "Path to face detection cache file")]
     public string? CachePath { get; set; }
 
+    [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or ExternalId)")]
+    public string? OnlyPlayer { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         if (string.IsNullOrWhiteSpace(InputCsvPath) ||
@@ -562,7 +600,8 @@ public class GeneratePhotosCommand
             FaceWidth,
             FaceHeight,
             Parallel,
-            ParallelDegree
+            ParallelDegree,
+            OnlyPlayer
         );
     }
 }

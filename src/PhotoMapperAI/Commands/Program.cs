@@ -324,6 +324,9 @@ public class GeneratePhotosCommand
     [Option(ShortName = "dl", LongName = "downloadOpenCvModels", Description = "Download missing OpenCV DNN model files if needed")]
     public bool DownloadOpenCvModels { get; set; } = false;
 
+    [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or ExternalId)")]
+    public string? OnlyPlayer { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
@@ -413,7 +416,8 @@ public class GeneratePhotosCommand
                 width,
                 height,
                 Parallel,
-                ParallelDegree
+                ParallelDegree,
+                OnlyPlayer
             );
         }
 

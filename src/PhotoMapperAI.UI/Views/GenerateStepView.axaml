@@ -249,6 +249,20 @@
                 IsChecked="{Binding PortraitOnly}"
                 Margin="0,8"/>
 
+      <!-- Single Player Filter -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="🎯 Single Player Filter (Optional)" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <TextBlock Text="Process only a specific player by ID (PlayerId or ExternalId from CSV)"
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          <TextBox Text="{Binding OnlyPlayerId}"
+                   Watermark="Enter Player ID to process only that player..."
+                   Height="36"
+                   Background="{DynamicResource InputBackgroundBrush}"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+        </StackPanel>
+      </Border>
+
       <!-- Preview -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="10">
