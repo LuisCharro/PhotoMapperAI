@@ -65,7 +65,7 @@ PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/
 - Uses AI fallback only for unresolved/ambiguous cases
 - Validates matches with confidence threshold (default: 0.8)
 - Updates CSV with `Fifa_Player_ID` and `Valid_Mapping` columns
-- See [`docs/NAME_MAPPING_PIPELINE.md`](docs/NAME_MAPPING_PIPELINE.md) for the full mapping algorithm and tuning knobs
+- See [`docs/guides/NAME_MAPPING_PIPELINE.md`](docs/guides/NAME_MAPPING_PIPELINE.md) for the full mapping algorithm and tuning knobs
 
 ### Step 3: Generate Portraits (with Face Detection)
 ```bash
@@ -110,7 +110,7 @@ PhotoMapperAI generatePhotos \
 > - **Center mode (no AI):** Crops from upper portion of image (top 22% of height) assuming full-body sports photos. This captures head + neck + bit of chest for proper portrait composition.
 > - All portraits are resized to exact dimensions (default: 200x300 pixels)
 >
-> **See:** [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.
+> **See:** [`docs/guides/FACE_DETECTION_GUIDE.md`](docs/guides/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.
 
 ## Tech Stack
 
@@ -318,9 +318,12 @@ PhotoMapperAI/
 │       ├── Benchmarks/
 │       └── Data/
 ├── docs/
-│   ├── ARCHITECTURE_DECISIONS.md
-│   ├── TESTING_STRATEGY.md
-│   └── MODEL_BENCHMARKS.md
+│   ├── README.md               # Documentation index
+│   ├── architecture/           # Architecture decisions
+│   ├── guides/                 # User guides and references
+│   ├── planning/               # Project planning
+│   ├── reports/                # Validation reports
+│   └── testing/                # Testing documentation
 ├── data/                        # Sample data (gitignored)
 └── samples/                     # Example configs and templates
 ```
@@ -349,7 +352,7 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 **Known Issues (GUI):**
 - Session save/load currently uses default app data path (no file picker yet)
 
-**Documentation:** See [`GUIDE.md`](GUIDE.md) for complete GUI documentation.
+**Documentation:** See [`docs/guides/GUIDE.md`](docs/guides/GUIDE.md) for complete GUI documentation.
 
 ### Command-Line Interface (For Automation & Batch Processing)
 
@@ -383,7 +386,7 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 
 - **OpenCV** (optional, for faster face detection)
   - Included via NuGet: `OpenCvSharp4`
-  - Model files must be downloaded manually (see [`docs/OPENCV_MODELS.md`](docs/OPENCV_MODELS.md))
+  - Model files must be downloaded manually (see [`docs/guides/OPENCV_MODELS.md`](docs/guides/OPENCV_MODELS.md))
   - Configure paths in `appsettings.json` (copy from `appsettings.template.json`)
 
 ### Building
@@ -513,7 +516,7 @@ GUI known issues:
 
 ### Planned Improvements
 
-See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) for detailed enhancement plans.
+See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md) for detailed enhancement plans.
 
 **Completed:**
 - ✅ **Face-Based Crop Dimensions** - Crop size based on detected face (2x width, 3x height)
@@ -533,15 +536,13 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 
 ### Documentation
 
-- [`PROGRESS.md`](PROGRESS.md) - Development progress and tasks
-- [`TEST_SESSION.md`](TEST_SESSION.md) - Test session logs and findings
-- [`PHASE3_VALIDATION_REPORT.md`](PHASE3_VALIDATION_REPORT.md) - Detailed Phase 3 validation
+- [`PENDING_FEATURES.md`](PENDING_FEATURES.md) - Planned and pending features
 - [`RELEASE_NOTES.md`](RELEASE_NOTES.md) - v1.0.0 release notes and features
 - [`CHANGELOG.md`](CHANGELOG.md) - Version history and detailed changes
-- [`docs/`](docs/) - Technical documentation
+- [`docs/`](docs/) - Technical documentation (see [docs/README.md](docs/README.md) for index)
 
 
-**To use local test data:** See [`docs/TEST_CONFIGURATION.md`](docs/TEST_CONFIGURATION.md) for detailed setup instructions. Use the provided template (`test-config.template.json`) and configure it with your local paths.
+**To use local test data:** See [`docs/testing/TEST_CONFIGURATION.md`](docs/testing/TEST_CONFIGURATION.md) for detailed setup instructions. Use the provided template (`test-config.template.json`) and configure it with your local paths.
 
 **Important:**
 - Never commit real player data or personal database connection strings
@@ -590,7 +591,7 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 | llama3.2:3b | 85% | 520 | Speed-critical |
 
 Operational note for MAP command:
-- For hosted OpenAI mapping, see `/Users/luis/Repos/PhotoMapperAI/docs/NAME_MAPPING_PIPELINE.md` (`OpenAI gpt-4.1 Cost/Quality Snapshot`).
+- For hosted OpenAI mapping, see [`docs/guides/NAME_MAPPING_PIPELINE.md`](docs/guides/NAME_MAPPING_PIPELINE.md) (`OpenAI gpt-4.1 Cost/Quality Snapshot`).
 - Latest validated Denmark run shows deterministic+AI flow (`-a -ap`, no `--aiOnly`) reached better quality and much lower token cost than `--aiOnly`.
 
 ### Face Detection Approaches
@@ -687,7 +688,7 @@ Areas for contribution:
 
 ### Common Issues
 
-If you encounter problems, check [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) for:
+If you encounter problems, check [`docs/guides/EDGE_CASES.md`](docs/guides/EDGE_CASES.md) for:
 
 - **Name matching issues:** Transliteration differences, name order variations, nicknames
 - **Photo file problems:** No photo found, multiple photos, unsupported formats
@@ -709,10 +710,10 @@ If you encounter problems, check [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) for:
 ### Getting Help
 
 For more detailed troubleshooting:
-- See [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) - Comprehensive edge cases guide
-- See [`docs/NAME_MAPPING_PIPELINE.md`](docs/NAME_MAPPING_PIPELINE.md) - Name mapping strategy and decision flow
-- See [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) - Face detection model guide
-- See [`docs/ANONYMIZED_VALIDATION.md`](docs/ANONYMIZED_VALIDATION.md) - In-repo anonymized CLI validation (extract + map)
+- See [`docs/guides/EDGE_CASES.md`](docs/guides/EDGE_CASES.md) - Comprehensive edge cases guide
+- See [`docs/guides/NAME_MAPPING_PIPELINE.md`](docs/guides/NAME_MAPPING_PIPELINE.md) - Name mapping strategy and decision flow
+- See [`docs/guides/FACE_DETECTION_GUIDE.md`](docs/guides/FACE_DETECTION_GUIDE.md) - Face detection model guide
+- See [`docs/testing/ANONYMIZED_VALIDATION.md`](docs/testing/ANONYMIZED_VALIDATION.md) - In-repo anonymized CLI validation (extract + map)
 - See [`samples/sql-examples/README.md`](samples/sql-examples/README.md) - SQL query adaptation guide
 - Report issues: https://github.com/LuisCharro/PhotoMapperAI/issues
 
