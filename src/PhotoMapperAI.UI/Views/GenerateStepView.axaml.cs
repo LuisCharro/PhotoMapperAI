@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using PhotoMapperAI.UI.ViewModels;
@@ -103,6 +104,17 @@ public partial class GenerateStepView : UserControl
                     vm.SizeProfilePath = files[0].Path.LocalPath;
                 }
             }
+        }
+    }
+
+    private void FaceModelSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not GenerateStepViewModel vm)
+            return;
+
+        if (sender is ComboBox combo && combo.SelectedItem is string model && !string.IsNullOrWhiteSpace(model))
+        {
+            vm.FaceDetectionModel = model;
         }
     }
 

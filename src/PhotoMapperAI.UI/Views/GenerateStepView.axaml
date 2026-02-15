@@ -5,7 +5,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
              x:Class="PhotoMapperAI.UI.Views.GenerateStepView"
-             x:DataType="vm:GenerateStepViewModel">
+             x:DataType="vm:GenerateStepViewModel"
+             Background="{DynamicResource BackgroundBrush}">
 
   <Design.DataContext>
     <vm:GenerateStepViewModel/>
@@ -16,22 +17,24 @@
       <!-- Header -->
       <TextBlock Text="Step 3: Generate Portrait Photos" 
                  FontSize="24" FontWeight="Bold" 
-                 Foreground="#1976D2"/>
+                 Foreground="{DynamicResource PrimaryBrush}"/>
       <TextBlock Text="Generate portrait photos from full-body images using AI face detection. Output files will be named by PlayerId."
-                 FontSize="14" Foreground="#666" TextWrapping="Wrap"/>
+                 FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
 
-      <Separator Margin="0,8"/>
+      <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
 
       <!-- CSV File Selection -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
-          <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBlock Text="Select the CSV file with photo mappings from Step 2"
-                     FontSize="12" Foreground="#666"/>
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 
                      Watermark="Path to CSV file..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="36"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowseCsvFile_Click"
                     Margin="8,0,0,0" Padding="16,8"/>
@@ -43,15 +46,17 @@
       </Border>
 
       <!-- Photos Directory -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
-          <TextBlock Text="📁 Source Photos Directory" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="📁 Source Photos Directory" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBlock Text="Directory containing the original player photos"
-                     FontSize="12" Foreground="#666"/>
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding PhotosDirectory}" 
                      Watermark="Path to photos directory..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="36"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowsePhotosDirectory_Click"
                     Margin="8,0,0,0" Padding="16,8"/>
@@ -63,15 +68,17 @@
       </Border>
 
       <!-- Output Directory -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
-          <TextBlock Text="📂 Output Directory" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="📂 Output Directory" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBlock Text="Directory where portrait photos will be saved"
-                     FontSize="12" Foreground="#666"/>
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" 
                      Watermark="Path to output directory..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="36"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowseOutputDirectory_Click"
                     Margin="8,0,0,0" Padding="16,8"/>
@@ -83,18 +90,64 @@
       </Border>
 
       <!-- Face Detection Model -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
-          <TextBlock Text="🤖 Face Detection Model" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Select AI model for face detection (LLM models require Ollama)"
-                     FontSize="12" Foreground="#666"/>
-          <ComboBox ItemsSource="{Binding FaceDetectionModels}" 
-                    SelectedItem="{Binding FaceDetectionModel}"
-                    HorizontalAlignment="Stretch" Height="36"/>
+          <TextBlock Text="🤖 Face Detection Model" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <TextBlock Text="OpenCV is recommended (fastest). Ollama vision models are slower."
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+
+          <TabControl SelectedIndex="{Binding SelectedFaceModelTierIndex}">
+            <TabItem Header="Recommended">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Fast and stable for portrait generation."
+                           FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <ComboBox ItemsSource="{Binding RecommendedFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="360" Height="36"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Local Vision (Ollama)">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Runs locally through Ollama (slower, higher CPU/RAM)."
+                           FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <ComboBox ItemsSource="{Binding LocalVisionFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="360" Height="36"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Advanced">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Fallback/troubleshooting detectors."
+                           FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <ComboBox ItemsSource="{Binding AdvancedFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="360" Height="36"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Paid (coming soon)">
+              <StackPanel Spacing="8" Margin="0,8,0,0">
+                <TextBlock Text="Paid API-based face detection providers are not wired yet."
+                           FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                <TextBlock Text="Configured models from appsettings.json (UiModelLists.GeneratePaidModels):"
+                           FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <ComboBox ItemsSource="{Binding PaidFaceDetectionModels}"
+                          IsEnabled="False"
+                          HorizontalAlignment="Left" Width="420" Height="36"/>
+                <TextBlock Text="For now use OpenCV or Ollama models."
+                           FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              </StackPanel>
+            </TabItem>
+          </TabControl>
+
           <CheckBox Content="Download missing OpenCV DNN files"
                     IsChecked="{Binding DownloadOpenCvModels}"/>
-          <CheckBox Content="Write debug artifact JSON per variant"
-                    IsChecked="{Binding WriteDebugArtifacts}"/>
+
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Button Content="Check Model"
                     Command="{Binding CheckFaceModelCommand}"
@@ -105,24 +158,35 @@
                          Height="4"
                          IsVisible="{Binding IsCheckingModel}"/>
           </StackPanel>
+
           <TextBlock Text="{Binding ModelDiagnosticStatus}"
                      FontSize="12"
-                     Foreground="#666"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
                      TextWrapping="Wrap"
                      IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+          <Expander Header="Advanced diagnostics" IsExpanded="False"
+                    Background="{DynamicResource SurfaceBrush}">
+            <StackPanel Spacing="8" Margin="0,8,0,0">
+              <CheckBox Content="Write debug artifact JSON per variant"
+                        IsChecked="{Binding WriteDebugArtifacts}"/>
+            </StackPanel>
+          </Expander>
         </StackPanel>
       </Border>
 
       <!-- Size Profile Settings -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
-          <TextBlock Text="📐 Size Profile (Optional)" FontSize="16" FontWeight="SemiBold"/>
+          <TextBlock Text="📐 Size Profile (Optional)" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBlock Text="Use a size profile for legacy-compatible dimensions."
-                     FontSize="12" Foreground="#666"/>
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding SizeProfilePath}"
                      Watermark="Path to size profile JSON..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="36"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse"
                     Click="BrowseSizeProfileFile_Click"
                     Margin="8,0,0,0" Padding="16,8"/>
@@ -135,7 +199,8 @@
                       IsChecked="{Binding AllSizes}"
                       IsEnabled="{Binding CanUseAllSizes}"/>
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-              <TextBlock Text="Output Profile:" VerticalAlignment="Center"/>
+              <TextBlock Text="Output Profile:" VerticalAlignment="Center"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
               <ComboBox ItemsSource="{Binding OutputProfiles}"
                         SelectedItem="{Binding OutputProfile}"
                         Width="140" Height="30"/>
@@ -147,9 +212,9 @@
       <!-- Portrait Settings -->
       <Grid ColumnDefinitions="*,*,*" Margin="0,8">
         <!-- Width -->
-        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,0,8,0">
           <StackPanel Spacing="12">
-            <TextBlock Text="Width (px)" FontSize="14" FontWeight="SemiBold"/>
+            <TextBlock Text="Width (px)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <NumericUpDown Value="{Binding PortraitWidth}" 
                           Minimum="50" Maximum="1000"
                           IsEnabled="{Binding ManualSizeControlsEnabled}"
@@ -158,9 +223,9 @@
         </Border>
 
         <!-- Height -->
-        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="4,0">
+        <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="4,0">
           <StackPanel Spacing="12">
-            <TextBlock Text="Height (px)" FontSize="14" FontWeight="SemiBold"/>
+            <TextBlock Text="Height (px)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <NumericUpDown Value="{Binding PortraitHeight}" 
                           Minimum="50" Maximum="1500"
                           IsEnabled="{Binding ManualSizeControlsEnabled}"
@@ -169,9 +234,9 @@
         </Border>
 
         <!-- Format -->
-        <Border Grid.Column="2" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="8,0,0,0">
+        <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="8,0,0,0">
           <StackPanel Spacing="12">
-            <TextBlock Text="Format" FontSize="14" FontWeight="SemiBold"/>
+            <TextBlock Text="Format" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <ComboBox ItemsSource="{Binding ImageFormats}" 
                       SelectedItem="{Binding ImageFormat}"
                       HorizontalAlignment="Stretch" Height="36"/>
@@ -185,17 +250,17 @@
                 Margin="0,8"/>
 
       <!-- Preview -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="10">
           <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="🖼️ Preview Source Image" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock Text="🖼️ Preview Source Image" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Content="Load Preview"
                     Command="{Binding LoadPreviewImageCommand}"
                     Padding="12,6"/>
           </StackPanel>
           <TextBlock Text="{Binding PreviewStatus}"
                      FontSize="12"
-                     Foreground="#666"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
                      TextWrapping="Wrap"/>
           <Image Source="{Binding PreviewImage}"
                  Height="180"
@@ -208,21 +273,22 @@
         <Button Content="▶ Generate Portraits" 
                 Command="{Binding ExecuteGenerateCommand}"
                 IsEnabled="{Binding !IsProcessing}"
-                Background="#4CAF50" Foreground="White"
+                Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}"
                 FontSize="16" Padding="24,12"/>
         <Button Content="■ Cancel"
                 Command="{Binding CancelGenerateCommand}"
                 IsVisible="{Binding IsProcessing}"
-                Background="#F44336" Foreground="White"
+                Background="{DynamicResource ErrorBrush}" Foreground="{DynamicResource HeaderTextBrush}"
                 FontSize="16" Padding="24,12"/>
       </StackPanel>
 
       <!-- Progress -->
-      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+      <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="16" 
               IsVisible="{Binding IsProcessing}">
         <StackPanel Spacing="8">
           <TextBlock Text="{Binding ProcessingStatus}" 
-                     FontSize="14" TextWrapping="Wrap"/>
+                     FontSize="14" TextWrapping="Wrap"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
           <ProgressBar Value="{Binding Progress}" 
                        Maximum="100"
                        Height="8"/>
@@ -230,22 +296,25 @@
       </Border>
 
       <!-- Status -->
-      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+      <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="16" 
               IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Text="{Binding ProcessingStatus}" 
-                   FontSize="14" TextWrapping="Wrap"/>
+                   FontSize="14" TextWrapping="Wrap"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
       </Border>
 
       <!-- Run Log -->
-      <Expander Header="Run Log" IsExpanded="False">
-        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
-          <StackPanel Spacing="8">
+      <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch"
+                Background="{DynamicResource SurfaceBrush}">
+        <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8" HorizontalAlignment="Stretch">
             <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="12,6"/>
-            <ScrollViewer Height="160">
-              <ItemsControl ItemsSource="{Binding LogLines}">
+            <ScrollViewer Height="160" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding LogLines}" HorizontalAlignment="Stretch">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="NoWrap"
+                                         Foreground="{DynamicResource PrimaryTextBrush}"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
@@ -255,16 +324,16 @@
       </Expander>
 
       <!-- Success indicator -->
-      <Border Background="#E8F5E9" CornerRadius="8" Padding="16"
+      <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="16"
               IsVisible="{Binding IsComplete}">
         <StackPanel Spacing="8">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="✓" FontSize="20" Foreground="#4CAF50"/>
+            <TextBlock Text="✓" FontSize="20" Foreground="{DynamicResource SuccessBrush}"/>
             <TextBlock Text="{Binding PortraitsGenerated, StringFormat='Successfully generated {0} portraits'}"
-                       FontSize="14" Foreground="#2E7D32"/>
+                       FontSize="14" Foreground="{DynamicResource SuccessDarkBrush}"/>
           </StackPanel>
           <TextBlock Text="{Binding PortraitsFailed, StringFormat='Failed: {0}'}"
-                     FontSize="12" Foreground="#666"
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
                      IsVisible="{Binding PortraitsFailed}"/>
         </StackPanel>
       </Border>

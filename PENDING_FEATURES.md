@@ -1,0 +1,129 @@
+# Pending Features for PhotoMapperAI
+
+This document tracks features that are planned or under consideration for future implementation.
+
+**Last Updated:** 2026-02-15
+
+---
+
+## High Priority
+
+### 1. Single Player Processing Option
+
+**Description:** Add the ability to generate portraits for a specific player by ID, rather than processing all players in the CSV.
+
+**Use Cases:**
+- Testing and debugging individual players
+- Re-processing failed portraits
+- Selective updates without full regeneration
+
+**Implementation Needed:**
+- CLI: Add `--onlyPlayer <PlayerId>` parameter to `GeneratePhotosCommand.cs`
+- GUI: Add filter field in `GenerateStepViewModel.cs` / `GenerateStepView.axaml`
+
+**Status:** ❌ Not implemented
+
+---
+
+### 2. PNG to JPG Transparency Handling
+
+**Description:** When converting transparent PNG images to JPG format, transparent areas become black by default. The expected behavior is to replace transparent areas with a white background for better appearance.
+
+**Implementation Needed:**
+- Modify `ImageProcessor.cs` to detect transparent PNG sources
+- Apply white background fill before saving as JPG
+
+**Status:** ❌ Not implemented - Need to verify current behavior
+
+---
+
+## Medium Priority
+
+### 3. Placeholder Image Support
+
+**Description:** When a player has no photo available, copy a placeholder image to the output directory instead of skipping the player entirely.
+
+**Use Cases:**
+- Maintaining complete output sets
+- Visual indication of missing photos
+- Consistent output structure
+
+**Implementation Needed:**
+- Add placeholder path configuration to size profiles
+- Copy placeholder when no source photo exists
+
+**Status:** ❌ Not implemented
+
+---
+
+## Low Priority
+
+### 4. Absolute Destination Paths in Size Profiles
+
+**Description:** Currently size profiles use relative subfolder paths. Adding support for absolute destination paths could enable direct output to network locations.
+
+**Current Format:**
+```json
+{
+  "variants": [
+    { "key": "small", "width": 34, "height": 50, "outputSubfolder": "small" }
+  ]
+}
+```
+
+**Potential Enhancement:**
+```json
+{
+  "variants": [
+    { "key": "small", "width": 34, "height": 50, "outputSubfolder": "small", "destinationPath": "\\\\server\\images\\small" }
+  ]
+}
+```
+
+**Status:** ⚠️ Under consideration - Current relative paths sufficient for most use cases
+
+---
+
+## Implemented Features
+
+The following features are already implemented and working:
+
+### ✅ Intelligent Face/Eye Centering
+The portrait cropping automatically uses the best available centering method:
+- Both eyes detected → Center on eye midpoint
+- One eye detected → Estimate center from detected eye
+- Only face detected → Estimate eye position (upper 40% of face)
+- No face detected → Use upper portion of image (appropriate for full-body photos)
+
+No manual `--centerOn` option needed - the system intelligently selects the best method.
+
+### ✅ Size Profiles with Output Subfolders
+Generate multiple portrait sizes in one run with automatic subfolder organization:
+```bash
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -sizeProfile samples/size_profiles.default.json -allSizes
+```
+
+### ✅ Output Profile Shortcuts
+Quick switching between test and production output locations:
+```bash
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -outputProfile test
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -outputProfile prod
+```
+Configure via `PHOTOMAPPER_OUTPUT_TEST` and `PHOTOMAPPER_OUTPUT_PROD` environment variables.
+
+### ✅ Debug Artifacts
+Write debug information for troubleshooting:
+```bash
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits --writeDebugArtifacts
+```
+
+---
+
+## Feature Summary Table
+
+| Feature | Priority | Status | Notes |
+|---------|----------|--------|-------|
+| Single Player Processing | High | ❌ Pending | CLI + GUI implementation needed |
+| PNG→JPG Transparency | High | ❌ Pending | Verify current behavior first |
+| Placeholder Images | Medium | ❌ Pending | Size profile enhancement |
+| Absolute Destination Paths | Low | ⚠️ Consideration | Relative paths sufficient for now |
