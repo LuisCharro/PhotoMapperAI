@@ -5,10 +5,117 @@
              RequestedThemeVariant="Light">
   <Application.Styles>
     <FluentTheme />
-    <!-- <StyleInclude Source="avares://Avalonia.Fonts.Inter/Styles.axaml" /> -->
   </Application.Styles>
 
   <Application.DataTemplates>
     <local:ViewLocator/>
   </Application.DataTemplates>
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <!-- Light Theme -->
+        <ResourceDictionary x:Key="Light">
+          <!-- Primary Colors -->
+          <SolidColorBrush x:Key="PrimaryBrush" Color="#1976D2"/>
+          <SolidColorBrush x:Key="PrimaryLightBrush" Color="#2196F3"/>
+          <SolidColorBrush x:Key="PrimaryDarkBrush" Color="#1565C0"/>
+          
+          <!-- Background Colors -->
+          <SolidColorBrush x:Key="BackgroundBrush" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#F5F5F5"/>
+          <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#1976D2"/>
+          <SolidColorBrush x:Key="FooterBackgroundBrush" Color="#F5F5F5"/>
+          <SolidColorBrush x:Key="StepProgressBackgroundBrush" Color="#F5F5F5"/>
+          
+          <!-- Text Colors -->
+          <SolidColorBrush x:Key="PrimaryTextBrush" Color="#212121"/>
+          <SolidColorBrush x:Key="SecondaryTextBrush" Color="#666666"/>
+          <SolidColorBrush x:Key="DisabledTextBrush" Color="#9E9E9E"/>
+          <SolidColorBrush x:Key="HeaderTextBrush" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="HeaderSubTextBrush" Color="#B3E5FC"/>
+          
+          <!-- Status Colors -->
+          <SolidColorBrush x:Key="SuccessBrush" Color="#4CAF50"/>
+          <SolidColorBrush x:Key="SuccessDarkBrush" Color="#2E7D32"/>
+          <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#E8F5E9"/>
+          <SolidColorBrush x:Key="InfoBrush" Color="#2196F3"/>
+          <SolidColorBrush x:Key="InfoBackgroundBrush" Color="#E3F2FD"/>
+          <SolidColorBrush x:Key="WarningBrush" Color="#FF9800"/>
+          <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#FFF3E0"/>
+          <SolidColorBrush x:Key="ErrorBrush" Color="#F44336"/>
+          <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="#FFEBEE"/>
+          
+          <!-- Border Colors -->
+          <SolidColorBrush x:Key="BorderBrush" Color="#E0E0E0"/>
+          <SolidColorBrush x:Key="DividerBrush" Color="#EEEEEE"/>
+          
+          <!-- Step Indicator Colors -->
+          <SolidColorBrush x:Key="StepActiveBrush" Color="#4CAF50"/>
+          <SolidColorBrush x:Key="StepInactiveBrush" Color="#E0E0E0"/>
+          <SolidColorBrush x:Key="StepActiveTextBrush" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="StepInactiveTextBrush" Color="#666666"/>
+          
+          <!-- Log Colors -->
+          <SolidColorBrush x:Key="LogBackgroundBrush" Color="#FAFAFA"/>
+          
+          <!-- Input Colors -->
+          <SolidColorBrush x:Key="InputBackgroundBrush" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="InputBorderBrush" Color="#E0E0E0"/>
+        </ResourceDictionary>
+        
+        <!-- Dark Theme -->
+        <ResourceDictionary x:Key="Dark">
+          <!-- Primary Colors - lighter for dark mode visibility -->
+          <SolidColorBrush x:Key="PrimaryBrush" Color="#64B5F6"/>
+          <SolidColorBrush x:Key="PrimaryLightBrush" Color="#90CAF9"/>
+          <SolidColorBrush x:Key="PrimaryDarkBrush" Color="#42A5F5"/>
+          
+          <!-- Background Colors -->
+          <SolidColorBrush x:Key="BackgroundBrush" Color="#121212"/>
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#1E1E1E"/>
+          <SolidColorBrush x:Key="CardBrush" Color="#2D2D2D"/>
+          <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#1E3A5F"/>
+          <SolidColorBrush x:Key="FooterBackgroundBrush" Color="#1E1E1E"/>
+          <SolidColorBrush x:Key="StepProgressBackgroundBrush" Color="#1E1E1E"/>
+          
+          <!-- Text Colors -->
+          <SolidColorBrush x:Key="PrimaryTextBrush" Color="#E0E0E0"/>
+          <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B0B0B0"/>
+          <SolidColorBrush x:Key="DisabledTextBrush" Color="#666666"/>
+          <SolidColorBrush x:Key="HeaderTextBrush" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="HeaderSubTextBrush" Color="#90CAF9"/>
+          
+          <!-- Status Colors - adjusted for dark mode -->
+          <SolidColorBrush x:Key="SuccessBrush" Color="#81C784"/>
+          <SolidColorBrush x:Key="SuccessDarkBrush" Color="#66BB6A"/>
+          <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#1B3D1F"/>
+          <SolidColorBrush x:Key="InfoBrush" Color="#64B5F6"/>
+          <SolidColorBrush x:Key="InfoBackgroundBrush" Color="#1A3A5C"/>
+          <SolidColorBrush x:Key="WarningBrush" Color="#FFB74D"/>
+          <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#3D2E1A"/>
+          <SolidColorBrush x:Key="ErrorBrush" Color="#E57373"/>
+          <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="#3D1F1F"/>
+          
+          <!-- Border Colors -->
+          <SolidColorBrush x:Key="BorderBrush" Color="#404040"/>
+          <SolidColorBrush x:Key="DividerBrush" Color="#333333"/>
+          
+          <!-- Step Indicator Colors -->
+          <SolidColorBrush x:Key="StepActiveBrush" Color="#81C784"/>
+          <SolidColorBrush x:Key="StepInactiveBrush" Color="#404040"/>
+          <SolidColorBrush x:Key="StepActiveTextBrush" Color="#121212"/>
+          <SolidColorBrush x:Key="StepInactiveTextBrush" Color="#B0B0B0"/>
+          
+          <!-- Log Colors -->
+          <SolidColorBrush x:Key="LogBackgroundBrush" Color="#252525"/>
+          
+          <!-- Input Colors -->
+          <SolidColorBrush x:Key="InputBackgroundBrush" Color="#2D2D2D"/>
+          <SolidColorBrush x:Key="InputBorderBrush" Color="#404040"/>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
 </Application>

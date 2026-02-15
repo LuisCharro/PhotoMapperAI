@@ -10,7 +10,8 @@
         Title="PhotoMapperAI - Photo Mapping Tool"
         Width="1100" Height="700"
         MinWidth="900" MinHeight="500"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BackgroundBrush}">
 
   <Design.DataContext>
     <vm:MainWindowViewModel/>
@@ -18,23 +19,23 @@
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">
     <!-- Header -->
-    <Border Grid.Row="0" Background="#1976D2" Padding="16,12">
+    <Border Grid.Row="0" Background="{DynamicResource HeaderBackgroundBrush}" Padding="16,12">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Grid.Column="0" Text="📷 PhotoMapperAI"
                    FontSize="20" FontWeight="Bold"
-                   VerticalAlignment="Center" Foreground="White"/>
+                   VerticalAlignment="Center" Foreground="{DynamicResource HeaderTextBrush}"/>
         <TextBlock Grid.Column="1" Text="{Binding StatusMessage}"
                    FontSize="12" VerticalAlignment="Center"
-                   Foreground="#B3E5FC" Margin="20,0,0,0"/>
+                   Foreground="{DynamicResource HeaderSubTextBrush}" Margin="20,0,0,0"/>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button Content="{Binding ThemeToggleText}" Command="{Binding ToggleThemeCommand}"
-                  Background="#2196F3" Foreground="White" Padding="12,6"/>
+                  Background="{DynamicResource PrimaryLightBrush}" Foreground="{DynamicResource HeaderTextBrush}" Padding="12,6"/>
         </StackPanel>
       </Grid>
     </Border>
 
     <!-- Step Progress Indicator -->
-    <Border Grid.Row="1" Background="#F5F5F5" Padding="16,8">
+    <Border Grid.Row="1" Background="{DynamicResource StepProgressBackgroundBrush}" Padding="16,8">
       <Grid ColumnDefinitions="*,*,*">
         <!-- Step 1 -->
         <Button Grid.Column="0" Command="{Binding GoToStepCommand}" CommandParameter="1"
@@ -79,24 +80,24 @@
     </Border>
 
     <!-- Main Content Area -->
-    <Border Grid.Row="2" Background="White" Margin="16">
+    <Border Grid.Row="2" Background="{DynamicResource BackgroundBrush}" Margin="16">
       <ContentControl Content="{Binding CurrentView}"/>
     </Border>
 
     <!-- Footer -->
-    <Border Grid.Row="3" Background="#F5F5F5" Padding="16,8">
+    <Border Grid.Row="3" Background="{DynamicResource FooterBackgroundBrush}" Padding="16,8">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Grid.Column="0" Text="{Binding CurrentStepDescription}"
-                   VerticalAlignment="Center" Foreground="#666"/>
+                   VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"/>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button Content="◀ Back" Command="{Binding BackCommand}"
                   IsVisible="{Binding CanGoBack}" Padding="16,8"/>
           <Button Content="Next ▶" Command="{Binding NextCommand}"
                   IsVisible="{Binding CanGoNext}" 
-                  Background="#4CAF50" Foreground="White" Padding="16,8"/>
+                  Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}" Padding="16,8"/>
           <Button Content="✓ Finish" Command="{Binding FinishCommand}"
                   IsVisible="{Binding CanFinish}"
-                  Background="#2196F3" Foreground="White" Padding="16,8"/>
+                  Background="{DynamicResource PrimaryLightBrush}" Foreground="{DynamicResource HeaderTextBrush}" Padding="16,8"/>
         </StackPanel>
       </Grid>
     </Border>
