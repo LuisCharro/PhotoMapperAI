@@ -76,7 +76,7 @@
           <StackPanel Spacing="12">
             <TextBlock Text="🏷️ Team ID" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <NumericUpDown Value="{Binding TeamId}" 
-                          Minimum="0" Maximum="999999"
+                          Minimum="0" Maximum="9999999"
                           HorizontalAlignment="Stretch" Height="36"/>
           </StackPanel>
         </Border>
