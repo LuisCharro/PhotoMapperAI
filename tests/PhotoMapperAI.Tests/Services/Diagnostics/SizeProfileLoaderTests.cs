@@ -47,4 +47,32 @@ public class SizeProfileLoaderTests
         var ex = Assert.Throws<InvalidOperationException>(() => SizeProfileLoader.Validate(profile));
         Assert.Contains("at least one size variant", ex.Message);
     }
+
+    [Fact]
+    public void LoadFromFile_ShouldLoadPlaceholderPath()
+    {
+        var profilePath = FindInParents(AppContext.BaseDirectory, Path.Combine("samples", "size_profiles.default.json"));
+
+        var profile = SizeProfileLoader.LoadFromFile(profilePath);
+
+        Assert.NotNull(profile);
+        Assert.NotEmpty(profile.Variants);
+        Assert.Equal("./placeholder-34x50.jpg", profile.Variants[0].PlaceholderPath);
+    }
+
+    [Fact]
+    public void SizeProfile_ShouldAllowNullPlaceholderPath()
+    {
+        var profile = new PhotoMapperAI.Models.SizeProfile
+        {
+            Name = "test",
+            Variants = new List<PhotoMapperAI.Models.SizeVariant>
+            {
+                new() { Key = "default", Width = 200, Height = 300 }
+            }
+            // PlaceholderPath is null by default
+        };
+
+        Assert.Null(profile.Variants[0].PlaceholderPath);
+    }
 }

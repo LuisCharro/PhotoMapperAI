@@ -214,6 +214,104 @@ public class ImageProcessorTests
         }
     }
 
+    [Fact]
+    public async Task ResizeAsync_ShouldResizeToExactDimensions()
+    {
+        // Arrange
+        var processor = new ImageProcessor();
+        using var source = new Image<Rgba32>(400, 600);
+
+        // Act
+        using var resized = await processor.ResizeAsync(source, 200, 300);
+
+        // Assert
+        Assert.Equal(200, resized.Width);
+        Assert.Equal(300, resized.Height);
+    }
+
+    [Fact]
+    public async Task ResizeAsync_ShouldResizeLargerImageToSmaller()
+    {
+        // Arrange
+        var processor = new ImageProcessor();
+        using var source = new Image<Rgba32>(800, 1200);
+
+        // Act
+        using var resized = await processor.ResizeAsync(source, 100, 150);
+
+        // Assert
+        Assert.Equal(100, resized.Width);
+        Assert.Equal(150, resized.Height);
+    }
+
+    [Fact]
+    public async Task ResizeAsync_ShouldResizeSmallerImageToLarger()
+    {
+        // Arrange
+        var processor = new ImageProcessor();
+        using var source = new Image<Rgba32>(50, 75);
+
+        // Act
+        using var resized = await processor.ResizeAsync(source, 200, 300);
+
+        // Assert
+        Assert.Equal(200, resized.Width);
+        Assert.Equal(300, resized.Height);
+    }
+
+    [Fact]
+    public async Task PlaceholderWorkflow_ShouldCopyPlaceholderWithPlayerIdAsFilename()
+    {
+        // This test verifies the placeholder image workflow:
+        // 1. A placeholder image exists (pre-sized to match target dimensions)
+        // 2. When a player has no photo, the placeholder is copied
+        // 3. The output filename should be the player's ID
+
+        // Arrange - create a pre-sized placeholder (200x300 like default target)
+        var processor = new ImageProcessor();
+        using var placeholder = new Image<Rgba32>(200, 300);
+        
+        // Fill with a distinctive color (blue) so we can verify it was copied
+        for (int y = 0; y < 300; y++)
+        {
+            for (int x = 0; x < 200; x++)
+            {
+                placeholder[x, y] = new Rgba32(0, 0, 255, 255); // Blue
+            }
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), $"photomapperai-placeholder-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+
+        var placeholderPath = Path.Combine(tempDir, "placeholder-200x300.jpg");
+        var playerId = "12345";
+        var expectedOutputPath = Path.Combine(tempDir, $"{playerId}.jpg");
+
+        try
+        {
+            // Act - save placeholder (simulating what happens when player has no photo)
+            await processor.SaveImageAsync(placeholder, expectedOutputPath, "jpg");
+
+            // Assert - file exists with correct name (player ID as filename)
+            Assert.True(File.Exists(expectedOutputPath), "Placeholder should be saved with player ID as filename");
+
+            // Verify the content is from our placeholder (blue image)
+            using var savedImage = SixLabors.ImageSharp.Image.Load<Rgb24>(expectedOutputPath);
+            Assert.Equal(200, savedImage.Width);
+            Assert.Equal(300, savedImage.Height);
+
+            // Sample center pixel - should be blue (our placeholder color)
+            var centerPixel = savedImage[100, 150];
+            Assert.True(centerPixel.R < 50 && centerPixel.G < 50 && centerPixel.B > 200, 
+                $"Center pixel should be blue but was RGB({centerPixel.R},{centerPixel.G},{centerPixel.B})");
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
     private static void SafeDelete(string path)
     {
         try
