@@ -495,6 +495,12 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 # Size profile (all variants)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -sizeProfile samples/size_profiles.default.json -allSizes
 
+# Placeholder image (when player has no photo)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -placeholderImage ./placeholder-200x300.jpg
+
+# Size profile with placeholders (uses placeholderPath from each variant)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -sizeProfile samples/size_profiles.default.json -allSizes
+
 # Output profile alias (uses PHOTOMAPPER_OUTPUT_TEST/PROD env when set)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -outputProfile test
 ```

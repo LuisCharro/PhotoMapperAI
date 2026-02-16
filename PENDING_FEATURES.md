@@ -50,11 +50,22 @@ This document tracks features that are planned or under consideration for future
 - Visual indication of missing photos
 - Consistent output structure
 
-**Implementation Needed:**
-- Add placeholder path configuration to size profiles
-- Copy placeholder when no source photo exists
+**Implementation:**
+- Added `placeholderPath` to SizeVariant (per-variant placeholders)
+- Added `--placeholderImage` CLI option for single-size mode
+- GUI checkbox "Use placeholder images" when using size profile
+- Placeholders are pre-sized images that get copied directly (no resizing)
+- Size profile defines placeholderPath per variant:
+  ```json
+  {
+    "variants": [
+      { "key": "small", "width": 34, "height": 50, "placeholderPath": "./placeholder-34x50.jpg" },
+      { "key": "medium", "width": 67, "height": 100, "placeholderPath": "./placeholder-67x100.jpg" }
+    ]
+  }
+  ```
 
-**Status:** ❌ Not implemented
+**Status:** ✅ Implemented (2026-02-16)
 
 ---
 
@@ -96,6 +107,31 @@ Generate portraits for a specific player by ID:
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits --onlyPlayer 12345
 ```
 Or use the GUI filter field in the Generate step.
+
+### ✅ Placeholder Image Support (2026-02-16)
+When a player has no photo available, use a placeholder image. Placeholders are pre-sized images that get copied directly (no resizing):
+
+```json
+// Size profile with per-variant placeholders
+{
+  "variants": [
+    { "key": "small", "width": 34, "height": 50, "placeholderPath": "./placeholder-34x50.jpg" },
+    { "key": "medium", "width": 67, "height": 100, "placeholderPath": "./placeholder-67x100.jpg" },
+    { "key": "large", "width": 100, "height": 150, "placeholderPath": "./placeholder-100x150.jpg" },
+    { "key": "x200x300", "width": 200, "height": 300, "placeholderPath": "./placeholder-200x300.jpg" }
+  ]
+}
+```
+
+```bash
+# Via size profile (recommended - uses placeholderPath from each variant)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -sizeProfile samples/size_profiles.default.json -allSizes
+
+# Via CLI option (single size mode)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -placeholderImage ./placeholder-200x300.jpg
+```
+
+In GUI: Check "Use placeholder images" when using a size profile to enable placeholder copying.
 
 ### ✅ PNG to JPG Transparency Handling (2026-02-16)
 When converting transparent PNG images to JPG format, transparent areas are now filled with white background instead of becoming black:
@@ -141,5 +177,5 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 |---------|----------|--------|-------|
 | Single Player Processing | High | ✅ Implemented | CLI `--onlyPlayer` + GUI filter field |
 | PNG→JPG Transparency | High | ✅ Implemented | White background fill for transparent PNGs |
-| Placeholder Images | Medium | ❌ Pending | Size profile enhancement |
+| Placeholder Images | Medium | ✅ Implemented | CLI `--placeholderImage` + size profile |
 | Absolute Destination Paths | Low | ⚠️ Consideration | Relative paths sufficient for now |
