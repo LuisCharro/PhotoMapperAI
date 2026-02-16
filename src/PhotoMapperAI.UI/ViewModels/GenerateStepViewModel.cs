@@ -93,6 +93,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     private string? _onlyPlayerId;
 
     [ObservableProperty]
+    private bool _usePlaceholderImages;
+
+    [ObservableProperty]
+    private string? _placeholderImagePath;
+
+    [ObservableProperty]
     private bool _isProcessing;
 
     [ObservableProperty]
@@ -338,7 +344,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                 AppendLog($"Using output profile '{OutputProfile}' => {baseOutputDirectory}");
             }
 
-            var variants = new List<(string key, int width, int height, string outputDir)>();
+            var variants = new List<(string key, int width, int height, string outputDir, string? placeholderPath)>();
 
             if (!string.IsNullOrWhiteSpace(SizeProfilePath))
             {
@@ -351,7 +357,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                         v.Key,
                         v.Width,
                         v.Height,
-                        Path.Combine(baseOutputDirectory, string.IsNullOrWhiteSpace(v.OutputSubfolder) ? v.Key : v.OutputSubfolder)
+                        Path.Combine(baseOutputDirectory, string.IsNullOrWhiteSpace(v.OutputSubfolder) ? v.Key : v.OutputSubfolder),
+                        UsePlaceholderImages ? v.PlaceholderPath : null
                     )));
                 }
                 else
@@ -360,12 +367,12 @@ public partial class GenerateStepViewModel : ViewModelBase
                                 string.Equals(x.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
                                 || (x.Width == 200 && x.Height == 300))
                             ?? profile.Variants.First();
-                    variants.Add((v.Key, v.Width, v.Height, baseOutputDirectory));
+                    variants.Add((v.Key, v.Width, v.Height, baseOutputDirectory, UsePlaceholderImages ? v.PlaceholderPath : null));
                 }
             }
             else
             {
-                variants.Add(("single", PortraitWidth, PortraitHeight, baseOutputDirectory));
+                variants.Add(("single", PortraitWidth, PortraitHeight, baseOutputDirectory, UsePlaceholderImages ? PlaceholderImagePath : null));
             }
 
             var totalGenerated = 0;
@@ -387,7 +394,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                     variant.width,
                     variant.height,
                     DownloadOpenCvModels,
-                    OnlyPlayerId));
+                    OnlyPlayerId,
+                    variant.placeholderPath));
 
                 var log = new Progress<string>(AppendLog);
 
@@ -406,7 +414,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                             variant.width,
                             variant.height,
                             DownloadOpenCvModels,
-                            OnlyPlayerId);
+                            OnlyPlayerId,
+                            variant.placeholderPath);
                         AppendLog($"Debug artifact: {debugPath}");
                     }
                     catch (Exception ex)
@@ -427,6 +436,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                     variant.height,
                     DownloadOpenCvModels,
                     OnlyPlayerId,
+                    variant.placeholderPath,
                     _cancellationTokenSource.Token,
                     log);
 
@@ -579,5 +589,6 @@ public partial class GenerateStepViewModel : ViewModelBase
         public int Width { get; set; }
         public int Height { get; set; }
         public string? OutputSubfolder { get; set; }
+        public string? PlaceholderPath { get; set; }
     }
 }

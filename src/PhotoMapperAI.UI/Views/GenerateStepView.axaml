@@ -249,6 +249,18 @@
                 IsChecked="{Binding PortraitOnly}"
                 Margin="0,8"/>
 
+      <!-- Placeholder Image -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="🖼️ Use Placeholder Images" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <TextBlock Text="Copy placeholder images when no photo is found for a player (placeholder paths come from size profile)"
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          <CheckBox Content="Use placeholder images when player has no photo"
+                    IsChecked="{Binding UsePlaceholderImages}"
+                    IsEnabled="{Binding CanUseAllSizes}"/>
+        </StackPanel>
+      </Border>
+
       <!-- Single Player Filter -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">

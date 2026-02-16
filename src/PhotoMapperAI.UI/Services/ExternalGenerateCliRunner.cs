@@ -25,10 +25,11 @@ public sealed class ExternalGenerateCliRunner
         int height,
         bool downloadOpenCvModels,
         string? onlyPlayer,
+        string? placeholderImagePath,
         CancellationToken cancellationToken,
         IProgress<string>? log)
     {
-        var args = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer);
+        var args = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer, placeholderImagePath);
 
         var psi = new ProcessStartInfo
         {
@@ -95,9 +96,10 @@ public sealed class ExternalGenerateCliRunner
         int width,
         int height,
         bool downloadOpenCvModels,
-        string? onlyPlayer)
+        string? onlyPlayer,
+        string? placeholderImagePath)
     {
-        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer);
+        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer, placeholderImagePath);
         return $"Working directory: {workingDirectory}\nCommand: dotnet " + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
     }
 
@@ -112,7 +114,8 @@ public sealed class ExternalGenerateCliRunner
         int width,
         int height,
         bool downloadOpenCvModels,
-        string? onlyPlayer)
+        string? onlyPlayer,
+        string? placeholderImagePath)
     {
         var payload = new
         {
@@ -128,8 +131,9 @@ public sealed class ExternalGenerateCliRunner
             height,
             downloadOpenCvModels,
             onlyPlayer,
+            placeholderImagePath,
             executionMode = "external-cli",
-            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer)
+            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer, placeholderImagePath)
         };
 
         Directory.CreateDirectory(outputDir);
@@ -148,7 +152,8 @@ public sealed class ExternalGenerateCliRunner
         int width,
         int height,
         bool downloadOpenCvModels,
-        string? onlyPlayer)
+        string? onlyPlayer,
+        string? placeholderImagePath)
     {
         var args = new List<string>
         {
@@ -173,6 +178,12 @@ public sealed class ExternalGenerateCliRunner
         {
             args.Add("--onlyPlayer");
             args.Add(onlyPlayer);
+        }
+
+        if (!string.IsNullOrWhiteSpace(placeholderImagePath))
+        {
+            args.Add("--placeholderImage");
+            args.Add(placeholderImagePath);
         }
 
         return args;
