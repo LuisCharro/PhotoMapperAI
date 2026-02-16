@@ -17,11 +17,12 @@ This document tracks features that are planned or under consideration for future
 - Re-processing failed portraits
 - Selective updates without full regeneration
 
-**Implementation Needed:**
-- CLI: Add `--onlyPlayer <PlayerId>` parameter to `GeneratePhotosCommand.cs`
-- GUI: Add filter field in `GenerateStepViewModel.cs` / `GenerateStepView.axaml`
+**Implementation:**
+- CLI: `--onlyPlayer <PlayerId>` parameter in `GeneratePhotosCommand.cs`
+- GUI: Filter field in `GenerateStepViewModel.cs` / `GenerateStepView.axaml`
+- Supports both internal PlayerId and ExternalId for filtering
 
-**Status:** ❌ Not implemented
+**Status:** ✅ Implemented (2026-02-15)
 
 ---
 
@@ -29,11 +30,12 @@ This document tracks features that are planned or under consideration for future
 
 **Description:** When converting transparent PNG images to JPG format, transparent areas become black by default. The expected behavior is to replace transparent areas with a white background for better appearance.
 
-**Implementation Needed:**
-- Modify `ImageProcessor.cs` to detect transparent PNG sources
-- Apply white background fill before saving as JPG
+**Implementation:**
+- Modified `ImageProcessor.cs` to detect transparent PNG sources
+- Added `HasTransparency()` method to check for alpha channel
+- Added `FillTransparentAreasWithWhite()` method to apply white background fill before saving as JPG
 
-**Status:** ❌ Not implemented - Need to verify current behavior
+**Status:** ✅ Implemented (2026-02-16)
 
 ---
 
@@ -88,6 +90,20 @@ This document tracks features that are planned or under consideration for future
 
 The following features are already implemented and working:
 
+### ✅ Single Player Processing (2026-02-15)
+Generate portraits for a specific player by ID:
+```bash
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits --onlyPlayer 12345
+```
+Or use the GUI filter field in the Generate step.
+
+### ✅ PNG to JPG Transparency Handling (2026-02-16)
+When converting transparent PNG images to JPG format, transparent areas are now filled with white background instead of becoming black:
+```bash
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg
+```
+The system automatically detects transparency in PNG images and applies white background fill before saving as JPG, ensuring better visual appearance.
+
 ### ✅ Intelligent Face/Eye Centering
 The portrait cropping automatically uses the best available centering method:
 - Both eyes detected → Center on eye midpoint
@@ -123,7 +139,7 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 
 | Feature | Priority | Status | Notes |
 |---------|----------|--------|-------|
-| Single Player Processing | High | ❌ Pending | CLI + GUI implementation needed |
-| PNG→JPG Transparency | High | ❌ Pending | Verify current behavior first |
+| Single Player Processing | High | ✅ Implemented | CLI `--onlyPlayer` + GUI filter field |
+| PNG→JPG Transparency | High | ✅ Implemented | White background fill for transparent PNGs |
 | Placeholder Images | Medium | ❌ Pending | Size profile enhancement |
 | Absolute Destination Paths | Low | ⚠️ Consideration | Relative paths sufficient for now |

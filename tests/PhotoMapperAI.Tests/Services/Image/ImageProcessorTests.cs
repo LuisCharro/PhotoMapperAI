@@ -1,6 +1,10 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
 using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.Image;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
 
 namespace PhotoMapperAI.Tests.Services.Image;
@@ -12,7 +16,7 @@ public class ImageProcessorTests
     {
         // Arrange
         var processor = new ImageProcessor();
-        using var source = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(1200, 2000);
+        using var source = new Image<Rgba32>(1200, 2000);
 
         var landmarks = new FaceLandmarks
         {
@@ -36,7 +40,7 @@ public class ImageProcessorTests
     {
         // Arrange
         var processor = new ImageProcessor();
-        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(64, 64);
+        using var image = new Image<Rgba32>(64, 64);
 
         var tempPath = Path.Combine(Path.GetTempPath(), $"photomapperai-test-{Guid.NewGuid():N}.png");
 
@@ -59,10 +63,196 @@ public class ImageProcessorTests
         }
         finally
         {
-            if (File.Exists(tempPath))
+            SafeDelete(tempPath);
+        }
+    }
+
+    [Fact]
+    public async Task SaveImageAsync_ShouldFillTransparentPngWithWhiteWhenSavingAsJpg()
+    {
+        // Why this test is written this way:
+        // JPEG is lossy, so checking a single pixel with a very high threshold (e.g. >240) can be flaky across OS/encoders.
+        // Instead we check the *average* color of a small region.
+
+        // Arrange
+        var processor = new ImageProcessor();
+
+        using var transparentImage = new Image<Rgba32>(100, 100);
+
+        // Left half = opaque red
+        for (int y = 0; y < 100; y++)
+        {
+            for (int x = 0; x < 50; x++)
             {
-                File.Delete(tempPath);
+                transparentImage[x, y] = new Rgba32(255, 0, 0, 255);
             }
         }
+
+        // Right half = fully transparent
+        for (int y = 0; y < 100; y++)
+        {
+            for (int x = 50; x < 100; x++)
+            {
+                transparentImage[x, y] = new Rgba32(0, 0, 0, 0);
+            }
+        }
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"photomapperai-test-{Guid.NewGuid():N}.jpg");
+
+        try
+        {
+            // Act
+            await processor.SaveImageAsync(transparentImage, tempPath, "jpg");
+
+            // Assert
+            Assert.True(File.Exists(tempPath));
+
+            using var savedImage = SixLabors.ImageSharp.Image.Load<Rgb24>(tempPath);
+
+            // Sample a small region in the middle of each half to avoid edge artifacts
+            var leftAvg = GetAverageRgb(savedImage, startX: 20, startY: 40, width: 10, height: 10);
+            var rightAvg = GetAverageRgb(savedImage, startX: 70, startY: 40, width: 10, height: 10);
+
+            // Left half should remain strongly red-ish
+            Assert.True(leftAvg.R > 180, $"Left region should be red-ish. Avg={leftAvg}");
+            Assert.True(leftAvg.G < 90,  $"Left region should be red-ish. Avg={leftAvg}");
+            Assert.True(leftAvg.B < 90,  $"Left region should be red-ish. Avg={leftAvg}");
+
+            // Right half should be white-ish (certainly not black)
+            Assert.True(rightAvg.R > 210, $"Right region should be white-ish. Avg={rightAvg}");
+            Assert.True(rightAvg.G > 210, $"Right region should be white-ish. Avg={rightAvg}");
+            Assert.True(rightAvg.B > 210, $"Right region should be white-ish. Avg={rightAvg}");
+        }
+        finally
+        {
+            SafeDelete(tempPath);
+        }
+    }
+
+    [Fact]
+    public async Task SaveImageAsync_ShouldNotAffectOpaquePngWhenSavingAsJpg()
+    {
+        // Arrange
+        var processor = new ImageProcessor();
+
+        using var opaqueImage = new Image<Rgba32>(100, 100);
+
+        // Entire image = opaque blue
+        for (int y = 0; y < 100; y++)
+        {
+            for (int x = 0; x < 100; x++)
+            {
+                opaqueImage[x, y] = new Rgba32(0, 0, 255, 255);
+            }
+        }
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"photomapperai-test-{Guid.NewGuid():N}.jpg");
+
+        try
+        {
+            // Act
+            await processor.SaveImageAsync(opaqueImage, tempPath, "jpg");
+
+            // Assert
+            Assert.True(File.Exists(tempPath));
+
+            using var savedImage = SixLabors.ImageSharp.Image.Load<Rgb24>(tempPath);
+
+            var centerAvg = GetAverageRgb(savedImage, startX: 45, startY: 45, width: 10, height: 10);
+
+            Assert.True(centerAvg.B > 180, $"Image should remain blue-ish. Avg={centerAvg}");
+            Assert.True(centerAvg.R < 90,  $"Image should remain blue-ish. Avg={centerAvg}");
+            Assert.True(centerAvg.G < 90,  $"Image should remain blue-ish. Avg={centerAvg}");
+        }
+        finally
+        {
+            SafeDelete(tempPath);
+        }
+    }
+
+    [Fact]
+    public async Task SaveImageAsync_ShouldHandlePartialTransparencyWhenSavingAsJpg()
+    {
+        // Arrange
+        var processor = new ImageProcessor();
+
+        using var partialTransparentImage = new Image<Rgba32>(100, 100);
+
+        // Entire image = semi-transparent red (50% alpha)
+        for (int y = 0; y < 100; y++)
+        {
+            for (int x = 0; x < 100; x++)
+            {
+                partialTransparentImage[x, y] = new Rgba32(255, 0, 0, 128);
+            }
+        }
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"photomapperai-test-{Guid.NewGuid():N}.jpg");
+
+        try
+        {
+            // Act
+            await processor.SaveImageAsync(partialTransparentImage, tempPath, "jpg");
+
+            // Assert
+            Assert.True(File.Exists(tempPath));
+
+            using var savedImage = SixLabors.ImageSharp.Image.Load<Rgb24>(tempPath);
+
+            var avg = GetAverageRgb(savedImage, startX: 45, startY: 45, width: 10, height: 10);
+
+            // Red blended over white should look pink-ish:
+            // - strong red component
+            // - some green/blue from the white background
+            Assert.True(avg.R > 170, $"Should have strong red component. Avg={avg}");
+            Assert.True(avg.G > 80,  $"Should have some green from white blend. Avg={avg}");
+            Assert.True(avg.B > 80,  $"Should have some blue from white blend. Avg={avg}");
+        }
+        finally
+        {
+            SafeDelete(tempPath);
+        }
+    }
+
+    private static void SafeDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup; don't fail the test if the OS temporarily locks the file.
+        }
+    }
+
+    private static (int R, int G, int B) GetAverageRgb(Image<Rgb24> img, int startX, int startY, int width, int height)
+    {
+        long sumR = 0;
+        long sumG = 0;
+        long sumB = 0;
+        long count = 0;
+
+        var endX = Math.Min(startX + width, img.Width);
+        var endY = Math.Min(startY + height, img.Height);
+
+        for (int y = startY; y < endY; y++)
+        {
+            for (int x = startX; x < endX; x++)
+            {
+                var p = img[x, y];
+                sumR += p.R;
+                sumG += p.G;
+                sumB += p.B;
+                count++;
+            }
+        }
+
+        if (count == 0) return (0, 0, 0);
+
+        return ((int)(sumR / count), (int)(sumG / count), (int)(sumB / count));
     }
 }

@@ -90,6 +90,9 @@ public partial class GenerateStepViewModel : ViewModelBase
     private bool _writeDebugArtifacts = true;
 
     [ObservableProperty]
+    private string? _onlyPlayerId;
+
+    [ObservableProperty]
     private bool _isProcessing;
 
     [ObservableProperty]
@@ -383,7 +386,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                     PortraitOnly,
                     variant.width,
                     variant.height,
-                    DownloadOpenCvModels));
+                    DownloadOpenCvModels,
+                    OnlyPlayerId));
 
                 var log = new Progress<string>(AppendLog);
 
@@ -401,7 +405,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                             PortraitOnly,
                             variant.width,
                             variant.height,
-                            DownloadOpenCvModels);
+                            DownloadOpenCvModels,
+                            OnlyPlayerId);
                         AppendLog($"Debug artifact: {debugPath}");
                     }
                     catch (Exception ex)
@@ -421,6 +426,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                     variant.width,
                     variant.height,
                     DownloadOpenCvModels,
+                    OnlyPlayerId,
                     _cancellationTokenSource.Token,
                     log);
 

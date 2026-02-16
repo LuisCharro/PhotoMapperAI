@@ -11,7 +11,7 @@ using McMaster.Extensions.CommandLineUtils;
 namespace PhotoMapperAI.Commands;
 
 /// <summary>
-/// GeneratePhotos command - generate portraits with face detection
+/// Result of a generate photos operation.
 /// </summary>
 public class GeneratePhotosResult
 {
@@ -23,6 +23,9 @@ public class GeneratePhotosResult
     public bool IsCancelled { get; set; }
 }
 
+/// <summary>
+/// Business logic for generating portrait photos with face detection.
+/// </summary>
 public class GeneratePhotosCommandLogic
 {
     private readonly IFaceDetectionService _faceDetectionService;
@@ -56,7 +59,8 @@ public class GeneratePhotosCommandLogic
         int portraitWidth,
         int portraitHeight,
         bool parallel,
-        int parallelDegree)
+        int parallelDegree,
+        string? onlyPlayerId = null)
     {
         var result = await ExecuteWithResultAsync(
             inputCsvPath,
@@ -69,7 +73,8 @@ public class GeneratePhotosCommandLogic
             portraitWidth,
             portraitHeight,
             parallel,
-            parallelDegree
+            parallelDegree,
+            onlyPlayerId
         );
 
         return result.ExitCode;
@@ -90,6 +95,7 @@ public class GeneratePhotosCommandLogic
         int portraitHeight,
         bool parallel,
         int parallelDegree,
+        string? onlyPlayerId = null,
         IProgress<(int processed, int total, string current)>? progress = null,
         CancellationToken cancellationToken = default,
         IProgress<string>? log = null)
@@ -116,6 +122,10 @@ public class GeneratePhotosCommandLogic
         LogLine($"Portrait Only: {portraitOnly}");
         LogLine($"Portrait Size: {portraitWidth}x{portraitHeight}");
         LogLine($"Parallel: {parallel} (Degree: {parallelDegree})");
+        if (!string.IsNullOrWhiteSpace(onlyPlayerId))
+        {
+            LogLine($"Filter: Only processing player ID: {onlyPlayerId}");
+        }
         LogLine(string.Empty);
 
         try
@@ -136,6 +146,34 @@ public class GeneratePhotosCommandLogic
 
             // Step 3: Process each player
             var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.ExternalId)).ToList();
+            
+            // Filter by specific player ID if provided
+            if (!string.IsNullOrWhiteSpace(onlyPlayerId))
+            {
+                playersToProcess = playersToProcess
+                    .Where(p => string.Equals(p.PlayerId.ToString(), onlyPlayerId, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(p.ExternalId, onlyPlayerId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                
+                if (playersToProcess.Count == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠ No player found with ID: {onlyPlayerId}");
+                    Console.ResetColor();
+                    log?.Report($"⚠ No player found with ID: {onlyPlayerId}");
+                    return new GeneratePhotosResult
+                    {
+                        ExitCode = 0,
+                        TotalPlayers = 0
+                    };
+                }
+                
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"🔍 Filtering to {playersToProcess.Count} player(s) with ID: {onlyPlayerId}");
+                Console.ResetColor();
+                log?.Report($"🔍 Filtering to {playersToProcess.Count} player(s) with ID: {onlyPlayerId}");
+            }
+            
             totalPlayers = playersToProcess.Count;
 
             if (totalPlayers == 0)
@@ -330,10 +368,6 @@ public class GeneratePhotosCommandLogic
         return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
     }
 
-    #endregion
-
-    #region Private Methods
-
     /// <summary>
     /// Result structure for processing a single player.
     /// </summary>
@@ -446,14 +480,14 @@ public class GeneratePhotosCommandLogic
 }
 
 /// <summary>
-/// GeneratePhotos command - generate portraits with face detection
+/// CLI command for generating portrait photos with face detection.
 /// </summary>
 [Command("generatephotos", Description = "Generate portraits with face detection", ExtendedHelpText = @"
 Generates portrait photos from full-body images using face and eye detection.
 Supports OpenCV DNN, Haar Cascades, YOLOv8-Face, and Ollama Vision models.
 
 Fallback mode: Provide comma-separated models to try each in order.
-Example: llava:7b,qwen3-vl will try llava:7b first, then qwen3-vl if available.
+Example: llava:7b will try llava:7b first, fall back to qwen3-vl if it fails.
 
 Examples:
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg
@@ -461,6 +495,7 @@ Examples:
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
+  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg --onlyPlayer 12345
 ")]
 public class GeneratePhotosCommand
 {
@@ -473,50 +508,72 @@ public class GeneratePhotosCommand
     [Option(ShortName = "o", LongName = "processedPhotosOutputPath", Description = "Output directory for portrait photos")]
     public string ProcessedPhotosOutputPath { get; set; } = string.Empty;
 
-    [Option(ShortName = "f", LongName = "format", Description = "Output image format (jpg or png)")]
+    [Option(ShortName = "f", LongName = "format", Description = "Image format: jpg, png (default: jpg)")]
     public string Format { get; set; } = "jpg";
 
-    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model (opencv-dnn, haar-cascade, yolov8-face, llava:7b, qwen3-vl, etc.; default: llava:7b)")]
+    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b)")]
     public string FaceDetection { get; set; } = "llava:7b";
 
-    [Option(ShortName = "c", LongName = "crop", Description = "Crop method (generic, ai)")]
+    [Option(ShortName = "c", LongName = "crop", Description = "Crop method: generic, ai (default: generic)")]
     public string Crop { get; set; } = "generic";
 
     [Option(ShortName = "po", LongName = "portraitOnly", Description = "Skip face detection, use existing results")]
     public bool PortraitOnly { get; set; } = false;
 
-    [Option(ShortName = "w", LongName = "faceWidth", Description = "Output portrait width (px)")]
+    [Option(ShortName = "fw", LongName = "faceWidth", Description = "Portrait width in pixels (default: 200)")]
     public int FaceWidth { get; set; } = 200;
 
-    [Option(ShortName = "h", LongName = "faceHeight", Description = "Output portrait height (px)")]
+    [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
     public int FaceHeight { get; set; } = 300;
 
-    [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing")]
+    [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON.")]
+    public string? SizeProfile { get; set; }
+
+    [Option(ShortName = "as", LongName = "allSizes", Description = "When used with --sizeProfile, generate all variants into subfolders.")]
+    public bool AllSizes { get; set; } = false;
+
+    [Option(ShortName = "op", LongName = "outputProfile", Description = "Optional output profile alias: test|prod")]
+    public string? OutputProfile { get; set; }
+
+    [Option(ShortName = "par", LongName = "parallel", Description = "Enable parallel processing (default: false)")]
     public bool Parallel { get; set; } = false;
 
-    [Option(ShortName = "pd", LongName = "parallelDegree", Description = "Degree of parallelism (default: 4)")]
+    [Option(ShortName = "pd", LongName = "parallelDegree", Description = "Max parallel tasks (default: 4)")]
     public int ParallelDegree { get; set; } = 4;
 
-    [Option(ShortName = "nc", LongName = "noCache", Description = "Disable face detection cache")]
+    [Option(ShortName = "cache", LongName = "cachePath", Description = "Path to face detection cache file (default: .face-detection-cache.json)")]
+    public string? CachePath { get; set; }
+
+    [Option(ShortName = "nc", LongName = "noCache", Description = "Disable face detection caching")]
     public bool NoCache { get; set; } = false;
 
-    [Option(ShortName = "cp", LongName = "cachePath", Description = "Path to face detection cache file")]
-    public string? CachePath { get; set; }
+    [Option(ShortName = "dl", LongName = "downloadOpenCvModels", Description = "Download missing OpenCV DNN model files if needed")]
+    public bool DownloadOpenCvModels { get; set; } = false;
+
+    [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or ExternalId)")]
+    public string? OnlyPlayer { get; set; }
 
     public async Task<int> OnExecuteAsync()
     {
-        if (string.IsNullOrWhiteSpace(InputCsvPath) ||
-            string.IsNullOrWhiteSpace(PhotosDir) ||
-            string.IsNullOrWhiteSpace(ProcessedPhotosOutputPath))
+        PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
+
+        if (!string.IsNullOrWhiteSpace(SizeProfile))
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Error: input CSV path, photos directory, and output directory are required.");
-            Console.ResetColor();
-            return 1;
+            try
+            {
+                loadedProfile = SizeProfileLoader.LoadFromFile(SizeProfile);
+                Console.WriteLine($"Using size profile '{loadedProfile.Name}' from {SizeProfile}");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Invalid --sizeProfile: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
         }
 
-        // Check preflight conditions
-        var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetection);
+        var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetection, DownloadOpenCvModels);
         if (!preflight.IsOk)
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -534,6 +591,8 @@ public class GeneratePhotosCommand
 
         // Create face detection service
         var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetection);
+
+        // Initialize face detection service (loads models, checks availability)
         await faceDetectionService.InitializeAsync();
 
         // Create cache if enabled
@@ -550,19 +609,67 @@ public class GeneratePhotosCommand
         // Create generate photos command logic handler
         var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache);
 
-        // Execute generate photos command
-        return await logic.ExecuteAsync(
-            InputCsvPath,
-            PhotosDir,
-            ProcessedPhotosOutputPath,
-            Format,
-            FaceDetection,
-            Crop,
-            PortraitOnly,
-            FaceWidth,
-            FaceHeight,
-            Parallel,
-            ParallelDegree
-        );
+        var baseOutputPath = ProcessedPhotosOutputPath;
+        if (!string.IsNullOrWhiteSpace(OutputProfile))
+        {
+            try
+            {
+                baseOutputPath = OutputProfileResolver.Resolve(OutputProfile, ProcessedPhotosOutputPath);
+                Console.WriteLine($"Using output profile '{OutputProfile}' => {baseOutputPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Invalid --outputProfile: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
+        }
+
+        async Task<int> RunOneVariant(int width, int height, string outputDir, string variantLabel)
+        {
+            Console.WriteLine($"Generating variant '{variantLabel}' => {width}x{height} -> {outputDir}");
+            Directory.CreateDirectory(outputDir);
+
+            return await logic.ExecuteAsync(
+                InputCsvPath,
+                PhotosDir,
+                outputDir,
+                Format,
+                FaceDetection,
+                Crop,
+                PortraitOnly,
+                width,
+                height,
+                Parallel,
+                ParallelDegree,
+                OnlyPlayer
+            );
+        }
+
+        if (loadedProfile == null)
+        {
+            return await RunOneVariant(FaceWidth, FaceHeight, baseOutputPath, "single");
+        }
+
+        if (!AllSizes)
+        {
+            var firstVariant = loadedProfile.Variants.First();
+            return await RunOneVariant(firstVariant.Width, firstVariant.Height, baseOutputPath, firstVariant.Key);
+        }
+
+        var worstExitCode = 0;
+        foreach (var variant in loadedProfile.Variants)
+        {
+            var subfolder = string.IsNullOrWhiteSpace(variant.OutputSubfolder) ? variant.Key : variant.OutputSubfolder;
+            var variantOutput = Path.Combine(baseOutputPath, subfolder);
+            var exitCode = await RunOneVariant(variant.Width, variant.Height, variantOutput, variant.Key);
+            if (exitCode != 0)
+            {
+                worstExitCode = exitCode;
+            }
+        }
+
+        return worstExitCode;
     }
 }

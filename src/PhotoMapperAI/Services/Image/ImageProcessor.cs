@@ -2,6 +2,7 @@ using PhotoMapperAI.Models;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace PhotoMapperAI.Services.Image;
@@ -116,10 +117,105 @@ public class ImageProcessor : IImageProcessor
                 case "jpg":
                 case "jpeg":
                 default:
-                    image.Save(outputPath, new JpegEncoder { Quality = 92 });
+                    // Handle transparency: flatten against white for consistent JPEG output.
+                    if (HasTransparency(image))
+                    {
+                        using var flattened = new SixLabors.ImageSharp.Image<Rgb24>(
+                            image.Width,
+                            image.Height,
+                            SixLabors.ImageSharp.Color.White);
+
+                        flattened.Mutate(ctx => ctx.DrawImage(
+                            image,
+                            new SixLabors.ImageSharp.Point(0, 0),
+                            1f));
+
+                        flattened.Save(outputPath, new JpegEncoder { Quality = 92 });
+                    }
+                    else
+                    {
+                        image.Save(outputPath, new JpegEncoder { Quality = 92 });
+                    }
                     break;
             }
         });
+    }
+
+    /// <summary>
+    /// Checks if an image has transparency (alpha channel).
+    /// </summary>
+    private bool HasTransparency(SixLabors.ImageSharp.Image image)
+    {
+        if (image is SixLabors.ImageSharp.Image<Rgba32> rgba)
+        {
+            return HasTransparencyRgba(rgba);
+        }
+
+        if (image is SixLabors.ImageSharp.Image<Argb32> argb)
+        {
+            return HasTransparencyArgb(argb);
+        }
+
+        if (image is SixLabors.ImageSharp.Image<Bgra32> bgra)
+        {
+            return HasTransparencyBgra(bgra);
+        }
+
+        return false;
+    }
+
+    private static bool HasTransparencyRgba(SixLabors.ImageSharp.Image<Rgba32> image)
+    {
+        var step = image.Width * image.Height > 10000 ? 5 : 1;
+
+        for (int y = 0; y < image.Height; y += step)
+        {
+            for (int x = 0; x < image.Width; x += step)
+            {
+                if (image[x, y].A < 255)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasTransparencyArgb(SixLabors.ImageSharp.Image<Argb32> image)
+    {
+        var step = image.Width * image.Height > 10000 ? 5 : 1;
+
+        for (int y = 0; y < image.Height; y += step)
+        {
+            for (int x = 0; x < image.Width; x += step)
+            {
+                if (image[x, y].A < 255)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasTransparencyBgra(SixLabors.ImageSharp.Image<Bgra32> image)
+    {
+        var step = image.Width * image.Height > 10000 ? 5 : 1;
+
+        for (int y = 0; y < image.Height; y += step)
+        {
+            for (int x = 0; x < image.Width; x += step)
+            {
+                if (image[x, y].A < 255)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
