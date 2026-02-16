@@ -397,7 +397,11 @@ dotnet build
 
 ## Distributing to Users
 
-PhotoMapperAI can be distributed to users as a standalone executable without requiring them to install .NET. Use the Makefile targets to publish self-contained, single-file executables:
+PhotoMapperAI can be distributed to users as a standalone executable without requiring them to install .NET.
+
+### Using Makefile (Command Line)
+
+Use the Makefile targets to publish self-contained, single-file executables:
 
 ```bash
 # Publish for all platforms
@@ -413,6 +417,19 @@ make publish-cli-mac
 make publish-cli-win
 make publish-cli-linux
 ```
+
+### Using VS Code Tasks (One-Click Publishing)
+
+If you're using Visual Studio Code, you can publish with one click:
+
+1. Press **`Ctrl+Shift+P`** (or `Cmd+Shift+P` on macOS)
+2. Type **"Tasks: Run Task"**
+3. Select one of:
+   - **publish-windows** - Publishes both CLI and GUI for Windows x64
+   - **publish-macos** - Publishes both CLI and GUI for macOS ARM64
+   - **publish-linux** - Publishes both CLI and GUI for Linux x64
+
+Each task publishes both the CLI and GUI applications to the same folder.
 
 ### Output
 

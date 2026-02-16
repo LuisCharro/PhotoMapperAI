@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **VS Code publish tasks** - One-click publishing from Visual Studio Code
+  - Added `publish-windows` task (CLI + GUI for Windows x64)
+  - Added `publish-macos` task (CLI + GUI for macOS ARM64)
+  - Added `publish-linux` task (CLI + GUI for Linux x64)
+  - Each task publishes both applications to the same output folder
+  - Accessible via `Ctrl+Shift+P` → "Tasks: Run Task"
+
 ### Fixed
 
 - **GUI generation result handling** - Generate step now uses command result metrics (`PortraitsGenerated`, `PortraitsFailed`) correctly
