@@ -179,7 +179,7 @@
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="12">
           <TextBlock Text="📐 Size Profile (Optional)" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Use a size profile for legacy-compatible dimensions."
+          <TextBlock Text="Use a size profile for multiple output sizes in one run (e.g., 34x50, 67x100, 100x150, 200x300)"
                      FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding SizeProfilePath}"
@@ -194,17 +194,35 @@
                     Command="{Binding ClearSizeProfilePathCommand}"
                     Margin="8,0,0,0" Padding="16,8"/>
           </Grid>
-          <StackPanel Orientation="Horizontal" Spacing="16">
-            <CheckBox Content="Generate all profile sizes"
-                      IsChecked="{Binding AllSizes}"
-                      IsEnabled="{Binding CanUseAllSizes}"/>
-            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-              <TextBlock Text="Output Profile:" VerticalAlignment="Center"
-                         Foreground="{DynamicResource PrimaryTextBrush}"/>
-              <ComboBox ItemsSource="{Binding OutputProfiles}"
-                        SelectedItem="{Binding OutputProfile}"
-                        Width="140" Height="30"/>
-            </StackPanel>
+          <CheckBox Content="Generate all profile sizes"
+                    IsChecked="{Binding AllSizes}"
+                    IsEnabled="{Binding CanUseAllSizes}"
+                    ToolTip.Tip="When enabled, generates portraits for all sizes defined in the profile"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Output Profile Settings -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="📍 Output Profile" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Text="(Optional)" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          </StackPanel>
+          <TextBlock Text="Quickly switch between predefined output locations without typing full paths."
+                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Grid.Column="0" Text="Environment:" VerticalAlignment="Center" Margin="0,0,12,0"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding OutputProfiles}"
+                      SelectedItem="{Binding OutputProfile}"
+                      Width="180" Height="36" HorizontalAlignment="Left"/>
+          </Grid>
+          <StackPanel Spacing="4">
+            <TextBlock Text="Available profiles:" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TextBlock Text="• none - Use the Output Directory path directly" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TextBlock Text="• test - Uses test output path from config" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TextBlock Text="• prod - Uses prod output path from config" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TextBlock Text="Configure in appsettings.json under OutputProfiles section" FontSize="10" FontStyle="Italic" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/>
           </StackPanel>
         </StackPanel>
       </Border>

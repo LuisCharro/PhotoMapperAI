@@ -2,7 +2,7 @@
 
 This document tracks features that are planned or under consideration for future implementation.
 
-**Last Updated:** 2026-02-15
+**Last Updated:** 2026-02-16
 
 ---
 
@@ -71,29 +71,31 @@ This document tracks features that are planned or under consideration for future
 
 ## Low Priority
 
-### 4. Absolute Destination Paths in Size Profiles
+### 4. Output Profiles Configuration
 
-**Description:** Currently size profiles use relative subfolder paths. Adding support for absolute destination paths could enable direct output to network locations.
+**Description:** Currently output profiles (`test` and `prod`) are configured via environment variables (`PHOTOMAPPER_OUTPUT_TEST` and `PHOTOMAPPER_OUTPUT_PROD`). This feature would add support for configuring output profiles in `appsettings.json`, similar to how the legacy tool used XML config files (`TestOutputFolderConfig.xml` and `ProdOutputFolderConfig.xml`).
 
-**Current Format:**
+**Legacy Approach (PlayerPortraitManager):**
+- `ConfigurationData/TestOutputFolderConfig.xml` → `C:\PlayerPortraitSportApiImages`
+- `ConfigurationData/ProdOutputFolderConfig.xml` → `\\stxts00011.media.int\SportApiImages`
+
+**Current Approach (PhotoMapperAI):**
+- Environment variables `PHOTOMAPPER_OUTPUT_TEST` and `PHOTOMAPPER_OUTPUT_PROD`
+
+**Proposed Enhancement:**
+Add `OutputProfiles` section to `appsettings.json`:
 ```json
 {
-  "variants": [
-    { "key": "small", "width": 34, "height": 50, "outputSubfolder": "small" }
-  ]
+  "OutputProfiles": {
+    "test": "C:\\PlayerPortraitSportApiImages",
+    "prod": "\\\\stxts00011.media.int\\SportApiImages"
+  }
 }
 ```
 
-**Potential Enhancement:**
-```json
-{
-  "variants": [
-    { "key": "small", "width": 34, "height": 50, "outputSubfolder": "small", "destinationPath": "\\\\server\\images\\small" }
-  ]
-}
-```
+This would allow users to configure all output profiles in one place, matching the legacy tool's approach.
 
-**Status:** ⚠️ Under consideration - Current relative paths sufficient for most use cases
+**Status:** ⚠️ Under consideration - Environment variables currently work, but config file approach would be more user-friendly
 
 ---
 
@@ -178,4 +180,4 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 | Single Player Processing | High | ✅ Implemented | CLI `--onlyPlayer` + GUI filter field |
 | PNG→JPG Transparency | High | ✅ Implemented | White background fill for transparent PNGs |
 | Placeholder Images | Medium | ✅ Implemented | CLI `--placeholderImage` + size profile |
-| Absolute Destination Paths | Low | ⚠️ Consideration | Relative paths sufficient for now |
+| Output Profiles Config | Low | ⚠️ Consideration | Add to appsettings.json (like old XML files) |

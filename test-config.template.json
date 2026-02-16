@@ -29,5 +29,9 @@
     "outputPath": "benchmark-results/",
     "iterations": 10,
     "warmupIterations": 3
+  },
+  "OutputProfiles": {
+    "test": "/path/to/test/output",
+    "prod": "/path/to/prod/output"
   }
 }
