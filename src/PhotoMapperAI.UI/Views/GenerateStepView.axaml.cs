@@ -18,10 +18,32 @@ public partial class GenerateStepView : UserControl
     {
         if (sender is Border border && border.DataContext is PhotoPreviewItem item)
         {
-            if (DataContext is GenerateStepViewModel vm)
+            // Show the photo preview dialog
+            ShowPhotoPreviewDialog(item);
+        }
+    }
+
+    private async void ShowPhotoPreviewDialog(PhotoPreviewItem item)
+    {
+        try
+        {
+            // Load full-size image for preview
+            if (!string.IsNullOrEmpty(item.FilePath) && System.IO.File.Exists(item.FilePath))
             {
-                vm.SelectPhotoCommand.Execute(item);
+                await using var stream = System.IO.File.OpenRead(item.FilePath);
+                item.Thumbnail = new Avalonia.Media.Imaging.Bitmap(stream);
             }
+        }
+        catch
+        {
+            // Keep thumbnail if full-size fails
+        }
+
+        var dialog = new PhotoPreviewDialog(item);
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is Window window)
+        {
+            await dialog.ShowDialog(window);
         }
     }
 

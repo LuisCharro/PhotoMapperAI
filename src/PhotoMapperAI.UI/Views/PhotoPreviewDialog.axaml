@@ -1,0 +1,137 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PhotoMapperAI.UI.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="600"
+        x:Class="PhotoMapperAI.UI.Views.PhotoPreviewDialog"
+        x:DataType="vm:PhotoPreviewItem"
+        Title="Photo Preview"
+        Width="520" Height="650"
+        MinWidth="400" MinHeight="500"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="{DynamicResource BackgroundBrush}">
+
+  <Grid Margin="20">
+    <Grid RowDefinitions="Auto,*,Auto">
+      
+      <!-- Header -->
+      <TextBlock Grid.Row="0" 
+                 Text="🖼️ Photo Details" 
+                 FontSize="20" FontWeight="Bold" 
+                 Foreground="{DynamicResource PrimaryBrush}"
+                 Margin="0,0,0,16"/>
+
+      <!-- Photo and Details -->
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16">
+          
+          <!-- Large Photo -->
+          <Border Background="{DynamicResource CardBrush}" 
+                  CornerRadius="8" Padding="8"
+                  HorizontalAlignment="Center">
+            <Image Source="{Binding Thumbnail}"
+                   MaxWidth="450"
+                   MaxHeight="300"
+                   Stretch="Uniform"/>
+          </Border>
+
+          <!-- File Info -->
+          <Border Background="{DynamicResource SurfaceBrush}" 
+                  CornerRadius="8" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Text="📄 File Information" 
+                         FontSize="14" FontWeight="SemiBold" 
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+              
+              <Grid ColumnDefinitions="100,*">
+                <TextBlock Grid.Column="0" Text="Filename:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Grid.Column="1" Text="{Binding FileName}" 
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           TextWrapping="Wrap"/>
+              </Grid>
+
+              <Grid ColumnDefinitions="100,*">
+                <TextBlock Grid.Column="0" Text="Path:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Grid.Column="1" Text="{Binding FilePath}" 
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           TextWrapping="Wrap"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Mapping Info -->
+          <Border Background="{DynamicResource SurfaceBrush}" 
+                  CornerRadius="8" Padding="16">
+            <StackPanel Spacing="12">
+              <TextBlock Text="🔗 Mapping Information" 
+                         FontSize="14" FontWeight="SemiBold" 
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+              <!-- Status Badge -->
+              <Border Background="{Binding HasValidMapping, Converter={StaticResource BoolToStatusBackgroundConverter}}"
+                      CornerRadius="4" Padding="8,4" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="12" FontWeight="SemiBold"/>
+              </Border>
+
+              <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <!-- External ID -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="External ID:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ExternalId}" 
+                           Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4"/>
+
+                <!-- Player ID -->
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Player ID:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PlayerId}" 
+                           Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4"/>
+
+                <!-- Full Name -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Full Name:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FullName}" 
+                           Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4"/>
+
+                <!-- Family Name -->
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Family Name:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FamilyName}" 
+                           Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4"/>
+
+                <!-- Surname -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Surname:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SurName}" 
+                           Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4"/>
+              </Grid>
+
+              <!-- Confidence Score -->
+              <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0"
+                          IsVisible="{Binding Confidence, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <TextBlock Text="Confidence:" 
+                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Text="{Binding Confidence, StringFormat={}{0:P0}}" 
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Close Button -->
+      <Button Grid.Row="2" Content="Close"
+              Click="CloseButton_Click"
+              HorizontalAlignment="Right"
+              Padding="24,10"
+              Margin="0,16,0,0"
+              Background="{DynamicResource PrimaryBrush}"
+              Foreground="{DynamicResource HeaderTextBrush}"/>
+    </Grid>
+  </Grid>
+</Window>
