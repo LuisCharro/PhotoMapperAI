@@ -230,6 +230,24 @@ public class ImageProcessor : IImageProcessor
         });
     }
 
+    /// <summary>
+    /// Resizes an image to the specified dimensions.
+    /// </summary>
+    public async Task<SixLabors.ImageSharp.Image> ResizeAsync(SixLabors.ImageSharp.Image image, int targetWidth, int targetHeight)
+    {
+        return await Task.Run(() =>
+        {
+            var resized = image.Clone(img => img.Resize(new ResizeOptions
+            {
+                Size = new SixLabors.ImageSharp.Size(targetWidth, targetHeight),
+                Mode = ResizeMode.Stretch,
+                Sampler = KnownResamplers.Lanczos3,
+                Compand = true
+            }));
+            return resized;
+        });
+    }
+
     #region Private Methods
 
     /// <summary>

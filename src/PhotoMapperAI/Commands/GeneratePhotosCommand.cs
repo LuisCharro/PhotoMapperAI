@@ -31,6 +31,7 @@ public class GeneratePhotosCommandLogic
     private readonly IFaceDetectionService _faceDetectionService;
     private readonly IImageProcessor _imageProcessor;
     private readonly FaceDetectionCache? _cache;
+    private string? _placeholderImagePath;
 
     /// <summary>
     /// Creates a new generate photos command logic handler.
@@ -43,6 +44,14 @@ public class GeneratePhotosCommandLogic
         _faceDetectionService = faceDetectionService;
         _imageProcessor = imageProcessor;
         _cache = cache;
+    }
+
+    /// <summary>
+    /// Sets the placeholder image path for players without source photos.
+    /// </summary>
+    public void SetPlaceholderImagePath(string? placeholderPath)
+    {
+        _placeholderImagePath = placeholderPath;
     }
 
     /// <summary>
@@ -60,7 +69,8 @@ public class GeneratePhotosCommandLogic
         int portraitHeight,
         bool parallel,
         int parallelDegree,
-        string? onlyPlayerId = null)
+        string? onlyPlayerId = null,
+        string? placeholderImagePath = null)
     {
         var result = await ExecuteWithResultAsync(
             inputCsvPath,
@@ -74,7 +84,8 @@ public class GeneratePhotosCommandLogic
             portraitHeight,
             parallel,
             parallelDegree,
-            onlyPlayerId
+            onlyPlayerId,
+            placeholderImagePath: placeholderImagePath
         );
 
         return result.ExitCode;
@@ -96,6 +107,7 @@ public class GeneratePhotosCommandLogic
         bool parallel,
         int parallelDegree,
         string? onlyPlayerId = null,
+        string? placeholderImagePath = null,
         IProgress<(int processed, int total, string current)>? progress = null,
         CancellationToken cancellationToken = default,
         IProgress<string>? log = null)
@@ -125,6 +137,11 @@ public class GeneratePhotosCommandLogic
         if (!string.IsNullOrWhiteSpace(onlyPlayerId))
         {
             LogLine($"Filter: Only processing player ID: {onlyPlayerId}");
+        }
+        if (!string.IsNullOrWhiteSpace(placeholderImagePath))
+        {
+            LogLine($"Placeholder: {placeholderImagePath}");
+            _placeholderImagePath = placeholderImagePath;
         }
         LogLine(string.Empty);
 
@@ -410,6 +427,29 @@ public class GeneratePhotosCommandLogic
 
         if (photoFiles.Count == 0)
         {
+            // Check if we have a placeholder image to use
+            // Placeholder should already be sized to match the target dimensions
+            if (!string.IsNullOrEmpty(_placeholderImagePath) && File.Exists(_placeholderImagePath))
+            {
+                try
+                {
+                    Console.WriteLine($"  Using placeholder for {player.FullName}...");
+                    
+                    // Load placeholder (should already be correctly sized) and save
+                    using var placeholder = await _imageProcessor.LoadImageAsync(_placeholderImagePath);
+                    
+                    // Save portrait - just convert format if needed
+                    var outputPath = Path.Combine(processedPhotosOutputPath, $"{player.PlayerId}.{format}");
+                    await _imageProcessor.SaveImageAsync(placeholder, outputPath, format);
+                    
+                    return new ProcessPlayerResult(true, false, string.Empty);
+                }
+                catch (Exception ex)
+                {
+                    return new ProcessPlayerResult(false, false, $"Error using placeholder: {ex.Message}");
+                }
+            }
+            
             return new ProcessPlayerResult(false, true, $"No photo found for player {player.ExternalId}");
         }
 
@@ -553,6 +593,9 @@ public class GeneratePhotosCommand
     [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or ExternalId)")]
     public string? OnlyPlayer { get; set; }
 
+    [Option(ShortName = "ph", LongName = "placeholderImage", Description = "Path to a placeholder image to use when no source photo is available")]
+    public string? PlaceholderImage { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
@@ -626,9 +669,21 @@ public class GeneratePhotosCommand
             }
         }
 
-        async Task<int> RunOneVariant(int width, int height, string outputDir, string variantLabel)
+        // For single-size mode (no size profile), use CLI placeholder option
+        // For size profile mode, each variant may have its own placeholder
+        async Task<int> RunOneVariant(int width, int height, string outputDir, string variantLabel, string? variantPlaceholderPath = null)
         {
+            // CLI placeholder option takes precedence over variant placeholder
+            var placeholderForVariant = PlaceholderImage ?? variantPlaceholderPath;
+            
+            // Set placeholder path in logic for this variant
+            logic.SetPlaceholderImagePath(placeholderForVariant);
+            
             Console.WriteLine($"Generating variant '{variantLabel}' => {width}x{height} -> {outputDir}");
+            if (!string.IsNullOrEmpty(placeholderForVariant))
+            {
+                Console.WriteLine($"  Using placeholder: {placeholderForVariant}");
+            }
             Directory.CreateDirectory(outputDir);
 
             return await logic.ExecuteAsync(
@@ -643,7 +698,8 @@ public class GeneratePhotosCommand
                 height,
                 Parallel,
                 ParallelDegree,
-                OnlyPlayer
+                OnlyPlayer,
+                placeholderForVariant
             );
         }
 
@@ -655,7 +711,7 @@ public class GeneratePhotosCommand
         if (!AllSizes)
         {
             var firstVariant = loadedProfile.Variants.First();
-            return await RunOneVariant(firstVariant.Width, firstVariant.Height, baseOutputPath, firstVariant.Key);
+            return await RunOneVariant(firstVariant.Width, firstVariant.Height, baseOutputPath, firstVariant.Key, firstVariant.PlaceholderPath);
         }
 
         var worstExitCode = 0;
@@ -663,7 +719,7 @@ public class GeneratePhotosCommand
         {
             var subfolder = string.IsNullOrWhiteSpace(variant.OutputSubfolder) ? variant.Key : variant.OutputSubfolder;
             var variantOutput = Path.Combine(baseOutputPath, subfolder);
-            var exitCode = await RunOneVariant(variant.Width, variant.Height, variantOutput, variant.Key);
+            var exitCode = await RunOneVariant(variant.Width, variant.Height, variantOutput, variant.Key, variant.PlaceholderPath);
             if (exitCode != 0)
             {
                 worstExitCode = exitCode;
