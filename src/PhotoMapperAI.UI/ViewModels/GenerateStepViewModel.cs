@@ -9,12 +9,52 @@ using System.Text.Json;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
+using PhotoMapperAI.Utils;
 
 namespace PhotoMapperAI.UI.ViewModels;
+
+/// <summary>
+/// Represents a photo preview item with its associated CSV mapping information.
+/// </summary>
+public class PhotoPreviewItem : ObservableObject
+{
+    private Bitmap? _thumbnail;
+    private string _statusText = string.Empty;
+    private bool _hasValidMapping;
+
+    public string FilePath { get; init; } = string.Empty;
+    public string FileName { get; init; } = string.Empty;
+    public string? ExternalId { get; init; }
+    public int? PlayerId { get; init; }
+    public string FullName { get; init; } = string.Empty;
+    public string FamilyName { get; init; } = string.Empty;
+    public string SurName { get; init; } = string.Empty;
+    public double Confidence { get; init; }
+
+    public Bitmap? Thumbnail
+    {
+        get => _thumbnail;
+        set => this.SetProperty(ref _thumbnail, value);
+    }
+
+    public bool HasValidMapping
+    {
+        get => _hasValidMapping;
+        set => this.SetProperty(ref _hasValidMapping, value);
+    }
+
+    public string StatusText
+    {
+        get => _statusText;
+        set => this.SetProperty(ref _statusText, value);
+    }
+}
 
 public partial class GenerateStepViewModel : ViewModelBase
 {
@@ -127,6 +167,18 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _previewStatus = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<PhotoPreviewItem> _photoPreviewItems = new();
+
+    [ObservableProperty]
+    private bool _isLoadingPhotoGrid;
+
+    [ObservableProperty]
+    private PhotoPreviewItem? _selectedPhotoItem;
+
+    [ObservableProperty]
+    private bool _isPhotoDialogOpen;
 
     [ObservableProperty]
     private int _selectedFaceModelTierIndex;
@@ -260,6 +312,154 @@ public partial class GenerateStepViewModel : ViewModelBase
         {
             PreviewStatus = $"Failed to load preview: {ex.Message}";
             PreviewImage = null;
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadPhotoGrid()
+    {
+        PhotoPreviewItems.Clear();
+
+        if (string.IsNullOrWhiteSpace(PhotosDirectory) || !Directory.Exists(PhotosDirectory))
+        {
+            PreviewStatus = "Select a valid photos directory to load photo grid.";
+            return;
+        }
+
+        IsLoadingPhotoGrid = true;
+        PreviewStatus = "Loading photos and CSV data...";
+
+        try
+        {
+            // Load CSV data if available
+            Dictionary<string, PlayerRecord> csvData = new(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(InputCsvPath) && File.Exists(InputCsvPath))
+            {
+                var extractor = new DatabaseExtractor();
+                var players = await extractor.ReadCsvAsync(InputCsvPath);
+                foreach (var player in players.Where(p => !string.IsNullOrEmpty(p.ExternalId)))
+                {
+                    csvData[player.ExternalId!] = player;
+                }
+            }
+
+            // Get all supported image files
+            var supportedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".png", ".jpg", ".jpeg", ".bmp"
+            };
+
+            var imageFiles = Directory.EnumerateFiles(PhotosDirectory, "*.*", SearchOption.AllDirectories)
+                .Where(path => supportedExtensions.Contains(Path.GetExtension(path)))
+                .OrderBy(Path.GetFileName)
+                .ToList();
+
+            if (imageFiles.Count == 0)
+            {
+                PreviewStatus = "No supported images found in photos directory.";
+                return;
+            }
+
+            // Parse each photo and match with CSV data
+            var parser = new FilenameParser();
+            var items = new List<PhotoPreviewItem>();
+
+            foreach (var imagePath in imageFiles)
+            {
+                var fileName = Path.GetFileName(imagePath);
+                
+                // Try to extract ExternalId from filename
+                var metadata = FilenameParser.ParseAutoDetect(fileName);
+                
+                string? externalId = metadata?.ExternalId;
+                PlayerRecord? matchedPlayer = null;
+
+                // Try to match with CSV data
+                if (!string.IsNullOrEmpty(externalId) && csvData.TryGetValue(externalId, out var player))
+                {
+                    matchedPlayer = player;
+                }
+
+                var item = new PhotoPreviewItem
+                {
+                    FilePath = imagePath,
+                    FileName = fileName,
+                    ExternalId = externalId,
+                    PlayerId = matchedPlayer?.PlayerId,
+                    FullName = matchedPlayer?.FullName ?? metadata?.FullName ?? string.Empty,
+                    FamilyName = matchedPlayer?.FamilyName ?? metadata?.FamilyName ?? string.Empty,
+                    SurName = matchedPlayer?.SurName ?? metadata?.SurName ?? string.Empty,
+                    Confidence = matchedPlayer?.Confidence ?? 0.0,
+                    HasValidMapping = matchedPlayer?.ValidMapping ?? false
+                };
+
+                // Build status text
+                if (matchedPlayer != null)
+                {
+                    item.StatusText = $"✓ {matchedPlayer.FullName} (ID: {matchedPlayer.PlayerId})";
+                }
+                else if (!string.IsNullOrEmpty(externalId))
+                {
+                    item.StatusText = $"⚠ External ID: {externalId} (not in CSV)";
+                }
+                else
+                {
+                    item.StatusText = "? No mapping";
+                }
+
+                items.Add(item);
+            }
+
+            // Load thumbnails (limited to first 50 for performance)
+            var itemsToLoad = items.Take(50).ToList();
+            foreach (var item in itemsToLoad)
+            {
+                try
+                {
+                    await using var stream = File.OpenRead(item.FilePath);
+                    item.Thumbnail = new Bitmap(stream);
+                }
+                catch
+                {
+                    // Skip thumbnails that fail to load
+                }
+            }
+
+            foreach (var item in items)
+            {
+                PhotoPreviewItems.Add(item);
+            }
+
+            var totalCount = items.Count;
+            var mappedCount = items.Count(i => i.HasValidMapping);
+            PreviewStatus = totalCount > 50
+                ? $"Showing 50 of {totalCount} photos ({mappedCount} mapped)"
+                : $"Loaded {totalCount} photos ({mappedCount} mapped from CSV)";
+        }
+        catch (Exception ex)
+        {
+            PreviewStatus = $"Failed to load photo grid: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingPhotoGrid = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ClosePhotoDialog()
+    {
+        IsPhotoDialogOpen = false;
+        SelectedPhotoItem = null;
+    }
+
+    [RelayCommand]
+    private void SelectPhoto(PhotoPreviewItem? item)
+    {
+        if (item != null)
+        {
+            SelectedPhotoItem = item;
+            IsPhotoDialogOpen = true;
         }
     }
 

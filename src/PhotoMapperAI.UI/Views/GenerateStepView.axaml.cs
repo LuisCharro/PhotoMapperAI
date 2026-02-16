@@ -1,5 +1,6 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using PhotoMapperAI.UI.ViewModels;
 using System.Linq;
@@ -11,6 +12,17 @@ public partial class GenerateStepView : UserControl
     public GenerateStepView()
     {
         InitializeComponent();
+    }
+
+    private void PhotoItem_Click(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Border border && border.DataContext is PhotoPreviewItem item)
+        {
+            if (DataContext is GenerateStepViewModel vm)
+            {
+                vm.SelectPhotoCommand.Execute(item);
+            }
+        }
     }
 
     private async void BrowseCsvFile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

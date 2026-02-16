@@ -12,7 +12,8 @@
     <vm:GenerateStepViewModel/>
   </Design.DataContext>
 
-  <ScrollViewer>
+  <Grid>
+    <ScrollViewer>
     <StackPanel Margin="24" Spacing="20">
       <!-- Header -->
       <TextBlock Text="Step 3: Generate Portrait Photos" 
@@ -293,11 +294,96 @@
         </StackPanel>
       </Border>
 
-      <!-- Preview -->
+      <!-- Photo Grid Preview -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
         <StackPanel Spacing="10">
           <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="🖼️ Preview Source Image" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Text="🖼️ Photo Grid Preview" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <Button Content="Load Grid"
+                    Command="{Binding LoadPhotoGridCommand}"
+                    IsEnabled="{Binding !IsLoadingPhotoGrid}"
+                    Padding="12,6"/>
+            <ProgressBar IsIndeterminate="True"
+                         Width="60"
+                         Height="4"
+                         IsVisible="{Binding IsLoadingPhotoGrid}"
+                         VerticalAlignment="Center"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PreviewStatus}"
+                     FontSize="12"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
+                     TextWrapping="Wrap"/>
+          
+          <!-- Grid Display -->
+          <ScrollViewer MaxHeight="400" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding PhotoPreviewItems}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="{DynamicResource CardBrush}" 
+                          CornerRadius="6" 
+                          Padding="8" 
+                          Margin="4"
+                          BorderBrush="{DynamicResource BorderBrush}"
+                          BorderThickness="1"
+                          Width="180"
+                          PointerPressed="PhotoItem_Click"
+                          Cursor="Hand">
+                    <StackPanel Spacing="6">
+                      <!-- Photo Thumbnail -->
+                      <Image Source="{Binding Thumbnail}"
+                             Height="100"
+                             Stretch="Uniform"
+                             HorizontalAlignment="Center"/>
+                      
+                      <!-- Filename -->
+                      <TextBlock Text="{Binding FileName}"
+                                 FontSize="10"
+                                 Foreground="{DynamicResource SecondaryTextBrush}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{Binding FileName}"/>
+                      
+                      <!-- Mapping Status -->
+                      <Border Background="{Binding HasValidMapping, Converter={StaticResource BoolToStatusBackgroundConverter}}"
+                              CornerRadius="3" Padding="4,2">
+                        <TextBlock Text="{Binding StatusText}"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"/>
+                      </Border>
+                      
+                      <!-- Player ID (if available) -->
+                      <StackPanel Orientation="Horizontal" Spacing="4"
+                                  IsVisible="{Binding PlayerId, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <TextBlock Text="Player ID:" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding PlayerId}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                      </StackPanel>
+                      
+                      <!-- Confidence Score -->
+                      <StackPanel Orientation="Horizontal" Spacing="4"
+                                  IsVisible="{Binding Confidence, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <TextBlock Text="Confidence:" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding Confidence, StringFormat={}{0:P0}}" FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </StackPanel>
+      </Border>
+
+      <!-- Single Image Preview (Legacy - kept for compatibility) -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16"
+              IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="🖼️ Single Preview" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Content="Load Preview"
                     Command="{Binding LoadPreviewImageCommand}"
                     Padding="12,6"/>
@@ -383,4 +469,5 @@
       </Border>
     </StackPanel>
   </ScrollViewer>
+  </Grid>
 </UserControl>
