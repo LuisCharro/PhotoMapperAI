@@ -115,3 +115,6 @@ benchmark-results/*.json
 
 # Face detection cache
 .face-detection-cache.json
+
+# Published distributables
+publish/

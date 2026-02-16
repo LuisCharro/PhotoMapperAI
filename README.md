@@ -395,6 +395,54 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 dotnet build
 ```
 
+## Distributing to Users
+
+PhotoMapperAI can be distributed to users as a standalone executable without requiring them to install .NET. Use the Makefile targets to publish self-contained, single-file executables:
+
+```bash
+# Publish for all platforms
+make publish-all
+
+# Or publish for specific platforms
+make publish-mac      # macOS (Apple Silicon)
+make publish-win     # Windows
+make publish-linux   # Linux
+
+# CLI-only versions
+make publish-cli-mac
+make publish-cli-win
+make publish-cli-linux
+```
+
+### Output
+
+Published files are created in the `publish/` folder:
+
+```
+publish/
+├── PhotoMapperAI-macOS/      # macOS UI app (~56MB single file)
+├── PhotoMapperAI-Windows/   # Windows UI app
+├── PhotoMapperAI-Linux/     # Linux UI app
+├── PhotoMapperAI-CLI-macOS/  # macOS CLI tool
+├── PhotoMapperAI-CLI-Windows/
+└── PhotoMapperAI-CLI-Linux/
+```
+
+### Distribution Steps
+
+1. **Build** the executable for the target platform
+2. **Zip** the `publish/PhotoMapperAI-*` folder
+3. **Share** the zip file with users
+
+### Running Distributed App
+
+Users simply:
+1. Unzip the folder
+2. Make executable: `chmod +x PhotoMapperAI.UI` (macOS/Linux)
+3. Run: `./PhotoMapperAI.UI`
+
+No .NET installation required!
+
 ### Usage
 
 #### Extract
