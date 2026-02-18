@@ -40,7 +40,7 @@
     {
       "label": "publish-windows",
       "type": "shell",
-      "command": "dotnet publish ${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ${workspaceFolder}/publish/PhotoMapperAI-Windows && dotnet publish ${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ${workspaceFolder}/publish/PhotoMapperAI-Windows",
+      "command": "dotnet publish ${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj -c Release -r win-x64 --self-contained true -o ${workspaceFolder}/publish/PhotoMapperAI-Windows && dotnet publish ${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj -c Release -r win-x64 --self-contained true -o ${workspaceFolder}/publish/PhotoMapperAI-Windows",
       "problemMatcher": "$msCompile",
       "group": "build",
       "presentation": {
@@ -51,7 +51,7 @@
     {
       "label": "publish-macos",
       "type": "shell",
-      "command": "dotnet publish ${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ${workspaceFolder}/publish/PhotoMapperAI-macOS && dotnet publish ${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ${workspaceFolder}/publish/PhotoMapperAI-macOS",
+      "command": "dotnet publish ${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj -c Release -r osx-arm64 --self-contained true -o ${workspaceFolder}/publish/PhotoMapperAI-macOS && dotnet publish ${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj -c Release -r osx-arm64 --self-contained true -o ${workspaceFolder}/publish/PhotoMapperAI-macOS",
       "problemMatcher": "$msCompile",
       "group": "build",
       "presentation": {
@@ -62,7 +62,7 @@
     {
       "label": "publish-linux",
       "type": "shell",
-      "command": "dotnet publish ${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ${workspaceFolder}/publish/PhotoMapperAI-Linux && dotnet publish ${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ${workspaceFolder}/publish/PhotoMapperAI-Linux",
+      "command": "dotnet publish ${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj -c Release -r linux-x64 --self-contained true -o ${workspaceFolder}/publish/PhotoMapperAI-Linux && dotnet publish ${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj -c Release -r linux-x64 --self-contained true -o ${workspaceFolder}/publish/PhotoMapperAI-Linux",
       "problemMatcher": "$msCompile",
       "group": "build",
       "presentation": {

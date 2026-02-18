@@ -12,9 +12,6 @@ publish-mac:
 		-c Release \
 		-r osx-arm64 \
 		--self-contained true \
-		-p:PublishSingleFile=true \
-		-p:IncludeNativeLibrariesForSelfExtract=true \
-		-p:EnableCompressionInSingleFile=true \
 		-o ./publish/PhotoMapperAI-macOS
 	@echo "Published to ./publish/PhotoMapperAI-macOS"
 
@@ -25,9 +22,6 @@ publish-win:
 		-c Release \
 		-r win-x64 \
 		--self-contained true \
-		-p:PublishSingleFile=true \
-		-p:IncludeNativeLibrariesForSelfExtract=true \
-		-p:EnableCompressionInSingleFile=true \
 		-o ./publish/PhotoMapperAI-Windows
 	@echo "Published to ./publish/PhotoMapperAI-Windows"
 
@@ -38,9 +32,6 @@ publish-linux:
 		-c Release \
 		-r linux-x64 \
 		--self-contained true \
-		-p:PublishSingleFile=true \
-		-p:IncludeNativeLibrariesForSelfExtract=true \
-		-p:EnableCompressionInSingleFile=true \
 		-o ./publish/PhotoMapperAI-Linux
 	@echo "Published to ./publish/PhotoMapperAI-Linux"
 
@@ -51,9 +42,6 @@ publish-cli-mac:
 		-c Release \
 		-r osx-arm64 \
 		--self-contained true \
-		-p:PublishSingleFile=true \
-		-p:IncludeNativeLibrariesForSelfExtract=true \
-		-p:EnableCompressionInSingleFile=true \
 		-o ./publish/PhotoMapperAI-CLI-macOS
 	@echo "Published to ./publish/PhotoMapperAI-CLI-macOS"
 
@@ -64,9 +52,6 @@ publish-cli-win:
 		-c Release \
 		-r win-x64 \
 		--self-contained true \
-		-p:PublishSingleFile=true \
-		-p:IncludeNativeLibrariesForSelfExtract=true \
-		-p:EnableCompressionInSingleFile=true \
 		-o ./publish/PhotoMapperAI-CLI-Windows
 	@echo "Published to ./publish/PhotoMapperAI-CLI-Windows"
 
@@ -77,9 +62,6 @@ publish-cli-linux:
 		-c Release \
 		-r linux-x64 \
 		--self-contained true \
-		-p:PublishSingleFile=true \
-		-p:IncludeNativeLibrariesForSelfExtract=true \
-		-p:EnableCompressionInSingleFile=true \
 		-o ./publish/PhotoMapperAI-CLI-Linux
 	@echo "Published to ./publish/PhotoMapperAI-CLI-Linux"
 
