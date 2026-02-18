@@ -37,6 +37,18 @@ public class PhotoPreviewItem : ObservableObject
     public string SurName { get; init; } = string.Empty;
     public double Confidence { get; init; }
 
+    /// <summary>
+    /// Mapping status type for display purposes.
+    /// </summary>
+    public enum MappingStatusType
+    {
+        ValidMapping,       // Photo found in CSV with ValidMapping=true
+        ExternalIdNotInCsv, // ExternalId extracted but not in CSV
+        NoExternalId        // Could not extract ExternalId from filename
+    }
+
+    public MappingStatusType StatusType { get; init; } = MappingStatusType.NoExternalId;
+
     public Bitmap? Thumbnail
     {
         get => _thumbnail;
@@ -332,14 +344,28 @@ public partial class GenerateStepViewModel : ViewModelBase
         try
         {
             // Load CSV data if available
-            Dictionary<string, PlayerRecord> csvData = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, PlayerRecord> csvDataByExternalId = new(StringComparer.OrdinalIgnoreCase);
+            List<PlayerRecord> csvPlayersWithoutPhoto = new();
+            int totalCsvPlayers = 0;
+
             if (!string.IsNullOrWhiteSpace(InputCsvPath) && File.Exists(InputCsvPath))
             {
                 var extractor = new DatabaseExtractor();
                 var players = await extractor.ReadCsvAsync(InputCsvPath);
-                foreach (var player in players.Where(p => !string.IsNullOrEmpty(p.ExternalId)))
+                totalCsvPlayers = players.Count;
+
+                foreach (var player in players)
                 {
-                    csvData[player.ExternalId!] = player;
+                    // Only add players with ExternalId to the lookup dictionary
+                    if (!string.IsNullOrEmpty(player.ExternalId))
+                    {
+                        csvDataByExternalId[player.ExternalId] = player;
+                    }
+                    else
+                    {
+                        // Track players without ExternalId
+                        csvPlayersWithoutPhoto.Add(player);
+                    }
                 }
             }
 
@@ -361,8 +387,10 @@ public partial class GenerateStepViewModel : ViewModelBase
             }
 
             // Parse each photo and match with CSV data
-            var parser = new FilenameParser();
             var items = new List<PhotoPreviewItem>();
+
+            // Track which ExternalIds from CSV were found in photos
+            var foundExternalIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var imagePath in imageFiles)
             {
@@ -375,9 +403,10 @@ public partial class GenerateStepViewModel : ViewModelBase
                 PlayerRecord? matchedPlayer = null;
 
                 // Try to match with CSV data
-                if (!string.IsNullOrEmpty(externalId) && csvData.TryGetValue(externalId, out var player))
+                if (!string.IsNullOrEmpty(externalId) && csvDataByExternalId.TryGetValue(externalId, out var player))
                 {
                     matchedPlayer = player;
+                    foundExternalIds.Add(externalId);
                 }
 
                 var item = new PhotoPreviewItem
@@ -393,21 +422,44 @@ public partial class GenerateStepViewModel : ViewModelBase
                     HasValidMapping = matchedPlayer?.ValidMapping ?? false
                 };
 
-                // Build status text
+                // Build status text based on mapping state
                 if (matchedPlayer != null)
                 {
+                    // Photo found in CSV with valid mapping
                     item.StatusText = $"✓ {matchedPlayer.FullName} (ID: {matchedPlayer.PlayerId})";
                 }
                 else if (!string.IsNullOrEmpty(externalId))
                 {
+                    // ExternalId extracted but not found in CSV
                     item.StatusText = $"⚠ External ID: {externalId} (not in CSV)";
                 }
                 else
                 {
-                    item.StatusText = "? No mapping";
+                    // No ExternalId could be extracted from filename
+                    item.StatusText = "? No ID in filename";
                 }
 
                 items.Add(item);
+            }
+
+            // Calculate statistics
+            var totalPhotos = items.Count;
+            var mappedCount = items.Count(i => i.HasValidMapping);
+            var externalIdNotInCsvCount = items.Count(i => !i.HasValidMapping && !string.IsNullOrEmpty(i.ExternalId));
+            var noIdInFilenameCount = items.Count(i => string.IsNullOrEmpty(i.ExternalId));
+
+            // Find CSV players that don't have photos
+            var unmatchedCsvPlayers = csvPlayersWithoutPhoto.Count;
+            if (totalCsvPlayers > 0)
+            {
+                // Also count players in CSV who have ExternalId but no matching photo
+                foreach (var kvp in csvDataByExternalId)
+                {
+                    if (!foundExternalIds.Contains(kvp.Key))
+                    {
+                        unmatchedCsvPlayers++;
+                    }
+                }
             }
 
             // Load thumbnails (limited to first 50 for performance)
@@ -430,11 +482,32 @@ public partial class GenerateStepViewModel : ViewModelBase
                 PhotoPreviewItems.Add(item);
             }
 
-            var totalCount = items.Count;
-            var mappedCount = items.Count(i => i.HasValidMapping);
-            PreviewStatus = totalCount > 50
-                ? $"Showing 50 of {totalCount} photos ({mappedCount} mapped)"
-                : $"Loaded {totalCount} photos ({mappedCount} mapped from CSV)";
+            // Build detailed status message
+            var statusParts = new List<string>();
+            statusParts.Add($"{totalPhotos} photo(s)");
+
+            if (mappedCount > 0)
+                statusParts.Add($"{mappedCount} mapped");
+
+            if (externalIdNotInCsvCount > 0)
+                statusParts.Add($"{externalIdNotInCsvCount} not in CSV");
+
+            if (noIdInFilenameCount > 0)
+                statusParts.Add($"{noIdInFilenameCount} no ID");
+
+            if (unmatchedCsvPlayers > 0)
+                statusParts.Add($"{unmatchedCsvPlayers} CSV player(s) without photo");
+
+            var statusMessage = string.Join(" | ", statusParts);
+
+            if (totalPhotos > 50)
+            {
+                PreviewStatus = $"Showing 50 of {statusMessage}";
+            }
+            else
+            {
+                PreviewStatus = statusMessage;
+            }
         }
         catch (Exception ex)
         {
