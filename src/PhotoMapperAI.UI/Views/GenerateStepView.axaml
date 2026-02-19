@@ -378,71 +378,73 @@
         </StackPanel>
       </Border>
 
-      <!-- Crop Offset Presets -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="🎛️ Crop Offsets" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Adjust horizontal/vertical offsets (percent of crop size)."
-                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-          <StackPanel Spacing="6">
-            <TextBlock Text="Preset" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-            <ComboBox ItemsSource="{Binding CropOffsetPresets}"
-                      SelectedItem="{Binding SelectedCropOffsetPreset}"
-                      Height="36">
-              <ComboBox.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Text="{Binding Name}"/>
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </StackPanel>
-          <StackPanel Spacing="6">
-            <TextBlock Text="Horizontal offset (%)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-            <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
-                    Value="{Binding CropOffsetXPercent}"/>
-            <TextBlock Text="{Binding CropOffsetXPercent, StringFormat='Current: {0:0}%'}"
-                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-          </StackPanel>
-          <StackPanel Spacing="6">
-            <TextBlock Text="Vertical offset (%)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-            <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
-                    Value="{Binding CropOffsetYPercent}"/>
-            <TextBlock Text="{Binding CropOffsetYPercent, StringFormat='Current: {0:0}%'}"
-                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button Content="Save Preset" Command="{Binding SaveCropOffsetPresetCommand}" Padding="12,6"/>
-            <TextBlock Text="{Binding CropOffsetStatus}"
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+        <!-- Preview Portrait -->
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+          <StackPanel Spacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="🧪 Preview Portrait" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+              <Button Content="Generate Preview"
+                      Command="{Binding GeneratePreviewCommand}"
+                      IsEnabled="{Binding !IsPreviewing}"
+                      Padding="12,6"/>
+            </StackPanel>
+            <TextBlock Text="{Binding PreviewPlayerLabel}"
                        FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
-                       VerticalAlignment="Center"/>
+                       TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding PreviewStatus}"
+                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+                       TextWrapping="Wrap"/>
+            <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="6" Padding="8"
+                    IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <Image Source="{Binding PreviewImage}"
+                     Height="200"
+                     Stretch="Uniform"/>
+            </Border>
           </StackPanel>
-        </StackPanel>
-      </Border>
+        </Border>
 
-      <!-- Preview Portrait -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="10">
-          <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="🧪 Preview Portrait" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <Button Content="Generate Preview"
-                    Command="{Binding GeneratePreviewCommand}"
-                    IsEnabled="{Binding !IsPreviewing}"
-                    Padding="12,6"/>
+        <!-- Crop Offset Presets -->
+        <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
+          <StackPanel Spacing="12">
+            <TextBlock Text="🎛️ Crop Offsets" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Text="Adjust horizontal/vertical offsets (percent of crop size)."
+                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Preset" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <ComboBox ItemsSource="{Binding CropOffsetPresets}"
+                        SelectedItem="{Binding SelectedCropOffsetPreset}"
+                        Height="36">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Name}"/>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Horizontal offset (%)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
+                      Value="{Binding CropOffsetXPercent}"/>
+              <TextBlock Text="{Binding CropOffsetXPercent, StringFormat='Current: {0:0}%'}"
+                         FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Vertical offset (%)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
+                      Value="{Binding CropOffsetYPercent}"/>
+              <TextBlock Text="{Binding CropOffsetYPercent, StringFormat='Current: {0:0}%'}"
+                         FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="Save Preset" Command="{Binding SaveCropOffsetPresetCommand}" Padding="12,6"/>
+              <TextBlock Text="{Binding CropOffsetStatus}"
+                         FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+                         VerticalAlignment="Center"/>
+            </StackPanel>
           </StackPanel>
-          <TextBlock Text="{Binding PreviewPlayerLabel}"
-                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
-                     TextWrapping="Wrap"/>
-          <TextBlock Text="{Binding PreviewStatus}"
-                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
-                     TextWrapping="Wrap"/>
-          <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="6" Padding="8"
-                  IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <Image Source="{Binding PreviewImage}"
-                   Height="200"
-                   Stretch="Uniform"/>
-          </Border>
-        </StackPanel>
-      </Border>
+        </Border>
+      </Grid>
 
       <!-- Execute / Cancel Buttons -->
       <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
