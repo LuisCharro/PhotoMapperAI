@@ -13,9 +13,11 @@ using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.Services.Diagnostics;
+using PhotoMapperAI.Services.Image;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
 using PhotoMapperAI.Utils;
+using SixLabors.ImageSharp.Formats.Png;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
@@ -97,6 +99,8 @@ public partial class GenerateStepViewModel : ViewModelBase
             foreach (var model in configuredPaidModels)
                 PaidFaceDetectionModels.Add(model);
         }
+
+        LoadCropOffsetPresets();
     }
 
     [ObservableProperty]
@@ -181,6 +185,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     private string _previewStatus = string.Empty;
 
     [ObservableProperty]
+    private string _previewPlayerLabel = string.Empty;
+
+    [ObservableProperty]
+    private bool _isPreviewing;
+
+    [ObservableProperty]
     private ObservableCollection<PhotoPreviewItem> _photoPreviewItems = new();
 
     [ObservableProperty]
@@ -194,6 +204,18 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _selectedFaceModelTierIndex;
+
+    [ObservableProperty]
+    private double _cropOffsetXPercent;
+
+    [ObservableProperty]
+    private double _cropOffsetYPercent;
+
+    [ObservableProperty]
+    private CropOffsetPreset? _selectedCropOffsetPreset;
+
+    [ObservableProperty]
+    private string _cropOffsetStatus = string.Empty;
 
     public ObservableCollection<string> LogLines { get; } = new();
 
@@ -218,6 +240,8 @@ public partial class GenerateStepViewModel : ViewModelBase
         "haar-cascade",
         "center"
     };
+
+    public ObservableCollection<CropOffsetPreset> CropOffsetPresets { get; } = new();
 
     public ObservableCollection<string> PaidFaceDetectionModels { get; } = new();
 
@@ -284,6 +308,56 @@ public partial class GenerateStepViewModel : ViewModelBase
         SelectedFaceModelTierIndex = GetTierIndexForModel(value);
     }
 
+    partial void OnSelectedCropOffsetPresetChanged(CropOffsetPreset? value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        CropOffsetXPercent = value.HorizontalPercent;
+        CropOffsetYPercent = value.VerticalPercent;
+    }
+
+    [RelayCommand]
+    private void SaveCropOffsetPreset()
+    {
+        var presetName = SelectedCropOffsetPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = CropOffsetPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new CropOffsetPreset { Name = presetName };
+            CropOffsetPresets.Add(preset);
+        }
+
+        preset.HorizontalPercent = CropOffsetXPercent;
+        preset.VerticalPercent = CropOffsetYPercent;
+
+        var settings = new CropOffsetSettings
+        {
+            ActivePresetName = presetName,
+            Presets = CropOffsetPresets
+                .Select(p => new CropOffsetPreset
+                {
+                    Name = p.Name,
+                    HorizontalPercent = p.HorizontalPercent,
+                    VerticalPercent = p.VerticalPercent
+                })
+                .ToList()
+        };
+
+        CropOffsetSettingsLoader.SaveToLocal(settings);
+        CropOffsetStatus = $"Saved preset '{presetName}' to appsettings.local.json";
+        SelectedCropOffsetPreset = preset;
+    }
+
     [RelayCommand]
     private async Task LoadPreviewImage()
     {
@@ -324,6 +398,105 @@ public partial class GenerateStepViewModel : ViewModelBase
         {
             PreviewStatus = $"Failed to load preview: {ex.Message}";
             PreviewImage = null;
+        }
+    }
+
+    [RelayCommand]
+    private async Task GeneratePreview()
+    {
+        if (IsProcessing || IsPreviewing)
+        {
+            return;
+        }
+
+        PreviewImage = null;
+        PreviewStatus = string.Empty;
+        PreviewPlayerLabel = string.Empty;
+        IsPreviewing = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(InputCsvPath) || !File.Exists(InputCsvPath))
+            {
+                PreviewStatus = "Select a valid CSV file to generate preview.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(PhotosDirectory) || !Directory.Exists(PhotosDirectory))
+            {
+                PreviewStatus = "Select a valid photos directory to generate preview.";
+                return;
+            }
+
+            var player = await ResolvePreviewPlayerAsync();
+            if (player == null)
+            {
+                PreviewStatus = "No eligible player found in CSV for preview.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(player.ExternalId))
+            {
+                PreviewStatus = "Selected player does not have an ExternalId.";
+                return;
+            }
+
+            var (previewWidth, previewHeight, placeholderPath) = ResolvePreviewVariant();
+            var photoPath = ResolvePreviewPhotoPath(player.ExternalId);
+
+            if (string.IsNullOrWhiteSpace(photoPath))
+            {
+                if (!string.IsNullOrWhiteSpace(placeholderPath) && File.Exists(placeholderPath))
+                {
+                    await using var placeholderStream = File.OpenRead(placeholderPath);
+                    PreviewImage = new Bitmap(placeholderStream);
+                    PreviewStatus = "Previewed placeholder image.";
+                    PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
+                    return;
+                }
+
+                PreviewStatus = $"No photo found for ExternalId {player.ExternalId}.";
+                return;
+            }
+
+            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
+            await faceDetectionService.InitializeAsync();
+
+            FaceLandmarks landmarks;
+            if (PortraitOnly)
+            {
+                landmarks = new FaceLandmarks { FaceDetected = false };
+            }
+            else
+            {
+                PreviewStatus = "Detecting face for preview...";
+                landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+            }
+
+            var imageProcessor = new ImageProcessor();
+            using var image = await imageProcessor.LoadImageAsync(photoPath);
+            using var cropped = await imageProcessor.CropPortraitAsync(
+                image,
+                landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
+                previewWidth,
+                previewHeight,
+                BuildCurrentCropOffsetPreset());
+
+            using var stream = new MemoryStream();
+            cropped.Save(stream, new PngEncoder());
+            stream.Position = 0;
+            PreviewImage = new Bitmap(stream);
+
+            PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
+            PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+        }
+        catch (Exception ex)
+        {
+            PreviewStatus = $"Preview failed: {ex.Message}";
+        }
+        finally
+        {
+            IsPreviewing = false;
         }
     }
 
@@ -715,6 +888,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                 DownloadOpenCvModels,
                 OnlyPlayerId,
                 placeholderPath,
+                BuildCurrentCropOffsetPreset(),
                 _cancellationTokenSource.Token,
                 log,
                 progress);
@@ -766,6 +940,121 @@ public partial class GenerateStepViewModel : ViewModelBase
             _cancellationTokenSource?.Cancel();
             ProcessingStatus = "Cancelling generation...";
         }
+    }
+
+    private void LoadCropOffsetPresets()
+    {
+        var settings = CropOffsetSettingsLoader.Load();
+
+        CropOffsetPresets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            CropOffsetPresets.Add(new CropOffsetPreset
+            {
+                Name = preset.Name,
+                HorizontalPercent = preset.HorizontalPercent,
+                VerticalPercent = preset.VerticalPercent
+            });
+        }
+
+        if (CropOffsetPresets.Count == 0)
+        {
+            CropOffsetPresets.Add(new CropOffsetPreset { Name = "default" });
+        }
+
+        var active = settings.GetActivePreset();
+        SelectedCropOffsetPreset = CropOffsetPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
+            ?? CropOffsetPresets[0];
+    }
+
+    private CropOffsetPreset BuildCurrentCropOffsetPreset()
+    {
+        var presetName = SelectedCropOffsetPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "custom";
+        }
+
+        return new CropOffsetPreset
+        {
+            Name = presetName,
+            HorizontalPercent = CropOffsetXPercent,
+            VerticalPercent = CropOffsetYPercent
+        };
+    }
+
+    private async Task<PlayerRecord?> ResolvePreviewPlayerAsync()
+    {
+        var extractor = new DatabaseExtractor();
+        var players = await extractor.ReadCsvAsync(InputCsvPath);
+
+        if (!string.IsNullOrWhiteSpace(OnlyPlayerId))
+        {
+            var match = players.FirstOrDefault(p =>
+                string.Equals(p.PlayerId.ToString(), OnlyPlayerId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.ExternalId, OnlyPlayerId, StringComparison.OrdinalIgnoreCase));
+            return match;
+        }
+
+        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ExternalId));
+    }
+
+    private (int width, int height, string? placeholderPath) ResolvePreviewVariant()
+    {
+        if (!string.IsNullOrWhiteSpace(SizeProfilePath))
+        {
+            var profile = LoadSizeProfile(SizeProfilePath);
+            var variant = profile.Variants.FirstOrDefault(v =>
+                              string.Equals(v.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
+                              || (v.Width == 200 && v.Height == 300))
+                          ?? profile.Variants.First();
+            var placeholder = UsePlaceholderImages ? variant.PlaceholderPath : null;
+            return (variant.Width, variant.Height, placeholder);
+        }
+
+        var manualPlaceholder = UsePlaceholderImages ? PlaceholderImagePath : null;
+        return (PortraitWidth, PortraitHeight, manualPlaceholder);
+    }
+
+    private string? ResolvePreviewPhotoPath(string externalId)
+    {
+        if (string.IsNullOrWhiteSpace(externalId))
+        {
+            return null;
+        }
+
+        var photoFiles = FindPlayerPhotoFiles(externalId);
+        return photoFiles.FirstOrDefault();
+    }
+
+    private List<string> FindPlayerPhotoFiles(string externalId)
+    {
+        var photoFiles = Directory.GetFiles(PhotosDirectory, $"{externalId}.*")
+            .Where(IsSupportedImageFormat)
+            .ToList();
+
+        if (photoFiles.Count == 0)
+        {
+            var pattern = $"*_{externalId}.*";
+            photoFiles = Directory.GetFiles(PhotosDirectory, pattern, SearchOption.AllDirectories)
+                .Where(IsSupportedImageFormat)
+                .ToList();
+        }
+
+        return photoFiles;
+    }
+
+    private static bool IsSupportedImageFormat(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
+    }
+
+    private static string BuildPreviewPlayerLabel(PlayerRecord player)
+    {
+        var externalId = string.IsNullOrWhiteSpace(player.ExternalId) ? "n/a" : player.ExternalId;
+        return $"Preview player: {player.FullName} (ID: {externalId})";
     }
 
     private void AppendLog(string message)

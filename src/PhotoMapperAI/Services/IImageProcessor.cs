@@ -26,12 +26,14 @@ public interface IImageProcessor
     /// <param name="landmarks">Face landmarks for cropping</param>
     /// <param name="portraitWidth">Target portrait width</param>
     /// <param name="portraitHeight">Target portrait height</param>
+    /// <param name="cropOffset">Optional crop offset preset</param>
     /// <returns>Cropped portrait image</returns>
     Task<SixLabors.ImageSharp.Image> CropPortraitAsync(
         SixLabors.ImageSharp.Image image,
         FaceLandmarks landmarks,
         int portraitWidth,
-        int portraitHeight);
+        int portraitHeight,
+        CropOffsetPreset? cropOffset = null);
 
     /// <summary>
     /// Saves an image to file.

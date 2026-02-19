@@ -33,7 +33,8 @@ public class ImageProcessor : IImageProcessor
         SixLabors.ImageSharp.Image image,
         FaceLandmarks landmarks,
         int portraitWidth,
-        int portraitHeight)
+        int portraitHeight,
+        CropOffsetPreset? cropOffset = null)
     {
         return await Task.Run(() =>
         {
@@ -43,7 +44,8 @@ public class ImageProcessor : IImageProcessor
                 image.Width,
                 image.Height,
                 portraitWidth,
-                portraitHeight
+                portraitHeight,
+                cropOffset
             );
 
             // Ensure crop is within image bounds and recalculate if needed
@@ -259,7 +261,8 @@ public class ImageProcessor : IImageProcessor
         int imageWidth,
         int imageHeight,
         int portraitWidth,
-        int portraitHeight)
+        int portraitHeight,
+        CropOffsetPreset? cropOffset)
     {
         // Target aspect ratio is portrait (e.g., 200:300 = 2:3)
         var targetAspectRatio = (double)portraitWidth / portraitHeight; // e.g., 0.667
@@ -345,6 +348,12 @@ public class ImageProcessor : IImageProcessor
             // For full-body photos, face is typically at 10-15% from top
             // We want the crop to start near the top to capture head + neck + bit of chest
             eyeY = (int)(imageHeight * 0.12);  // Eyes at ~12% from top
+        }
+
+        if (cropOffset != null)
+        {
+            centerX += (int)Math.Round(cropWidth * (cropOffset.HorizontalPercent / 100.0));
+            eyeY += (int)Math.Round(cropHeight * (cropOffset.VerticalPercent / 100.0));
         }
 
         // Ensure crop doesn't exceed image bounds

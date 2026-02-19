@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using PhotoMapperAI.Commands;
+using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.Services.Image;
@@ -30,6 +31,7 @@ public sealed class ExternalGenerateCliRunner
         bool downloadOpenCvModels,
         string? onlyPlayer,
         string? placeholderImagePath,
+        CropOffsetPreset? cropOffsetPreset,
         CancellationToken cancellationToken,
         IProgress<string>? log,
         IProgress<(int processed, int total, string current)>? progress = null)
@@ -41,7 +43,7 @@ public sealed class ExternalGenerateCliRunner
         await faceDetectionService.InitializeAsync();
 
         var imageProcessor = new ImageProcessor();
-        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache: null);
+        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache: null, cropOffsetPreset);
 
         if (string.IsNullOrWhiteSpace(sizeProfilePath))
         {

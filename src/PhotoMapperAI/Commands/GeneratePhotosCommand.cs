@@ -39,6 +39,7 @@ public class GeneratePhotosCommandLogic
     private readonly IFaceDetectionService _faceDetectionService;
     private readonly IImageProcessor _imageProcessor;
     private readonly FaceDetectionCache? _cache;
+    private readonly CropOffsetPreset? _cropOffsetPreset;
     private string? _placeholderImagePath;
 
     /// <summary>
@@ -47,11 +48,13 @@ public class GeneratePhotosCommandLogic
     public GeneratePhotosCommandLogic(
         IFaceDetectionService faceDetectionService,
         IImageProcessor imageProcessor,
-        FaceDetectionCache? cache = null)
+        FaceDetectionCache? cache = null,
+        CropOffsetPreset? cropOffsetPreset = null)
     {
         _faceDetectionService = faceDetectionService;
         _imageProcessor = imageProcessor;
         _cache = cache;
+        _cropOffsetPreset = cropOffsetPreset;
     }
 
     /// <summary>
@@ -403,9 +406,15 @@ public class GeneratePhotosCommandLogic
     );
 
 
-    private static List<string> FindPlayerPhotoFiles(string photosDir, string externalId)
+    private static List<string> FindPlayerPhotoFiles(string photosDir, string? externalId)
     {
-        var photoFiles = Directory.GetFiles(photosDir, $"{externalId}.*")
+        if (string.IsNullOrWhiteSpace(externalId))
+        {
+            return new List<string>();
+        }
+
+        var safeExternalId = externalId.Trim();
+        var photoFiles = Directory.GetFiles(photosDir, $"{safeExternalId}.*")
             .Where(f => IsSupportedImageFormat(f))
             .ToList();
 
@@ -413,7 +422,7 @@ public class GeneratePhotosCommandLogic
         {
             // Try searching with underscore pattern (ID at end of filename)
             // Filename pattern: FirstName_LastName_PlayerID.jpg
-            var pattern = $"*_{externalId}.*";
+            var pattern = $"*_{safeExternalId}.*";
             photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
                 .Where(f => IsSupportedImageFormat(f))
                 .ToList();
@@ -706,7 +715,13 @@ public class GeneratePhotosCommandLogic
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var photoFiles = FindPlayerPhotoFiles(photosDir, player.ExternalId);
+        string? externalId = player.ExternalId;
+        if (string.IsNullOrEmpty(externalId))
+        {
+            return new ProcessPlayerResult(false, true, "Player has no ExternalId");
+        }
+
+        var photoFiles = FindPlayerPhotoFiles(photosDir, externalId ?? string.Empty);
 
         if (photoFiles.Count == 0)
         {
@@ -784,7 +799,8 @@ public class GeneratePhotosCommandLogic
                 image,
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                 portraitWidth,
-                portraitHeight
+                portraitHeight,
+                _cropOffsetPreset
             );
 
             // Save portrait
@@ -811,7 +827,13 @@ public class GeneratePhotosCommandLogic
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var photoFiles = FindPlayerPhotoFiles(photosDir, player.ExternalId);
+        string? externalId = player.ExternalId;
+        if (string.IsNullOrEmpty(externalId))
+        {
+            return new ProcessPlayerResult(false, true, "Player has no ExternalId");
+        }
+
+        var photoFiles = FindPlayerPhotoFiles(photosDir, externalId ?? string.Empty);
 
         if (photoFiles.Count == 0)
         {
@@ -886,7 +908,8 @@ public class GeneratePhotosCommandLogic
                 image,
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                 baseVariant.Width,
-                baseVariant.Height);
+                baseVariant.Height,
+                _cropOffsetPreset);
 
             var baseOutputPath = Path.Combine(baseVariant.OutputDir, $"{player.PlayerId}.{format}");
             await _imageProcessor.SaveImageAsync(basePortrait, baseOutputPath, format);
@@ -1048,7 +1071,8 @@ public class GeneratePhotosCommand
         var imageProcessor = new Services.Image.ImageProcessor();
 
         // Create generate photos command logic handler
-        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache);
+        var cropOffsetPreset = CropOffsetSettingsLoader.LoadActivePreset();
+        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache, cropOffsetPreset);
 
         var baseOutputPath = ProcessedPhotosOutputPath;
         if (!string.IsNullOrWhiteSpace(OutputProfile))
