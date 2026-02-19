@@ -17,7 +17,7 @@
     <vm:MainWindowViewModel/>
   </Design.DataContext>
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
+  <Grid RowDefinitions="Auto,Auto,*">
     <!-- Header -->
     <Border Grid.Row="0" Background="{DynamicResource HeaderBackgroundBrush}" Padding="12,8">
       <Grid ColumnDefinitions="Auto,*,Auto">
@@ -34,72 +34,45 @@
       </Grid>
     </Border>
 
-    <!-- Step Progress Indicator -->
+    <!-- Step Navigation Buttons -->
     <Border Grid.Row="1" Background="{DynamicResource StepProgressBackgroundBrush}" Padding="12,6">
-      <Grid ColumnDefinitions="*,*,*">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
         <!-- Step 1 -->
-        <Button Grid.Column="0" Command="{Binding GoToStepCommand}" CommandParameter="1"
-          Background="#01FFFFFF" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch">
-          <Border Background="{Binding Step1Background}" 
-                  CornerRadius="4" Padding="10,6" Margin="0,0,6,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-              <TextBlock Text="1" FontSize="14" FontWeight="Bold" 
-                         Foreground="{Binding Step1Foreground}" Margin="0,0,6,0"/>
-              <TextBlock Text="Extract Data" FontSize="12" 
-                         Foreground="{Binding Step1Foreground}"/>
-            </StackPanel>
-          </Border>
+        <Button Click="Step1Button_Click"
+                Background="{Binding Step1Background}" 
+                Foreground="{Binding Step1Foreground}"
+                CornerRadius="4" Padding="16,8" FontWeight="SemiBold">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="1" FontSize="14" FontWeight="Bold"/>
+            <TextBlock Text="Extract Data" FontSize="12" VerticalAlignment="Center"/>
+          </StackPanel>
         </Button>
         <!-- Step 2 -->
-        <Button Grid.Column="1" Command="{Binding GoToStepCommand}" CommandParameter="2"
-          Background="#01FFFFFF" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch">
-          <Border Background="{Binding Step2Background}" 
-                  CornerRadius="4" Padding="10,6" Margin="3,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-              <TextBlock Text="2" FontSize="14" FontWeight="Bold" 
-                         Foreground="{Binding Step2Foreground}" Margin="0,0,6,0"/>
-              <TextBlock Text="Map Players to Photos" FontSize="12" 
-                         Foreground="{Binding Step2Foreground}"/>
-            </StackPanel>
-          </Border>
+        <Button Click="Step2Button_Click"
+                Background="{Binding Step2Background}" 
+                Foreground="{Binding Step2Foreground}"
+                CornerRadius="4" Padding="16,8" FontWeight="SemiBold">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="2" FontSize="14" FontWeight="Bold"/>
+            <TextBlock Text="Map Players to Photos" FontSize="12" VerticalAlignment="Center"/>
+          </StackPanel>
         </Button>
         <!-- Step 3 -->
-        <Button Grid.Column="2" Command="{Binding GoToStepCommand}" CommandParameter="3"
-          Background="#01FFFFFF" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch">
-          <Border Background="{Binding Step3Background}" 
-                  CornerRadius="4" Padding="10,6" Margin="6,0,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-              <TextBlock Text="3" FontSize="14" FontWeight="Bold" 
-                         Foreground="{Binding Step3Foreground}" Margin="0,0,6,0"/>
-              <TextBlock Text="Generate Portraits" FontSize="12" 
-                         Foreground="{Binding Step3Foreground}"/>
-            </StackPanel>
-          </Border>
+        <Button Click="Step3Button_Click"
+                Background="{Binding Step3Background}" 
+                Foreground="{Binding Step3Foreground}"
+                CornerRadius="4" Padding="16,8" FontWeight="SemiBold">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="3" FontSize="14" FontWeight="Bold"/>
+            <TextBlock Text="Generate Portraits" FontSize="12" VerticalAlignment="Center"/>
+          </StackPanel>
         </Button>
-      </Grid>
+      </StackPanel>
     </Border>
 
     <!-- Main Content Area -->
     <Border Grid.Row="2" Background="{DynamicResource BackgroundBrush}" Margin="12">
       <ContentControl Content="{Binding CurrentView}"/>
-    </Border>
-
-    <!-- Footer -->
-    <Border Grid.Row="3" Background="{DynamicResource FooterBackgroundBrush}" Padding="12,6">
-      <Grid ColumnDefinitions="Auto,*,Auto">
-        <TextBlock Grid.Column="0" Text="{Binding CurrentStepDescription}"
-                   VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
-          <Button Content="◀ Back" Command="{Binding BackCommand}"
-                  IsVisible="{Binding CanGoBack}" Padding="12,6"/>
-          <Button Content="Next ▶" Command="{Binding NextCommand}"
-                  IsVisible="{Binding CanGoNext}" 
-                  Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}" Padding="12,6"/>
-          <Button Content="✓ Finish" Command="{Binding FinishCommand}"
-                  IsVisible="{Binding CanFinish}"
-                  Background="{DynamicResource PrimaryLightBrush}" Foreground="{DynamicResource HeaderTextBrush}" Padding="12,6"/>
-        </StackPanel>
-      </Grid>
     </Border>
   </Grid>
 </Window>
