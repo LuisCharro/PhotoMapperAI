@@ -1,10 +1,9 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using PhotoMapperAI.Commands;
+using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Services.Image;
 
 namespace PhotoMapperAI.UI.Execution;
 
@@ -33,112 +32,41 @@ public sealed class ExternalMapCliRunner
         string? openAiApiKey,
         string? anthropicApiKey,
         CancellationToken cancellationToken,
-        IProgress<string>? log)
+        IProgress<string>? log,
+        IProgress<(int processed, int total, string current)>? uiProgress = null)
     {
-        var projectPath = Path.Combine(projectRootDirectory, "src", "PhotoMapperAI");
+        _ = projectRootDirectory;
 
-        var args = new List<string>
-        {
-            "run", "--project", projectPath, "--", "map",
-            "--inputCsvPath", inputCsvPath,
-            "--photosDir", photosDir,
-            "--nameModel", nameModel,
-            "--confidenceThreshold", confidenceThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture)
-        };
+        var nameMatchingService = NameMatchingServiceFactory.Create(
+            nameModel,
+            confidenceThreshold: confidenceThreshold,
+            openAiApiKey: openAiApiKey,
+            anthropicApiKey: anthropicApiKey);
+        var imageProcessor = new ImageProcessor();
+        var logic = new MapCommandLogic(nameMatchingService, imageProcessor);
 
-        if (!string.IsNullOrWhiteSpace(filenamePattern))
-        {
-            args.Add("--filenamePattern");
-            args.Add(filenamePattern);
-        }
-
-        if (!string.IsNullOrWhiteSpace(photoManifest))
-        {
-            args.Add("--photoManifest");
-            args.Add(photoManifest);
-        }
-
-        if (useAi)
-            args.Add("--useAI");
-        if (aiSecondPass)
-            args.Add("--aiSecondPass");
-        if (aiOnly)
-            args.Add("--aiOnly");
-
-        if (!string.IsNullOrWhiteSpace(openAiApiKey))
-        {
-            args.Add("--openaiApiKey");
-            args.Add(openAiApiKey);
-        }
-
-        if (!string.IsNullOrWhiteSpace(anthropicApiKey))
-        {
-            args.Add("--anthropicApiKey");
-            args.Add(anthropicApiKey);
-        }
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            WorkingDirectory = executionDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        foreach (var a in args)
-            psi.ArgumentList.Add(a);
-
-        using var process = new Process { StartInfo = psi };
-        process.Start();
-
-        var processed = 0;
-        var matched = 0;
-        var outputPath = string.Empty;
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var line = await process.StandardOutput.ReadLineAsync();
-            if (line == null)
-                break;
-
-            log?.Report(line);
-
-            var mm = Regex.Match(line, @"Matched\s+(\d+)\s*/\s*(\d+)\s*players", RegexOptions.IgnoreCase);
-            if (mm.Success)
-            {
-                matched = int.Parse(mm.Groups[1].Value);
-                processed = int.Parse(mm.Groups[2].Value);
-            }
-
-            var mo = Regex.Match(line, @"Results saved to\s+(.+)$", RegexOptions.IgnoreCase);
-            if (mo.Success)
-                outputPath = mo.Groups[1].Value.Trim();
-        }
-
-        var err = await process.StandardError.ReadToEndAsync();
-        if (!string.IsNullOrWhiteSpace(err))
-        {
-            foreach (var line in err.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                log?.Report(line.TrimEnd('\r'));
-        }
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        if (string.IsNullOrWhiteSpace(outputPath) && !string.IsNullOrWhiteSpace(inputCsvPath))
-        {
-            var baseName = Path.GetFileNameWithoutExtension(inputCsvPath) ?? "players";
-            outputPath = Path.Combine(executionDirectory, $"mapped_{baseName}.csv");
-        }
+        var result = await logic.ExecuteAsync(
+            inputCsvPath,
+            photosDir,
+            filenamePattern,
+            photoManifest,
+            outputDirectory: executionDirectory,
+            nameModel,
+            confidenceThreshold,
+            useAi,
+            aiSecondPass,
+            uiProgress: uiProgress,
+            cancellationToken: cancellationToken,
+            aiTrace: false,
+            aiOnly: aiOnly,
+            log: log);
 
         return new MapCliResult
         {
-            ExitCode = process.ExitCode,
-            PlayersProcessed = processed,
-            PlayersMatched = matched,
-            OutputCsvPath = outputPath
+            ExitCode = 0,
+            PlayersProcessed = result.PlayersProcessed,
+            PlayersMatched = result.PlayersMatched,
+            OutputCsvPath = result.OutputPath
         };
     }
 }

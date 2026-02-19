@@ -658,6 +658,18 @@ public partial class GenerateStepViewModel : ViewModelBase
                 placeholderPath));
 
             var log = new Progress<string>(AppendLog);
+            var progress = new Progress<(int processed, int total, string current)>(state =>
+            {
+                if (state.total <= 0)
+                {
+                    Progress = 0;
+                    return;
+                }
+
+                Progress = Math.Clamp((double)state.processed / state.total * 100.0, 0, 100);
+                var currentLabel = string.IsNullOrWhiteSpace(state.current) ? string.Empty : $" {state.current}";
+                ProcessingStatus = $"Processed {state.processed}/{state.total} players{currentLabel}";
+            });
 
             if (WriteDebugArtifacts)
             {
@@ -704,7 +716,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                 OnlyPlayerId,
                 placeholderPath,
                 _cancellationTokenSource.Token,
-                log);
+                log,
+                progress);
 
             PortraitsGenerated = result.PortraitsGenerated;
             PortraitsFailed = result.PortraitsFailed;

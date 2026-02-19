@@ -301,11 +301,27 @@ public partial class MapStepViewModel : ViewModelBase
                 if (m.Success)
                 {
                     PlayersMatched = int.Parse(m.Groups[1].Value);
-                    PlayersProcessed = int.Parse(m.Groups[2].Value);
-                    var percent = PlayersProcessed > 0 ? (double)PlayersMatched / PlayersProcessed * 100.0 : 0;
-                    Progress = Math.Clamp(percent, 0, 100);
+                    var total = int.Parse(m.Groups[2].Value);
+                    if (total > 0)
+                    {
+                        PlayersProcessed = total;
+                    }
                     ProcessingStatus = $"Matched {PlayersMatched}/{PlayersProcessed} players...";
                 }
+            });
+
+            var uiProgress = new Progress<(int processed, int total, string current)>(state =>
+            {
+                if (state.total <= 0)
+                {
+                    Progress = 0;
+                    return;
+                }
+
+                PlayersProcessed = state.processed;
+                Progress = Math.Clamp((double)state.processed / state.total * 100.0, 0, 100);
+                var currentLabel = string.IsNullOrWhiteSpace(state.current) ? string.Empty : $" {state.current}";
+                ProcessingStatus = $"Mapping {state.processed}/{state.total} players{currentLabel}";
             });
 
             var effectiveOutputDirectory = string.IsNullOrWhiteSpace(OutputDirectory)
@@ -328,7 +344,8 @@ public partial class MapStepViewModel : ViewModelBase
                 string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                 string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                 _cancellationTokenSource.Token,
-                log);
+                log,
+                uiProgress);
 
             if (result.ExitCode != 0)
             {
