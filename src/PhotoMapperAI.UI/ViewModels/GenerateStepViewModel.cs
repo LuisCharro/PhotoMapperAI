@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Models;
@@ -74,6 +75,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 {
     private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
+    private CancellationTokenSource? _autoPreviewCts;
 
     public GenerateStepViewModel()
     {
@@ -189,6 +191,9 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isPreviewing;
+
+    [ObservableProperty]
+    private bool _autoPreviewEnabled;
 
     [ObservableProperty]
     private ObservableCollection<PhotoPreviewItem> _photoPreviewItems = new();
@@ -1065,6 +1070,44 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
 
         LogLines.Add(message);
+    }
+
+    private void ScheduleAutoPreview()
+    {
+        if (!AutoPreviewEnabled || IsProcessing)
+        {
+            return;
+        }
+
+        _autoPreviewCts?.Cancel();
+        _autoPreviewCts?.Dispose();
+        _autoPreviewCts = new CancellationTokenSource();
+        var token = _autoPreviewCts.Token;
+
+        _ = DebouncedAutoPreviewAsync(token);
+    }
+
+    private async Task DebouncedAutoPreviewAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(250, token);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (GeneratePreviewCommand.CanExecute(null))
+                {
+                    GeneratePreviewCommand.Execute(null);
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void RequestAutoPreviewFromUi()
+    {
+        ScheduleAutoPreview();
     }
 
     private static int GetTierIndexForModel(string modelName)

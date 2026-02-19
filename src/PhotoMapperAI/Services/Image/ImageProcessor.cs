@@ -350,12 +350,6 @@ public class ImageProcessor : IImageProcessor
             eyeY = (int)(imageHeight * 0.12);  // Eyes at ~12% from top
         }
 
-        if (cropOffset != null)
-        {
-            centerX += (int)Math.Round(cropWidth * (cropOffset.HorizontalPercent / 100.0));
-            eyeY += (int)Math.Round(cropHeight * (cropOffset.VerticalPercent / 100.0));
-        }
-
         // Ensure crop doesn't exceed image bounds
         if (cropWidth > imageWidth)
         {
@@ -398,6 +392,17 @@ public class ImageProcessor : IImageProcessor
         if (cropY + cropHeight > imageHeight)
         {
             cropY = imageHeight - cropHeight;
+        }
+
+        if (cropOffset != null)
+        {
+            var offsetX = (int)Math.Round(cropWidth * (cropOffset.HorizontalPercent / 100.0));
+            var offsetY = (int)Math.Round(cropHeight * (cropOffset.VerticalPercent / 100.0));
+            cropX += offsetX;
+            cropY += offsetY;
+
+            cropX = Math.Max(0, Math.Min(cropX, imageWidth - cropWidth));
+            cropY = Math.Max(0, Math.Min(cropY, imageHeight - cropHeight));
         }
 
         return new PhotoMapperAI.Models.Rectangle(

@@ -2,6 +2,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.Controls.Primitives;
 using PhotoMapperAI.UI.ViewModels;
 using System.Linq;
 
@@ -165,5 +166,13 @@ public partial class GenerateStepView : UserControl
         await topLevel.Clipboard.SetTextAsync(text);
 
         vm.ProcessingStatus = "Run log copied to clipboard.";
+    }
+
+    private void CropOffsetSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (DataContext is GenerateStepViewModel vm)
+        {
+            vm.RequestAutoPreviewFromUi();
+        }
     }
 }

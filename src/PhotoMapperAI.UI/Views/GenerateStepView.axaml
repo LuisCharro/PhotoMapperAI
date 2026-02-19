@@ -382,13 +382,7 @@
         <!-- Preview Portrait -->
         <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
           <StackPanel Spacing="10">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="🧪 Preview Portrait" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-              <Button Content="Generate Preview"
-                      Command="{Binding GeneratePreviewCommand}"
-                      IsEnabled="{Binding !IsPreviewing}"
-                      Padding="12,6"/>
-            </StackPanel>
+            <TextBlock Text="🧪 Preview Portrait" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <TextBlock Text="{Binding PreviewPlayerLabel}"
                        FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
                        TextWrapping="Wrap"/>
@@ -424,24 +418,34 @@
             </StackPanel>
             <StackPanel Spacing="6">
               <TextBlock Text="Horizontal offset (%)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-              <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
-                      Value="{Binding CropOffsetXPercent}"/>
+                          <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding CropOffsetXPercent, Mode=TwoWay}"
+                            ValueChanged="CropOffsetSlider_ValueChanged"/>
               <TextBlock Text="{Binding CropOffsetXPercent, StringFormat='Current: {0:0}%'}"
                          FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
             </StackPanel>
             <StackPanel Spacing="6">
               <TextBlock Text="Vertical offset (%)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
-              <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
-                      Value="{Binding CropOffsetYPercent}"/>
+                          <Slider Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding CropOffsetYPercent, Mode=TwoWay}"
+                            ValueChanged="CropOffsetSlider_ValueChanged"/>
               <TextBlock Text="{Binding CropOffsetYPercent, StringFormat='Current: {0:0}%'}"
                          FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="Generate Preview"
+                      Command="{Binding GeneratePreviewCommand}"
+                      IsEnabled="{Binding !IsPreviewing}"
+                      Padding="12,6"/>
               <Button Content="Save Preset" Command="{Binding SaveCropOffsetPresetCommand}" Padding="12,6"/>
-              <TextBlock Text="{Binding CropOffsetStatus}"
-                         FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
-                         VerticalAlignment="Center"/>
             </StackPanel>
+            <CheckBox Content="Auto preview on offset change"
+                      IsChecked="{Binding AutoPreviewEnabled}"
+                      FontSize="12"
+                      Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TextBlock Text="{Binding CropOffsetStatus}"
+                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+                       VerticalAlignment="Center"/>
           </StackPanel>
         </Border>
       </Grid>
