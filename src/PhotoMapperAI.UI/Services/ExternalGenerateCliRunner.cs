@@ -23,13 +23,16 @@ public sealed class ExternalGenerateCliRunner
         bool portraitOnly,
         int width,
         int height,
+        string? sizeProfilePath,
+        bool allSizes,
+        bool ignoreProfilePlaceholders,
         bool downloadOpenCvModels,
         string? onlyPlayer,
         string? placeholderImagePath,
         CancellationToken cancellationToken,
         IProgress<string>? log)
     {
-        var args = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer, placeholderImagePath);
+        var args = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath);
 
         var psi = new ProcessStartInfo
         {
@@ -95,11 +98,14 @@ public sealed class ExternalGenerateCliRunner
         bool portraitOnly,
         int width,
         int height,
+        string? sizeProfilePath,
+        bool allSizes,
+        bool ignoreProfilePlaceholders,
         bool downloadOpenCvModels,
         string? onlyPlayer,
         string? placeholderImagePath)
     {
-        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer, placeholderImagePath);
+        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath);
         return $"Working directory: {workingDirectory}\nCommand: dotnet " + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
     }
 
@@ -113,6 +119,9 @@ public sealed class ExternalGenerateCliRunner
         bool portraitOnly,
         int width,
         int height,
+        string? sizeProfilePath,
+        bool allSizes,
+        bool ignoreProfilePlaceholders,
         bool downloadOpenCvModels,
         string? onlyPlayer,
         string? placeholderImagePath)
@@ -129,11 +138,14 @@ public sealed class ExternalGenerateCliRunner
             portraitOnly,
             width,
             height,
+            sizeProfilePath,
+            allSizes,
+            ignoreProfilePlaceholders,
             downloadOpenCvModels,
             onlyPlayer,
             placeholderImagePath,
             executionMode = "external-cli",
-            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, downloadOpenCvModels, onlyPlayer, placeholderImagePath)
+            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath)
         };
 
         Directory.CreateDirectory(outputDir);
@@ -151,6 +163,9 @@ public sealed class ExternalGenerateCliRunner
         bool portraitOnly,
         int width,
         int height,
+        string? sizeProfilePath,
+        bool allSizes,
+        bool ignoreProfilePlaceholders,
         bool downloadOpenCvModels,
         string? onlyPlayer,
         string? placeholderImagePath)
@@ -163,10 +178,31 @@ public sealed class ExternalGenerateCliRunner
             "--processedPhotosOutputPath", outputDir,
             "--format", format,
             "--faceDetection", faceDetectionModel,
-            "--faceWidth", width.ToString(),
-            "--faceHeight", height.ToString(),
             "--noCache"
         };
+
+        if (!string.IsNullOrWhiteSpace(sizeProfilePath))
+        {
+            args.Add("--sizeProfile");
+            args.Add(sizeProfilePath);
+
+            if (allSizes)
+            {
+                args.Add("--allSizes");
+            }
+
+            if (ignoreProfilePlaceholders)
+            {
+                args.Add("--noProfilePlaceholders");
+            }
+        }
+        else
+        {
+            args.Add("--faceWidth");
+            args.Add(width.ToString());
+            args.Add("--faceHeight");
+            args.Add(height.ToString());
+        }
 
         if (portraitOnly)
             args.Add("--portraitOnly");

@@ -617,125 +617,108 @@ public partial class GenerateStepViewModel : ViewModelBase
                 AppendLog($"Using output profile '{OutputProfile}' => {baseOutputDirectory}");
             }
 
-            var variants = new List<(string key, int width, int height, string outputDir, string? placeholderPath)>();
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+            var allSizes = useSizeProfile && AllSizes;
+            var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
+            var placeholderPath = useSizeProfile ? null : (UsePlaceholderImages ? PlaceholderImagePath : null);
 
-            if (!string.IsNullOrWhiteSpace(SizeProfilePath))
+            if (useSizeProfile)
             {
                 var profile = LoadSizeProfile(SizeProfilePath);
-                AppendLog($"Using size profile '{profile.Name}' with {profile.Variants.Count} variants");
+                var variantMode = allSizes ? "all variants" : "single variant";
+                AppendLog($"Using size profile '{profile.Name}' ({variantMode})");
+            }
 
-                if (AllSizes)
-                {
-                    variants.AddRange(profile.Variants.Select(v => (
-                        v.Key,
-                        v.Width,
-                        v.Height,
-                        Path.Combine(baseOutputDirectory, string.IsNullOrWhiteSpace(v.OutputSubfolder) ? v.Key : v.OutputSubfolder),
-                        UsePlaceholderImages ? v.PlaceholderPath : null
-                    )));
-                }
-                else
-                {
-                    var v = profile.Variants.FirstOrDefault(x =>
-                                string.Equals(x.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
-                                || (x.Width == 200 && x.Height == 300))
-                            ?? profile.Variants.First();
-                    variants.Add((v.Key, v.Width, v.Height, baseOutputDirectory, UsePlaceholderImages ? v.PlaceholderPath : null));
-                }
+            Directory.CreateDirectory(baseOutputDirectory);
+            if (useSizeProfile)
+            {
+                AppendLog($"Running size profile => {baseOutputDirectory}");
             }
             else
             {
-                variants.Add(("single", PortraitWidth, PortraitHeight, baseOutputDirectory, UsePlaceholderImages ? PlaceholderImagePath : null));
+                AppendLog($"Running variant 'single' => {PortraitWidth}x{PortraitHeight} -> {baseOutputDirectory}");
             }
 
-            var totalGenerated = 0;
-            var totalFailed = 0;
-            var anyFailure = false;
+            AppendLog(_cliRunner.BuildCommandPreview(
+                Directory.GetCurrentDirectory(),
+                InputCsvPath,
+                PhotosDirectory,
+                baseOutputDirectory,
+                ImageFormat,
+                selectedFaceDetectionModel,
+                PortraitOnly,
+                PortraitWidth,
+                PortraitHeight,
+                sizeProfilePath,
+                allSizes,
+                ignoreProfilePlaceholders,
+                DownloadOpenCvModels,
+                OnlyPlayerId,
+                placeholderPath));
 
-            foreach (var variant in variants)
+            var log = new Progress<string>(AppendLog);
+
+            if (WriteDebugArtifacts)
             {
-                Directory.CreateDirectory(variant.outputDir);
-                AppendLog($"Running variant '{variant.key}' => {variant.width}x{variant.height} -> {variant.outputDir}");
-                AppendLog(_cliRunner.BuildCommandPreview(
-                    Directory.GetCurrentDirectory(),
-                    InputCsvPath,
-                    PhotosDirectory,
-                    variant.outputDir,
-                    ImageFormat,
-                    selectedFaceDetectionModel,
-                    PortraitOnly,
-                    variant.width,
-                    variant.height,
-                    DownloadOpenCvModels,
-                    OnlyPlayerId,
-                    variant.placeholderPath));
-
-                var log = new Progress<string>(AppendLog);
-
-                if (WriteDebugArtifacts)
+                try
                 {
-                    try
-                    {
-                        var debugPath = _cliRunner.WriteDebugArtifact(
-                            variant.outputDir,
-                            Directory.GetCurrentDirectory(),
-                            InputCsvPath,
-                            PhotosDirectory,
-                            ImageFormat,
-                            selectedFaceDetectionModel,
-                            PortraitOnly,
-                            variant.width,
-                            variant.height,
-                            DownloadOpenCvModels,
-                            OnlyPlayerId,
-                            variant.placeholderPath);
-                        AppendLog($"Debug artifact: {debugPath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        AppendLog($"Debug artifact write failed: {ex.Message}");
-                    }
+                    var debugPath = _cliRunner.WriteDebugArtifact(
+                        baseOutputDirectory,
+                        Directory.GetCurrentDirectory(),
+                        InputCsvPath,
+                        PhotosDirectory,
+                        ImageFormat,
+                        selectedFaceDetectionModel,
+                        PortraitOnly,
+                        PortraitWidth,
+                        PortraitHeight,
+                        sizeProfilePath,
+                        allSizes,
+                        ignoreProfilePlaceholders,
+                        DownloadOpenCvModels,
+                        OnlyPlayerId,
+                        placeholderPath);
+                    AppendLog($"Debug artifact: {debugPath}");
                 }
-
-                var result = await _cliRunner.ExecuteAsync(
-                    Directory.GetCurrentDirectory(),
-                    InputCsvPath,
-                    PhotosDirectory,
-                    variant.outputDir,
-                    ImageFormat,
-                    selectedFaceDetectionModel,
-                    PortraitOnly,
-                    variant.width,
-                    variant.height,
-                    DownloadOpenCvModels,
-                    OnlyPlayerId,
-                    variant.placeholderPath,
-                    _cancellationTokenSource.Token,
-                    log);
-
-                totalGenerated += result.PortraitsGenerated;
-                totalFailed += result.PortraitsFailed;
-
-                if (result.IsCancelled)
+                catch (Exception ex)
                 {
-                    ProcessingStatus = $"⚠ Generation cancelled ({result.ProcessedPlayers}/{result.TotalPlayers} processed)";
-                    IsComplete = false;
-                    return;
-                }
-
-                if (result.ExitCode != 0)
-                {
-                    anyFailure = true;
-                    AppendLog($"Variant '{variant.key}' failed with exit code {result.ExitCode}");
+                    AppendLog($"Debug artifact write failed: {ex.Message}");
                 }
             }
 
-            PortraitsGenerated = totalGenerated;
-            PortraitsFailed = totalFailed;
+            var result = await _cliRunner.ExecuteAsync(
+                Directory.GetCurrentDirectory(),
+                InputCsvPath,
+                PhotosDirectory,
+                baseOutputDirectory,
+                ImageFormat,
+                selectedFaceDetectionModel,
+                PortraitOnly,
+                PortraitWidth,
+                PortraitHeight,
+                sizeProfilePath,
+                allSizes,
+                ignoreProfilePlaceholders,
+                DownloadOpenCvModels,
+                OnlyPlayerId,
+                placeholderPath,
+                _cancellationTokenSource.Token,
+                log);
 
-            if (anyFailure)
+            PortraitsGenerated = result.PortraitsGenerated;
+            PortraitsFailed = result.PortraitsFailed;
+
+            if (result.IsCancelled)
             {
-                ProcessingStatus = $"✗ Generation completed with failures ({PortraitsGenerated} generated, {PortraitsFailed} failed)";
+                ProcessingStatus = $"⚠ Generation cancelled ({result.ProcessedPlayers}/{result.TotalPlayers} processed)";
+                IsComplete = false;
+                return;
+            }
+
+            if (result.ExitCode != 0)
+            {
+                ProcessingStatus = $"✗ Generation failed with exit code {result.ExitCode}";
                 IsComplete = false;
                 return;
             }

@@ -23,6 +23,14 @@ public class GeneratePhotosResult
     public bool IsCancelled { get; set; }
 }
 
+public sealed record GeneratePhotosVariantPlan(
+    string Key,
+    int Width,
+    int Height,
+    string OutputDir,
+    string? PlaceholderPath
+);
+
 /// <summary>
 /// Business logic for generating portrait photos with face detection.
 /// </summary>
@@ -394,6 +402,294 @@ public class GeneratePhotosCommandLogic
         string ErrorMessage
     );
 
+
+    private static List<string> FindPlayerPhotoFiles(string photosDir, string externalId)
+    {
+        var photoFiles = Directory.GetFiles(photosDir, $"{externalId}.*")
+            .Where(f => IsSupportedImageFormat(f))
+            .ToList();
+
+        if (photoFiles.Count == 0)
+        {
+            // Try searching with underscore pattern (ID at end of filename)
+            // Filename pattern: FirstName_LastName_PlayerID.jpg
+            var pattern = $"*_{externalId}.*";
+            photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
+                .Where(f => IsSupportedImageFormat(f))
+                .ToList();
+        }
+
+        return photoFiles;
+    }
+
+    public async Task<GeneratePhotosResult> ExecuteMultiVariantAsync(
+        string inputCsvPath,
+        string photosDir,
+        IReadOnlyList<GeneratePhotosVariantPlan> variants,
+        string format,
+        string faceDetectionModel,
+        string crop,
+        bool portraitOnly,
+        bool parallel,
+        int parallelDegree,
+        string? onlyPlayerId = null,
+        IProgress<(int processed, int total, string current)>? progress = null,
+        CancellationToken cancellationToken = default,
+        IProgress<string>? log = null)
+    {
+        if (variants == null || variants.Count == 0)
+        {
+            throw new ArgumentException("At least one variant is required.", nameof(variants));
+        }
+
+        var baseVariant = variants
+            .OrderByDescending(v => v.Width * v.Height)
+            .First();
+
+        var totalPlayers = 0;
+        var successCount = 0;
+        var failedCount = 0;
+        var processedCount = 0;
+
+        void LogLine(string message)
+        {
+            Console.WriteLine(message);
+            log?.Report(message);
+        }
+
+        LogLine("Generate Photos Command");
+        LogLine("======================");
+        LogLine($"CSV File: {inputCsvPath}");
+        LogLine($"Photos Dir: {photosDir}");
+        LogLine($"Format: {format}");
+        LogLine($"Face Detection: {faceDetectionModel}");
+        LogLine($"Crop Method: {crop}");
+        LogLine($"Portrait Only: {portraitOnly}");
+        LogLine($"Parallel: {parallel} (Degree: {parallelDegree})");
+        LogLine($"Variants: {string.Join(", ", variants.Select(v => $"{v.Key}:{v.Width}x{v.Height}"))}");
+        LogLine(string.Empty);
+
+        try
+        {
+            LogLine("Loading player data...");
+            var extractor = new Services.Database.DatabaseExtractor(_imageProcessor);
+            var players = await extractor.ReadCsvAsync(inputCsvPath);
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"✓ Loaded {players.Count} players from CSV");
+            Console.ResetColor();
+            log?.Report($"✓ Loaded {players.Count} players from CSV");
+            LogLine(string.Empty);
+
+            foreach (var variant in variants)
+            {
+                Directory.CreateDirectory(variant.OutputDir);
+            }
+
+            var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.ExternalId)).ToList();
+
+            if (!string.IsNullOrWhiteSpace(onlyPlayerId))
+            {
+                playersToProcess = playersToProcess
+                    .Where(p => string.Equals(p.PlayerId.ToString(), onlyPlayerId, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(p.ExternalId, onlyPlayerId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (playersToProcess.Count == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠ No player found with ID: {onlyPlayerId}");
+                    Console.ResetColor();
+                    log?.Report($"⚠ No player found with ID: {onlyPlayerId}");
+                    return new GeneratePhotosResult
+                    {
+                        ExitCode = 0,
+                        TotalPlayers = 0
+                    };
+                }
+
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"🔍 Filtering to {playersToProcess.Count} player(s) with ID: {onlyPlayerId}");
+                Console.ResetColor();
+                log?.Report($"🔍 Filtering to {playersToProcess.Count} player(s) with ID: {onlyPlayerId}");
+            }
+
+            totalPlayers = playersToProcess.Count;
+
+            if (totalPlayers == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("⚠ No players with ExternalId found to process");
+                Console.ResetColor();
+                log?.Report("⚠ No players with ExternalId found to process");
+                return new GeneratePhotosResult
+                {
+                    ExitCode = 0,
+                    TotalPlayers = 0
+                };
+            }
+
+            LogLine($"Processing {totalPlayers} players...");
+            LogLine(string.Empty);
+
+            var progressIndicator = new ProgressIndicator("Progress", totalPlayers, useBar: true);
+
+            if (parallel)
+            {
+                var options = new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = parallelDegree,
+                    CancellationToken = cancellationToken
+                };
+
+                await Parallel.ForEachAsync(playersToProcess, options, async (player, cancellationToken) =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
+
+                    var result = await ProcessPlayerMultiVariantAsync(
+                        player,
+                        photosDir,
+                        variants,
+                        baseVariant,
+                        format,
+                        portraitOnly,
+                        faceDetectionModel,
+                        cancellationToken);
+
+                    var currentProcessed = Interlocked.Increment(ref processedCount);
+                    progress?.Report((currentProcessed, totalPlayers, player.FullName));
+
+                    if (result.IsSuccess)
+                    {
+                        Interlocked.Increment(ref successCount);
+                    }
+                    else
+                    {
+                        Interlocked.Increment(ref failedCount);
+                        LogLine(string.Empty);
+                        Console.ForegroundColor = result.IsWarning ? ConsoleColor.Yellow : ConsoleColor.Red;
+                        Console.WriteLine($"  {(result.IsWarning ? "⚠" : "✗")} {result.ErrorMessage}");
+                        Console.ResetColor();
+                        log?.Report($"  {(result.IsWarning ? "⚠" : "✗")} {result.ErrorMessage}");
+                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                });
+            }
+            else
+            {
+                foreach (var player in playersToProcess)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
+
+                    var result = await ProcessPlayerMultiVariantAsync(
+                        player,
+                        photosDir,
+                        variants,
+                        baseVariant,
+                        format,
+                        portraitOnly,
+                        faceDetectionModel,
+                        cancellationToken);
+
+                    processedCount++;
+                    progress?.Report((processedCount, totalPlayers, player.FullName));
+
+                    if (result.IsSuccess)
+                    {
+                        successCount++;
+                    }
+                    else
+                    {
+                        failedCount++;
+                        LogLine(string.Empty);
+                        Console.ForegroundColor = result.IsWarning ? ConsoleColor.Yellow : ConsoleColor.Red;
+                        Console.WriteLine($"  {(result.IsWarning ? "⚠" : "✗")} {result.ErrorMessage}");
+                        Console.ResetColor();
+                        log?.Report($"  {(result.IsWarning ? "⚠" : "✗")} {result.ErrorMessage}");
+                    }
+                }
+            }
+
+            progressIndicator.Complete();
+
+            LogLine(string.Empty);
+
+            if (_cache != null)
+            {
+                _cache.SaveCache();
+                var (totalEntries, validEntries) = _cache.GetStatistics();
+                if (totalEntries > 0)
+                {
+                    LogLine($"📦 Cache: {validEntries}/{totalEntries} entries");
+                }
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"✓ Generated {successCount} portraits ({failedCount} failed)");
+            Console.ResetColor();
+            log?.Report($"✓ Generated {successCount} portraits ({failedCount} failed)");
+
+            return new GeneratePhotosResult
+            {
+                ExitCode = 0,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("⚠ Generation cancelled by user");
+            Console.ResetColor();
+            log?.Report("⚠ Generation cancelled by user");
+            return new GeneratePhotosResult
+            {
+                ExitCode = 130,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount,
+                IsCancelled = true
+            };
+        }
+        catch (FileNotFoundException ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ File not found: {ex.FileName}");
+            Console.ResetColor();
+            log?.Report($"✗ File not found: {ex.FileName}");
+            return new GeneratePhotosResult
+            {
+                ExitCode = 1,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+            Console.ResetColor();
+            log?.Report($"✗ Error: {ex.Message}");
+            return new GeneratePhotosResult
+            {
+                ExitCode = 1,
+                TotalPlayers = totalPlayers,
+                ProcessedPlayers = successCount + failedCount,
+                PortraitsGenerated = successCount,
+                PortraitsFailed = failedCount
+            };
+        }
+    }
+
     /// <summary>
     /// Processes a single player's photo.
     /// </summary>
@@ -410,20 +706,7 @@ public class GeneratePhotosCommandLogic
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Construct input photo path - search in photosDir
-        var photoFiles = Directory.GetFiles(photosDir, $"{player.ExternalId}.*")
-            .Where(f => IsSupportedImageFormat(f))
-            .ToList();
-
-        if (photoFiles.Count == 0)
-        {
-            // Try searching with underscore pattern (ID at end of filename)
-            // Filename pattern: FirstName_LastName_PlayerID.jpg
-            var pattern = $"*_{player.ExternalId}.*";
-            photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
-                .Where(f => IsSupportedImageFormat(f))
-                .ToList();
-        }
+        var photoFiles = FindPlayerPhotoFiles(photosDir, player.ExternalId);
 
         if (photoFiles.Count == 0)
         {
@@ -516,6 +799,118 @@ public class GeneratePhotosCommandLogic
         }
     }
 
+    private async Task<ProcessPlayerResult> ProcessPlayerMultiVariantAsync(
+        PlayerRecord player,
+        string photosDir,
+        IReadOnlyList<GeneratePhotosVariantPlan> variants,
+        GeneratePhotosVariantPlan baseVariant,
+        string format,
+        bool portraitOnly,
+        string faceDetectionModel,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var photoFiles = FindPlayerPhotoFiles(photosDir, player.ExternalId);
+
+        if (photoFiles.Count == 0)
+        {
+            var missingVariants = new List<string>();
+            foreach (var variant in variants)
+            {
+                if (string.IsNullOrWhiteSpace(variant.PlaceholderPath) || !File.Exists(variant.PlaceholderPath))
+                {
+                    missingVariants.Add(variant.Key);
+                    continue;
+                }
+
+                try
+                {
+                    using var placeholder = await _imageProcessor.LoadImageAsync(variant.PlaceholderPath);
+                    var outputPath = Path.Combine(variant.OutputDir, $"{player.PlayerId}.{format}");
+                    await _imageProcessor.SaveImageAsync(placeholder, outputPath, format);
+                }
+                catch (Exception ex)
+                {
+                    return new ProcessPlayerResult(false, false, $"Error using placeholder: {ex.Message}");
+                }
+            }
+
+            if (missingVariants.Count > 0)
+            {
+                return new ProcessPlayerResult(false, true,
+                    $"No photo found for player {player.ExternalId} (missing placeholders for: {string.Join(", ", missingVariants)})");
+            }
+
+            return new ProcessPlayerResult(true, false, string.Empty);
+        }
+
+        var photoPath = photoFiles[0];
+
+        try
+        {
+            FaceLandmarks landmarks;
+
+            if (!portraitOnly)
+            {
+                if (_cache != null)
+                {
+                    var cached = _cache.GetCachedLandmarks(photoPath, faceDetectionModel);
+                    if (cached != null)
+                    {
+                        landmarks = cached;
+                        Console.WriteLine("  ✓ Using cached face detection");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  Detecting faces for {player.FullName} (uncached)...");
+                        landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                        _cache.CacheLandmarks(photoPath, landmarks, faceDetectionModel);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"  Detecting faces for {player.FullName}...");
+                    landmarks = await _faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                }
+            }
+            else
+            {
+                landmarks = new FaceLandmarks { FaceDetected = false };
+            }
+
+            var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
+
+            using var image = await _imageProcessor.LoadImageAsync(photoPath);
+            using var basePortrait = await _imageProcessor.CropPortraitAsync(
+                image,
+                landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
+                baseVariant.Width,
+                baseVariant.Height);
+
+            var baseOutputPath = Path.Combine(baseVariant.OutputDir, $"{player.PlayerId}.{format}");
+            await _imageProcessor.SaveImageAsync(basePortrait, baseOutputPath, format);
+
+            foreach (var variant in variants)
+            {
+                if (variant.Width == baseVariant.Width && variant.Height == baseVariant.Height)
+                {
+                    continue;
+                }
+
+                using var resized = await _imageProcessor.ResizeAsync(basePortrait, variant.Width, variant.Height);
+                var outputPath = Path.Combine(variant.OutputDir, $"{player.PlayerId}.{format}");
+                await _imageProcessor.SaveImageAsync(resized, outputPath, format);
+            }
+
+            return new ProcessPlayerResult(true, false, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return new ProcessPlayerResult(false, false, $"Error: {ex.Message}");
+        }
+    }
+
     #endregion
 }
 
@@ -595,6 +990,9 @@ public class GeneratePhotosCommand
 
     [Option(ShortName = "ph", LongName = "placeholderImage", Description = "Path to a placeholder image to use when no source photo is available")]
     public string? PlaceholderImage { get; set; }
+
+    [Option(ShortName = "npp", LongName = "noProfilePlaceholders", Description = "Ignore placeholder paths defined in size profile variants")]
+    public bool NoProfilePlaceholders { get; set; } = false;
 
     public async Task<int> OnExecuteAsync()
     {
@@ -710,22 +1108,36 @@ public class GeneratePhotosCommand
 
         if (!AllSizes)
         {
-            var firstVariant = loadedProfile.Variants.First();
-            return await RunOneVariant(firstVariant.Width, firstVariant.Height, baseOutputPath, firstVariant.Key, firstVariant.PlaceholderPath);
+            var firstVariant = loadedProfile.Variants.FirstOrDefault(v =>
+                                  string.Equals(v.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
+                                  || (v.Width == 200 && v.Height == 300))
+                              ?? loadedProfile.Variants.First();
+
+            var placeholderPath = NoProfilePlaceholders ? null : firstVariant.PlaceholderPath;
+            return await RunOneVariant(firstVariant.Width, firstVariant.Height, baseOutputPath, firstVariant.Key, placeholderPath);
         }
 
-        var worstExitCode = 0;
-        foreach (var variant in loadedProfile.Variants)
+        var variantPlans = loadedProfile.Variants.Select(variant =>
         {
             var subfolder = string.IsNullOrWhiteSpace(variant.OutputSubfolder) ? variant.Key : variant.OutputSubfolder;
             var variantOutput = Path.Combine(baseOutputPath, subfolder);
-            var exitCode = await RunOneVariant(variant.Width, variant.Height, variantOutput, variant.Key, variant.PlaceholderPath);
-            if (exitCode != 0)
-            {
-                worstExitCode = exitCode;
-            }
-        }
+            var placeholderPath = NoProfilePlaceholders ? null : variant.PlaceholderPath;
+            var resolvedPlaceholder = PlaceholderImage ?? placeholderPath;
+            return new GeneratePhotosVariantPlan(variant.Key, variant.Width, variant.Height, variantOutput, resolvedPlaceholder);
+        }).ToList();
 
-        return worstExitCode;
+        var multiResult = await logic.ExecuteMultiVariantAsync(
+            InputCsvPath,
+            PhotosDir,
+            variantPlans,
+            Format,
+            FaceDetection,
+            Crop,
+            PortraitOnly,
+            Parallel,
+            ParallelDegree,
+            OnlyPlayer);
+
+        return multiResult.ExitCode;
     }
 }
