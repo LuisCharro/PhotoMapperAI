@@ -13,22 +13,22 @@
   </Design.DataContext>
 
   <ScrollViewer>
-    <StackPanel Margin="24" Spacing="20">
+    <StackPanel Margin="16" Spacing="12">
       <!-- Header -->
       <TextBlock Text="Step 1: Extract Player Data" 
-                 FontSize="24" FontWeight="Bold" 
+                 FontSize="20" FontWeight="Bold" 
                  Foreground="{DynamicResource PrimaryBrush}"/>
       <TextBlock Text="Extract player data from your database to a CSV file. This CSV will be used in the next steps."
-                 FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                 FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
 
-      <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
+      <Separator Margin="0,4" Background="{DynamicResource DividerBrush}"/>
 
       <!-- SQL File Selection -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📁 SQL Query File" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="📁 SQL Query File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBlock Text="Select a SQL file containing the query to extract player data"
-                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding SqlFilePath}" 
                      Watermark="Path to SQL file..."
@@ -43,11 +43,11 @@
       </Border>
 
       <!-- Connection String File -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="🔐 Connection String File" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="🔐 Connection String File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBlock Text="Select a file containing your database connection string (kept separate for security)"
-                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding ConnectionStringPath}" 
                      Watermark="Path to connection string file..."
@@ -62,19 +62,19 @@
       </Border>
 
       <!-- Database Type and Team ID -->
-      <Grid ColumnDefinitions="*,*" Margin="0,8">
-        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="0,0,8,0">
-          <StackPanel Spacing="12">
-            <TextBlock Text="🗄️ Database Type" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+      <Grid ColumnDefinitions="*,*" Margin="0,4">
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,6,0">
+          <StackPanel Spacing="8">
+            <TextBlock Text="🗄️ Database Type" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <ComboBox ItemsSource="{Binding DatabaseTypes}" 
                       SelectedItem="{Binding DatabaseType}"
                       HorizontalAlignment="Stretch" Height="36"/>
           </StackPanel>
         </Border>
 
-        <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16" Margin="8,0,0,0">
-          <StackPanel Spacing="12">
-            <TextBlock Text="🏷️ Team ID" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+        <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="6,0,0,0">
+          <StackPanel Spacing="8">
+            <TextBlock Text="🏷️ Team ID" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <NumericUpDown Value="{Binding TeamId}" 
                           Minimum="0" Maximum="9999999"
                           HorizontalAlignment="Stretch" Height="36"/>
@@ -83,9 +83,9 @@
       </Grid>
 
       <!-- Output File Name -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📄 Output File Name" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="📄 Output File Name" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBox Text="{Binding OutputFileName}" 
                    Watermark="players.csv"
                    Height="36"
@@ -95,11 +95,11 @@
       </Border>
 
       <!-- Output Folder -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📂 Output Folder" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="📂 Output Folder" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           <TextBlock Text="Choose where the extracted CSV file will be created"
-                     FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding OutputDirectory}"
                      Watermark="Path to output folder..."
@@ -118,15 +118,15 @@
               Click="ExecuteExtract_Click"
               IsEnabled="{Binding !IsProcessing}"
               Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}"
-              FontSize="16" Padding="24,12"
+              FontSize="14" Padding="20,8"
               HorizontalAlignment="Center"/>
 
       <!-- Status -->
-      <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="16" 
+      <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="12" 
               IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="6">
           <TextBlock Text="{Binding ProcessingStatus}" 
-                     FontSize="14" TextWrapping="Wrap"
+                     FontSize="13" TextWrapping="Wrap"
                      Foreground="{DynamicResource PrimaryTextBrush}"/>
           <ProgressBar IsIndeterminate="True" 
                        IsVisible="{Binding IsProcessing}"
@@ -137,10 +137,10 @@
       <!-- Run Log -->
       <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch"
                 Background="{DynamicResource SurfaceBrush}">
-        <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,8,0,0" HorizontalAlignment="Stretch">
-          <StackPanel Spacing="8" HorizontalAlignment="Stretch">
-            <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="12,6"/>
-            <ScrollViewer Height="160" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="10" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+            <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="10,5"/>
+            <ScrollViewer Height="120" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
               <ItemsControl ItemsSource="{Binding LogLines}" HorizontalAlignment="Stretch">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
@@ -155,12 +155,12 @@
       </Expander>
 
       <!-- Success indicator -->
-      <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="16"
+      <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="12"
               IsVisible="{Binding IsComplete}">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="✓" FontSize="20" Foreground="{DynamicResource SuccessBrush}"/>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="✓" FontSize="18" Foreground="{DynamicResource SuccessBrush}"/>
           <TextBlock Text="{Binding PlayersExtracted, StringFormat='Successfully extracted {0} players'}"
-                     FontSize="14" Foreground="{DynamicResource SuccessDarkBrush}"/>
+                     FontSize="13" Foreground="{DynamicResource SuccessDarkBrush}"/>
         </StackPanel>
       </Border>
     </StackPanel>
