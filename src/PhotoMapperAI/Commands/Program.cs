@@ -52,7 +52,7 @@ Requires SQL query file and database connection string.
 
 Examples:
   photomapperai extract -inputSqlPath get_players.sql -teamId 10 -outputName team.csv
-  photomapperai extract -inputSqlPath get_teams.sql -teamId 10 -outputName teams.csv
+  photomapperai extract -inputSqlPath get_teams.sql -outputName teams.csv --extractTeams
 ")]
 public class ExtractCommand
 {
@@ -68,6 +68,9 @@ public class ExtractCommand
     [Option(ShortName = "o", LongName = "outputName", Description = "Output CSV filename")]
     public string OutputName { get; set; } = string.Empty;
 
+    [Option(ShortName = "et", LongName = "extractTeams", Description = "Extract teams instead of players (SQL should return TeamId, TeamName)")]
+    public bool ExtractTeams { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         Console.WriteLine("Extract Command");
@@ -76,6 +79,7 @@ public class ExtractCommand
         Console.WriteLine($"Connection String: {ConnectionStringPath}");
         Console.WriteLine($"Team ID: {TeamId}");
         Console.WriteLine($"Output: {OutputName}");
+        Console.WriteLine($"Extract Teams: {ExtractTeams}");
         Console.WriteLine();
 
         try
@@ -86,35 +90,57 @@ public class ExtractCommand
             // Read connection string
             var connectionString = await File.ReadAllTextAsync(ConnectionStringPath);
 
-            // Build parameters
-            var parameters = new Dictionary<string, object>
-            {
-                { "TeamId", TeamId }
-            };
-
             // Create database extractor
             var extractor = new Services.Database.DatabaseExtractor();
 
             // Determine output path
             var outputCsvPath = Path.Combine(Directory.GetCurrentDirectory(), OutputName);
 
-            // Extract data
-            Console.WriteLine("Extracting player data...");
-            int playerCount;
-            using (var spinner = ProgressIndicator.CreateSpinner("  Reading from database"))
+            if (ExtractTeams)
             {
-                playerCount = await extractor.ExtractPlayersToCsvAsync(
-                    connectionString,
-                    sqlQuery,
-                    parameters,
-                    outputCsvPath
-                );
-            }
+                // Extract teams data
+                Console.WriteLine("Extracting team data...");
+                int teamCount;
+                using (var spinner = ProgressIndicator.CreateSpinner("  Reading from database"))
+                {
+                    teamCount = await extractor.ExtractTeamsToCsvAsync(
+                        connectionString,
+                        sqlQuery,
+                        outputCsvPath
+                    );
+                }
 
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"✓ Extracted {playerCount} players to {OutputName}");
-            Console.ResetColor();
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"✓ Extracted {teamCount} teams to {OutputName}");
+                Console.ResetColor();
+            }
+            else
+            {
+                // Build parameters for players extraction
+                var parameters = new Dictionary<string, object>
+                {
+                    { "TeamId", TeamId }
+                };
+
+                // Extract players data
+                Console.WriteLine("Extracting player data...");
+                int playerCount;
+                using (var spinner = ProgressIndicator.CreateSpinner("  Reading from database"))
+                {
+                    playerCount = await extractor.ExtractPlayersToCsvAsync(
+                        connectionString,
+                        sqlQuery,
+                        parameters,
+                        outputCsvPath
+                    );
+                }
+
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"✓ Extracted {playerCount} players to {OutputName}");
+                Console.ResetColor();
+            }
 
             return 0;
         }

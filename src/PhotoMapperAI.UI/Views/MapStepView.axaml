@@ -23,11 +23,11 @@
 
       <Separator Margin="0,4" Background="{DynamicResource DividerBrush}"/>
 
-      <!-- CSV File Selection -->
+      <!-- Players CSV File Selection -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
         <StackPanel Spacing="8">
-          <TextBlock Text="📄 Input CSV File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Select the CSV file from Step 1 (or a previously saved session)"
+          <TextBlock Text="📄 Players CSV File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <TextBlock Text="Select the players CSV file from Step 1 (or a previously saved session)"
                      FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 

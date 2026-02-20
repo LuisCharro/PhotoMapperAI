@@ -14,6 +14,7 @@ public sealed class ExternalExtractCliRunner
     {
         public int ExitCode { get; set; }
         public int PlayersExtracted { get; set; }
+        public int TeamsExtracted { get; set; }
         public string OutputCsvPath { get; set; } = string.Empty;
     }
 
@@ -35,6 +36,37 @@ public sealed class ExternalExtractCliRunner
             "--outputName", outputCsvPath
         };
 
+        return await RunExtractProcessAsync(workingDirectory, args, outputCsvPath, cancellationToken, log);
+    }
+
+    public async Task<ExtractCliResult> ExecuteTeamsAsync(
+        string workingDirectory,
+        string inputSqlPath,
+        string connectionStringPath,
+        string outputCsvPath,
+        CancellationToken cancellationToken,
+        IProgress<string>? log)
+    {
+        var args = new List<string>
+        {
+            "run", "--project", "src/PhotoMapperAI", "--", "extract",
+            "--inputSqlPath", inputSqlPath,
+            "--connectionStringPath", connectionStringPath,
+            "--outputName", outputCsvPath,
+            "--extractTeams"
+        };
+
+        return await RunExtractProcessAsync(workingDirectory, args, outputCsvPath, cancellationToken, log, isTeams: true);
+    }
+
+    private async Task<ExtractCliResult> RunExtractProcessAsync(
+        string workingDirectory,
+        List<string> args,
+        string outputCsvPath,
+        CancellationToken cancellationToken,
+        IProgress<string>? log,
+        bool isTeams = false)
+    {
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -61,9 +93,18 @@ public sealed class ExternalExtractCliRunner
 
             log?.Report(line);
 
-            var m = Regex.Match(line, @"Extracted\s+(\d+)\s+players", RegexOptions.IgnoreCase);
-            if (m.Success)
-                extracted = int.Parse(m.Groups[1].Value);
+            if (isTeams)
+            {
+                var m = Regex.Match(line, @"Extracted\s+(\d+)\s+teams", RegexOptions.IgnoreCase);
+                if (m.Success)
+                    extracted = int.Parse(m.Groups[1].Value);
+            }
+            else
+            {
+                var m = Regex.Match(line, @"Extracted\s+(\d+)\s+players", RegexOptions.IgnoreCase);
+                if (m.Success)
+                    extracted = int.Parse(m.Groups[1].Value);
+            }
         }
 
         var err = await process.StandardError.ReadToEndAsync();
@@ -78,7 +119,8 @@ public sealed class ExternalExtractCliRunner
         return new ExtractCliResult
         {
             ExitCode = process.ExitCode,
-            PlayersExtracted = extracted,
+            PlayersExtracted = isTeams ? 0 : extracted,
+            TeamsExtracted = isTeams ? extracted : 0,
             OutputCsvPath = outputCsvPath
         };
     }
