@@ -23,9 +23,54 @@
 
       <Separator Margin="0,4" Background="{DynamicResource DividerBrush}"/>
 
-      <!-- Teams Section (Optional) -->
+      <!-- 1. Database Connection -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
         <StackPanel Spacing="8">
+          <TextBlock Text="🔐 Database Connection" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <TextBlock Text="Select a file containing your database connection string (kept separate for security)"
+                      FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <Grid Grid.Column="0" ColumnDefinitions="*,Auto">
+              <TextBox Grid.Column="0" Text="{Binding ConnectionStringPath}" 
+                       Watermark="Path to connection string file..."
+                       IsReadOnly="True" Height="32"
+                       Background="{DynamicResource InputBackgroundBrush}"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+              <Button Grid.Column="1" Content="Browse" 
+                      Click="BrowseConnectionStringFile_Click"
+                      Margin="6,0,0,0" Padding="12,6"/>
+            </Grid>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding DatabaseTypes}" 
+                      SelectedItem="{Binding DatabaseType}"
+                      Width="120" Height="32"
+                      Margin="8,0,0,0"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- 2. Players SQL File Selection -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="📁 Players SQL Query File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <TextBlock Text="Select a SQL file containing the query to extract player data"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Grid.Column="0" Text="{Binding SqlFilePath}" 
+                     Watermark="Path to SQL file..."
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseSqlFile_Click"
+                    Margin="6,0,0,0" Padding="12,6"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- 3. Teams Section (Optional) -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <!-- Use Teams checkbox + explanatory text -->
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="👥 Teams (Optional)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <CheckBox Content="Use Teams" 
@@ -85,82 +130,32 @@
         </StackPanel>
       </Border>
 
-      <!-- Players SQL File Selection -->
+      <!-- 4. Team Selection/Team ID -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
         <StackPanel Spacing="8">
-          <TextBlock Text="📁 Players SQL Query File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Select a SQL file containing the query to extract player data"
-                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBox Grid.Column="0" Text="{Binding SqlFilePath}" 
-                     Watermark="Path to SQL file..."
-                     IsReadOnly="True" Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <Button Grid.Column="1" Content="Browse" 
-                    Click="BrowseSqlFile_Click"
-                    Margin="6,0,0,0" Padding="12,6"/>
-          </Grid>
+          <!-- Team Dropdown (visible when teams are loaded and UseTeams is true) -->
+          <StackPanel IsVisible="{Binding UseTeams}">
+            <TextBlock Text="🏷️ Select Team" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <ComboBox ItemsSource="{Binding AvailableTeams}"
+                      SelectedItem="{Binding SelectedTeam}"
+                      HorizontalAlignment="Stretch" Height="32">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding DisplayName}"/>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
+          
+          <!-- Manual Team ID (visible when teams are not used) -->
+          <StackPanel IsVisible="{Binding !UseTeams}">
+            <TextBlock Text="🏷️ Team ID" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <NumericUpDown Value="{Binding TeamId}" 
+                          Minimum="0" Maximum="9999999"
+                          HorizontalAlignment="Stretch" Height="32"/>
+          </StackPanel>
         </StackPanel>
       </Border>
-
-      <!-- Connection String File -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
-        <StackPanel Spacing="8">
-          <TextBlock Text="🔐 Connection String File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Select a file containing your database connection string (kept separate for security)"
-                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBox Grid.Column="0" Text="{Binding ConnectionStringPath}" 
-                     Watermark="Path to connection string file..."
-                     IsReadOnly="True" Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <Button Grid.Column="1" Content="Browse" 
-                    Click="BrowseConnectionStringFile_Click"
-                    Margin="6,0,0,0" Padding="12,6"/>
-          </Grid>
-        </StackPanel>
-      </Border>
-
-      <!-- Database Type and Team Selection/ID -->
-      <Grid ColumnDefinitions="*,*" Margin="0,4">
-        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,6,0">
-          <StackPanel Spacing="8">
-            <TextBlock Text="🗄️ Database Type" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <ComboBox ItemsSource="{Binding DatabaseTypes}" 
-                      SelectedItem="{Binding DatabaseType}"
-                      HorizontalAlignment="Stretch" Height="32"/>
-          </StackPanel>
-        </Border>
-
-        <!-- Team Selection (when teams loaded) or Manual Team ID -->
-        <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12" Margin="6,0,0,0">
-          <StackPanel Spacing="8">
-            <!-- Team Dropdown (visible when teams are loaded and UseTeams is true) -->
-            <StackPanel IsVisible="{Binding UseTeams}">
-              <TextBlock Text="🏷️ Select Team" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-              <ComboBox ItemsSource="{Binding AvailableTeams}"
-                        SelectedItem="{Binding SelectedTeam}"
-                        HorizontalAlignment="Stretch" Height="32">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding DisplayName}"/>
-                  </DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-            </StackPanel>
-            
-            <!-- Manual Team ID (visible when teams are not used) -->
-            <StackPanel IsVisible="{Binding !UseTeams}">
-              <TextBlock Text="🏷️ Team ID" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-              <NumericUpDown Value="{Binding TeamId}" 
-                            Minimum="0" Maximum="9999999"
-                            HorizontalAlignment="Stretch" Height="32"/>
-            </StackPanel>
-          </StackPanel>
-        </Border>
-      </Grid>
 
       <!-- Output File Name (auto-generated when team selected) -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
