@@ -510,7 +510,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                     placeholderPath,
                     cropOffsetPreset,
                     CancellationToken.None,
-                    msg => LogDiagnostic($"[CLI] {msg}"),
+                    new Action<string>(msg => LogDiagnostic($"[CLI] {msg}")),
                     progress);
 
                 var generatedFile = Path.Combine(tempDir, $"{player.ExternalId}.{ImageFormat}");
