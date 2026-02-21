@@ -387,10 +387,6 @@
                 <CheckBox Content="Auto preview on change"
                           IsChecked="{Binding AutoPreviewEnabled}"
                           FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                <CheckBox Content="Strict mode (fail if detector unavailable)"
-                          IsChecked="{Binding StrictModeEnabled}"
-                          FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
-                          ToolTip.Tip="When enabled: fail preview with clear error if detector unavailable, log full diagnostics"/>
                 <TextBlock Text="{Binding CropOffsetStatus}"
                            FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
               </StackPanel>

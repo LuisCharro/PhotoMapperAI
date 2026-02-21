@@ -225,9 +225,6 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _cropOffsetStatus = string.Empty;
 
-    [ObservableProperty]
-    private bool _strictModeEnabled;
-
     public ObservableCollection<string> LogLines { get; } = new();
 
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
@@ -412,6 +409,9 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
     }
 
+    [ObservableProperty]
+    private bool _strictModeEnabled;
+
     [RelayCommand]
     private async Task GeneratePreview()
     {
@@ -426,7 +426,6 @@ public partial class GenerateStepViewModel : ViewModelBase
         IsPreviewing = true;
 
         var diagnostics = new List<string>();
-
         void LogDiagnostic(string message)
         {
             diagnostics.Add(message);
@@ -471,7 +470,6 @@ public partial class GenerateStepViewModel : ViewModelBase
                     PreviewImage = new Bitmap(placeholderStream);
                     PreviewStatus = "Previewed placeholder image.";
                     PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
-                    LogDiagnostic($"Using placeholder: {placeholderPath}");
                     return;
                 }
 
@@ -479,73 +477,66 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
-            LogDiagnostic($"Generating preview using CLI pipeline for deterministic results");
-            LogDiagnostic($"Face detection model: {FaceDetectionModel}");
-            LogDiagnostic($"Output size: {previewWidth}x{previewHeight}");
-
-            var tempDir = Path.Combine(Path.GetTempPath(), "PhotoMapperAI_Preview_" + Guid.NewGuid().ToString("N")[..8]);
-            try
+            LogDiagnostic($"Face detection model requested: {FaceDetectionModel}");
+            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
+            LogDiagnostic($"Detector initialization result: {faceDetectionService.ModelName}");
+            if (string.Equals(FaceDetectionModel, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
             {
-                Directory.CreateDirectory(tempDir);
-
-                var cropOffsetPreset = BuildCurrentCropOffsetPreset();
-                LogDiagnostic($"Using crop offset preset: {cropOffsetPreset.Name} (X: {cropOffsetPreset.HorizontalPercent}%, Y: {cropOffsetPreset.VerticalPercent}%)");
-
-                Progress<(int processed, int total, string current)>? progress = null;
-                var result = await _cliRunner.ExecuteAsync(
-                    Directory.GetCurrentDirectory(),
-                    InputCsvPath,
-                    PhotosDirectory,
-                    tempDir,
-                    ImageFormat,
-                    FaceDetectionModel,
-                    PortraitOnly,
-                    previewWidth,
-                    previewHeight,
-                    null,
-                    false,
-                    false,
-                    false,
-                    player.ExternalId,
-                    placeholderPath,
-                    cropOffsetPreset,
-                    CancellationToken.None,
-                    new Action<string>(msg => LogDiagnostic($"[CLI] {msg}")),
-                    progress);
-
-                var generatedFile = Path.Combine(tempDir, $"{player.ExternalId}.{ImageFormat}");
-                if (File.Exists(generatedFile))
+                var openCvService = faceDetectionService as PhotoMapperAI.Services.AI.OpenCVDNNFaceDetectionService;
+                if (openCvService != null)
                 {
-                    await using var generatedStream = File.OpenRead(generatedFile);
-                    PreviewImage = new Bitmap(generatedStream);
-                    PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}) via CLI pipeline.";
-                    LogDiagnostic($"Preview loaded from: {generatedFile}");
+                    LogDiagnostic("OpenCV-DNN model: using res10_300x300_ssd_iter_140000.caffemodel");
+                }
+            }
+            await faceDetectionService.InitializeAsync();
+            LogDiagnostic("OpenCV runtime status: initialized");
+
+            FaceLandmarks landmarks;
+            if (PortraitOnly)
+            {
+                landmarks = new FaceLandmarks { FaceDetected = false };
+            }
+            else
+            {
+                PreviewStatus = "Detecting face for preview...";
+                landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                if (landmarks != null)
+                {
+                    LogDiagnostic($"Face detected: rect={landmarks.FaceRect}, confidence={landmarks.FaceConfidence}, center={landmarks.FaceCenter}");
                 }
                 else
                 {
-                    var errorMsg = $"Preview generation failed - no output file at {generatedFile}";
-                    LogDiagnostic(errorMsg);
-                    PreviewStatus = StrictModeEnabled ? $"[STRICT ERROR] {errorMsg}" : errorMsg;
-                    return;
+                    LogDiagnostic("Face not detected, using image center");
                 }
             }
-            finally
-            {
-                try
-                {
-                    if (Directory.Exists(tempDir))
-                    {
-                        Directory.Delete(tempDir, true);
-                    }
-                }
-                catch
-                {
-                }
-            }
+
+            var imageProcessor = new ImageProcessor();
+            using var image = await imageProcessor.LoadImageAsync(photoPath);
+            LogDiagnostic($"Source image dimensions: {image.Width}x{image.Height}");
+
+            var cropOffset = BuildCurrentCropOffsetPreset();
+            LogDiagnostic($"Crop offset preset: {cropOffset.Name} ({cropOffset.HorizontalPercent}%, {cropOffset.VerticalPercent}%)");
+
+            using var cropped = await imageProcessor.CropPortraitAsync(
+                image,
+                landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
+                previewWidth,
+                previewHeight,
+                cropOffset);
+
+            LogDiagnostic($"Computed crop rectangle: {cropped.Width}x{cropped.Height}");
+            LogDiagnostic($"Output dimensions: {previewWidth}x{previewHeight}");
+
+            using var stream = new MemoryStream();
+            cropped.Save(stream, new JpegEncoder { Quality = 92 });
+            stream.Position = 0;
+            PreviewImage = new Bitmap(stream);
 
             PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
+            PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+            LogDiagnostic($"Preview encoded message: {PreviewStatus}");
 
-            if (StrictModeEnabled && diagnostics.Count > 0)
+            if (_strictModeEnabled && diagnostics.Count > 0)
             {
                 var diagnosticSummary = string.Join("\n", diagnostics);
                 PreviewStatus = $"[STRICT] {PreviewStatus}\n\nDiagnostics:\n{diagnosticSummary}";
@@ -553,11 +544,15 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            PreviewStatus = $"Preview failed: {ex.Message}";
-            LogDiagnostic($"ERROR: {ex.Message}");
-            if (StrictModeEnabled)
+            LogDiagnostic($"Error: {ex.Message}");
+            if (_strictModeEnabled && diagnostics.Count > 0)
             {
-                PreviewStatus = $"[STRICT ERROR] {ex.Message}\n\nDiagnostics:\n{string.Join("\n", diagnostics)}";
+                var diagnosticSummary = string.Join("\n", diagnostics);
+                PreviewStatus = $"[STRICT] Preview failed: {ex.Message}\n\nDiagnostics:\n{diagnosticSummary}";
+            }
+            else
+            {
+                PreviewStatus = $"Preview failed: {ex.Message}";
             }
         }
         finally

@@ -1017,17 +1017,6 @@ public class GeneratePhotosCommand
     [Option(ShortName = "npp", LongName = "noProfilePlaceholders", Description = "Ignore placeholder paths defined in size profile variants")]
     public bool NoProfilePlaceholders { get; set; } = false;
 
-    [Option(ShortName = "eo", LongName = "expectedOutput", Description = "Path to expected output file for validation (used with --onlyPlayer)")]
-    public string? ExpectedOutput { get; set; }
-
-    private static async Task<string> ComputeSha256Async(string filePath)
-    {
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        await using var stream = File.OpenRead(filePath);
-        var hash = await sha256.ComputeHashAsync(stream);
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
-
     public async Task<int> OnExecuteAsync()
     {
         PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
@@ -1119,7 +1108,7 @@ public class GeneratePhotosCommand
             }
             Directory.CreateDirectory(outputDir);
 
-            var result = await logic.ExecuteWithResultAsync(
+            return await logic.ExecuteAsync(
                 InputCsvPath,
                 PhotosDir,
                 outputDir,
@@ -1134,51 +1123,6 @@ public class GeneratePhotosCommand
                 OnlyPlayer,
                 placeholderForVariant
             );
-
-            if (result.ExitCode == 0 && result.ProcessedPlayers > 0 && !string.IsNullOrWhiteSpace(OnlyPlayer) && !string.IsNullOrWhiteSpace(ExpectedOutput))
-            {
-                var generatedOutputPath = Path.Combine(outputDir, $"{OnlyPlayer}.{Format}");
-                await ValidateOutputAsync(generatedOutputPath, ExpectedOutput);
-            }
-
-            return result.ExitCode;
-        }
-
-        async Task ValidateOutputAsync(string generatedPath, string expectedPath)
-        {
-            if (!File.Exists(generatedPath))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"⚠ Generated file not found: {generatedPath}");
-                Console.ResetColor();
-                return;
-            }
-
-            if (!File.Exists(expectedPath))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"⚠ Expected file not found: {expectedPath}");
-                Console.ResetColor();
-                return;
-            }
-
-            var generatedHash = await ComputeSha256Async(generatedPath);
-            var expectedHash = await ComputeSha256Async(expectedPath);
-
-            if (generatedHash == expectedHash)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"✓ Output validation passed: {generatedPath}");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"⚠ Output mismatch:");
-                Console.WriteLine($"  Generated: {generatedPath}");
-                Console.WriteLine($"  Expected:  {expectedPath}");
-                Console.ResetColor();
-            }
         }
 
         if (loadedProfile == null)
@@ -1217,12 +1161,6 @@ public class GeneratePhotosCommand
             Parallel,
             ParallelDegree,
             OnlyPlayer);
-
-        if (multiResult.ExitCode == 0 && multiResult.ProcessedPlayers > 0 && !string.IsNullOrWhiteSpace(OnlyPlayer) && !string.IsNullOrWhiteSpace(ExpectedOutput))
-        {
-            var generatedOutputPath = Path.Combine(baseOutputPath, $"{OnlyPlayer}.{Format}");
-            await ValidateOutputAsync(generatedOutputPath, ExpectedOutput);
-        }
 
         return multiResult.ExitCode;
     }
