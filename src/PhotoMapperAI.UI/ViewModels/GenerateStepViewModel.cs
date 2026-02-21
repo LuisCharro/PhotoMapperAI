@@ -18,6 +18,9 @@ using PhotoMapperAI.Services.Image;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
 using PhotoMapperAI.Utils;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 
 namespace PhotoMapperAI.UI.ViewModels;
@@ -406,6 +409,9 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
     }
 
+    [ObservableProperty]
+    private bool _strictModeEnabled;
+
     [RelayCommand]
     private async Task GeneratePreview()
     {
@@ -418,6 +424,13 @@ public partial class GenerateStepViewModel : ViewModelBase
         PreviewStatus = string.Empty;
         PreviewPlayerLabel = string.Empty;
         IsPreviewing = true;
+
+        var diagnostics = new List<string>();
+        void LogDiagnostic(string message)
+        {
+            diagnostics.Add(message);
+            AppendLog($"[PREVIEW] {message}");
+        }
 
         try
         {
@@ -464,8 +477,19 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
+            LogDiagnostic($"Face detection model requested: {FaceDetectionModel}");
             var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
+            LogDiagnostic($"Detector initialization result: {faceDetectionService.ModelName}");
+            if (string.Equals(FaceDetectionModel, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+            {
+                var openCvService = faceDetectionService as PhotoMapperAI.Services.AI.OpenCVDNNFaceDetectionService;
+                if (openCvService != null)
+                {
+                    LogDiagnostic("OpenCV-DNN model: using res10_300x300_ssd_iter_140000.caffemodel");
+                }
+            }
             await faceDetectionService.InitializeAsync();
+            LogDiagnostic("OpenCV runtime status: initialized");
 
             FaceLandmarks landmarks;
             if (PortraitOnly)
@@ -476,28 +500,60 @@ public partial class GenerateStepViewModel : ViewModelBase
             {
                 PreviewStatus = "Detecting face for preview...";
                 landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+                if (landmarks != null)
+                {
+                    LogDiagnostic($"Face detected: rect={landmarks.FaceRect}, confidence={landmarks.FaceConfidence}, center={landmarks.FaceCenter}");
+                }
+                else
+                {
+                    LogDiagnostic("Face not detected, using image center");
+                }
             }
 
             var imageProcessor = new ImageProcessor();
             using var image = await imageProcessor.LoadImageAsync(photoPath);
+            LogDiagnostic($"Source image dimensions: {image.Width}x{image.Height}");
+
+            var cropOffset = BuildCurrentCropOffsetPreset();
+            LogDiagnostic($"Crop offset preset: {cropOffset.Name} ({cropOffset.HorizontalPercent}%, {cropOffset.VerticalPercent}%)");
+
             using var cropped = await imageProcessor.CropPortraitAsync(
                 image,
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
                 previewWidth,
                 previewHeight,
-                BuildCurrentCropOffsetPreset());
+                cropOffset);
+
+            LogDiagnostic($"Computed crop rectangle: {cropped.Width}x{cropped.Height}");
+            LogDiagnostic($"Output dimensions: {previewWidth}x{previewHeight}");
 
             using var stream = new MemoryStream();
-            cropped.Save(stream, new PngEncoder());
+            cropped.Save(stream, new JpegEncoder { Quality = 92 });
             stream.Position = 0;
             PreviewImage = new Bitmap(stream);
 
             PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
             PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+            LogDiagnostic($"Preview encoded message: {PreviewStatus}");
+
+            if (_strictModeEnabled && diagnostics.Count > 0)
+            {
+                var diagnosticSummary = string.Join("\n", diagnostics);
+                PreviewStatus = $"[STRICT] {PreviewStatus}\n\nDiagnostics:\n{diagnosticSummary}";
+            }
         }
         catch (Exception ex)
         {
-            PreviewStatus = $"Preview failed: {ex.Message}";
+            LogDiagnostic($"Error: {ex.Message}");
+            if (_strictModeEnabled && diagnostics.Count > 0)
+            {
+                var diagnosticSummary = string.Join("\n", diagnostics);
+                PreviewStatus = $"[STRICT] Preview failed: {ex.Message}\n\nDiagnostics:\n{diagnosticSummary}";
+            }
+            else
+            {
+                PreviewStatus = $"Preview failed: {ex.Message}";
+            }
         }
         finally
         {
@@ -646,8 +702,38 @@ public partial class GenerateStepViewModel : ViewModelBase
             {
                 try
                 {
-                    await using var stream = File.OpenRead(item.FilePath);
-                    item.Thumbnail = new Bitmap(stream);
+                    // Load image with ImageSharp and resize to thumbnail size
+                    using var image = await Image.LoadAsync(item.FilePath);
+
+                    // Calculate thumbnail size (max 160x80, preserve aspect ratio)
+                    int thumbnailWidth = 160;
+                    int thumbnailHeight = 80;
+                    double aspectRatio = (double)image.Width / image.Height;
+
+                    if (aspectRatio > (thumbnailWidth / (double)thumbnailHeight))
+                    {
+                        // Image is wider than target - scale by width
+                        thumbnailHeight = (int)(thumbnailWidth / aspectRatio);
+                    }
+                    else
+                    {
+                        // Image is taller than target - scale by height
+                        thumbnailWidth = (int)(thumbnailHeight * aspectRatio);
+                    }
+
+                    // Resize image using high-quality resampling
+                    image.Mutate(x => x
+                        .Resize(new ResizeOptions
+                        {
+                            Size = new Size(thumbnailWidth, thumbnailHeight),
+                            Sampler = KnownResamplers.Lanczos3
+                        }));
+
+                    // Convert to Avalonia Bitmap
+                    using var outputStream = new MemoryStream();
+                    await image.SaveAsJpegAsync(outputStream);
+                    outputStream.Position = 0;
+                    item.Thumbnail = new Bitmap(outputStream);
                 }
                 catch
                 {

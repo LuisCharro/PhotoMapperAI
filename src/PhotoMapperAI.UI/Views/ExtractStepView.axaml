@@ -3,7 +3,7 @@
              xmlns:vm="using:PhotoMapperAI.UI.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="PhotoMapperAI.UI.Views.ExtractStepView"
              x:DataType="vm:ExtractStepViewModel"
              Background="{DynamicResource BackgroundBrush}">
@@ -18,29 +18,32 @@
       <TextBlock Text="Step 1: Extract Player Data" 
                  FontSize="20" FontWeight="Bold" 
                  Foreground="{DynamicResource PrimaryBrush}"/>
-      <TextBlock Text="Extract player data from your database to a CSV file. This CSV will be used in the next steps."
+      <TextBlock Text="Extract player data from your database. Select a team to auto-generate the output filename."
                  FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
 
       <Separator Margin="0,4" Background="{DynamicResource DividerBrush}"/>
 
-      <!-- 1. Database Connection -->
+      <!-- STEP 1: Database Connection -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
         <StackPanel Spacing="8">
-          <TextBlock Text="🔐 Database Connection" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Select a file containing your database connection string (kept separate for security)"
-                      FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-          <Grid ColumnDefinitions="*,Auto">
-            <Grid Grid.Column="0" ColumnDefinitions="*,Auto">
-              <TextBox Grid.Column="0" Text="{Binding ConnectionStringPath}" 
-                       Watermark="Path to connection string file..."
-                       IsReadOnly="True" Height="32"
-                       Background="{DynamicResource InputBackgroundBrush}"
-                       Foreground="{DynamicResource PrimaryTextBrush}"/>
-              <Button Grid.Column="1" Content="Browse" 
-                      Click="BrowseConnectionStringFile_Click"
-                      Margin="6,0,0,0" Padding="12,6"/>
-            </Grid>
-            <ComboBox Grid.Column="1" ItemsSource="{Binding DatabaseTypes}" 
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="1" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Database Connection" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+          <TextBlock Text="Select a file containing your connection string (kept separate for security)"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding ConnectionStringPath}" 
+                     Watermark="Path to connection string file..."
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseConnectionStringFile_Click"
+                    Margin="6,0,0,0" Padding="12,6"/>
+            <ComboBox Grid.Column="2" ItemsSource="{Binding DatabaseTypes}" 
                       SelectedItem="{Binding DatabaseType}"
                       Width="120" Height="32"
                       Margin="8,0,0,0"/>
@@ -48,12 +51,161 @@
         </StackPanel>
       </Border>
 
-      <!-- 2. Players SQL File Selection -->
+      <!-- STEP 2: Team Source Configuration -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
         <StackPanel Spacing="8">
-          <TextBlock Text="📁 Players SQL Query File" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Select a SQL file containing the query to extract player data"
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="2" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Team Source" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+          
+          <!-- Mode Toggle -->
+          <CheckBox Content="Use teams database (extract or load teams to select from dropdown)"
+                    IsChecked="{Binding UseTeams}"
+                    FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          
+          <!-- Teams Configuration (visible when UseTeams is true) -->
+          <StackPanel IsVisible="{Binding UseTeams}" Spacing="8" Margin="0,8,0,0">
+            
+            <!-- Option A: Extract Teams -->
+            <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Option A: Extract Teams from Database" 
+                           FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                  <TextBox Grid.Column="0" Text="{Binding TeamsSqlFilePath}" 
+                           Watermark="Teams SQL file..."
+                           IsReadOnly="True" Height="28" FontSize="11"
+                           Background="{DynamicResource InputBackgroundBrush}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <Button Grid.Column="1" Content="Browse" 
+                          Click="BrowseTeamsSqlFile_Click"
+                          Margin="6,0,0,0" Padding="10,4" FontSize="11"/>
+                  <Button Grid.Column="2" Content="Extract Teams"
+                          Click="ExtractTeams_Click"
+                          IsEnabled="{Binding !IsExtractingTeams}"
+                          Margin="6,0,0,0" Padding="10,4" FontSize="11"
+                          Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource HeaderTextBrush}"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+            
+            <!-- OR divider -->
+            <TextBlock Text="— or —" HorizontalAlignment="Center" 
+                       FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            
+            <!-- Option B: Load Existing -->
+            <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Option B: Load Existing teams.csv" 
+                           FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                  <TextBox Grid.Column="0" Text="{Binding TeamsCsvPath}" 
+                           Watermark="Existing teams.csv file..."
+                           IsReadOnly="True" Height="28" FontSize="11"
+                           Background="{DynamicResource InputBackgroundBrush}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <Button Grid.Column="1" Content="Browse" 
+                          Click="BrowseTeamsCsvFile_Click"
+                          Margin="6,0,0,0" Padding="10,4" FontSize="11"/>
+                  <Button Grid.Column="2" Content="Load"
+                          Command="{Binding LoadTeamsFromCsvCommand}"
+                          IsEnabled="{Binding !IsExtractingTeams}"
+                          Margin="6,0,0,0" Padding="10,4" FontSize="11"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+            
+            <!-- Teams Status -->
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding TeamsLoaded}" Margin="0,4,0,0">
+              <TextBlock Text="✓" FontSize="12" Foreground="{DynamicResource SuccessBrush}"/>
+              <TextBlock Text="{Binding AvailableTeams.Count, StringFormat='{}{0} teams loaded'}"
+                         FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <Button Content="Clear" 
+                      Command="{Binding ClearTeamsSelectionCommand}"
+                      Padding="8,2" FontSize="10"/>
+            </StackPanel>
+            
+            <!-- Progress for teams extraction -->
+            <ProgressBar IsIndeterminate="True" 
+                         IsVisible="{Binding IsExtractingTeams}"
+                         Height="4" Margin="0,4,0,0"/>
+          </StackPanel>
+          
+          <!-- Manual Team ID (visible when UseTeams is false) -->
+          <StackPanel IsVisible="{Binding !UseTeams}" Spacing="6" Margin="0,8,0,0">
+            <TextBlock Text="Enter Team ID manually:" 
+                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <NumericUpDown Value="{Binding TeamId}" 
+                          Minimum="0" Maximum="9999999"
+                          HorizontalAlignment="Left" Width="200" Height="32"
+                          FontSize="13"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- STEP 3: Team Selection (only when teams are loaded) -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12"
+              IsVisible="{Binding UseTeams}">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="3" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Select Team" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+          
+          <TextBlock Text="Choose a team to filter players and auto-generate output filename"
                      FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          
+          <Grid ColumnDefinitions="*,Auto">
+            <ComboBox Grid.Column="0" ItemsSource="{Binding AvailableTeams}"
+                      SelectedItem="{Binding SelectedTeam}"
+                      HorizontalAlignment="Stretch" Height="32"
+                      IsEnabled="{Binding TeamsLoaded}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding TeamId}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="-" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding TeamName}" FontSize="12"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" 
+                        IsVisible="{Binding SelectedTeam, Converter={x:Static ObjectConverters.IsNotNull}}" 
+                        Margin="8,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="→" FontSize="14" Foreground="{DynamicResource PrimaryBrush}"/>
+              <TextBlock Text="{Binding OutputFileName}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- STEP 3/4: Players SQL File -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <Panel>
+                <TextBlock Text="4" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"
+                           IsVisible="{Binding UseTeams}"/>
+                <TextBlock Text="3" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"
+                           IsVisible="{Binding !UseTeams}"/>
+              </Panel>
+            </Border>
+            <TextBlock Text="Players SQL Query" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+          
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="SQL file to extract players" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TextBlock Text="(uses Team ID as parameter)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"
+                       IsVisible="{Binding UseTeams}"/>
+          </StackPanel>
+          
           <Grid ColumnDefinitions="*,Auto">
             <TextBox Grid.Column="0" Text="{Binding SqlFilePath}" 
                      Watermark="Path to SQL file..."
@@ -67,140 +219,62 @@
         </StackPanel>
       </Border>
 
-      <!-- 3. Teams Section (Optional) -->
+      <!-- STEP 4/5: Output Configuration -->
       <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
         <StackPanel Spacing="8">
-          <!-- Use Teams checkbox + explanatory text -->
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="👥 Teams (Optional)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <CheckBox Content="Use Teams" 
-                      IsChecked="{Binding UseTeams}"
-                      IsEnabled="{Binding TeamsLoaded}"/>
-          </StackPanel>
-          <TextBlock Text="Extract teams to enable team selection dropdown and auto-generate output filename"
-                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
-
-          <!-- Teams SQL File -->
-          <Grid ColumnDefinitions="*,Auto,Auto">
-            <TextBox Grid.Column="0" Text="{Binding TeamsSqlFilePath}" 
-                     Watermark="Path to teams SQL file (optional)..."
-                     IsReadOnly="True" Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <Button Grid.Column="1" Content="Browse" 
-                    Click="BrowseTeamsSqlFile_Click"
-                    Margin="6,0,0,0" Padding="12,6"/>
-            <Button Grid.Column="2" Content="Extract Teams"
-                    Click="ExtractTeams_Click"
-                    IsEnabled="{Binding !IsExtractingTeams}"
-                    Margin="6,0,0,0" Padding="12,6"
-                    Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource HeaderTextBrush}"/>
-          </Grid>
-
-          <!-- Or Load Existing Teams CSV -->
-          <Grid ColumnDefinitions="*,Auto,Auto">
-            <TextBox Grid.Column="0" Text="{Binding TeamsCsvPath}" 
-                     Watermark="Or load existing teams.csv..."
-                     IsReadOnly="True" Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <Button Grid.Column="1" Content="Browse" 
-                    Click="BrowseTeamsCsvFile_Click"
-                    Margin="6,0,0,0" Padding="12,6"/>
-            <Button Grid.Column="2" Content="Load"
-                    Command="{Binding LoadTeamsFromCsvCommand}"
-                    IsEnabled="{Binding !IsExtractingTeams}"
-                    Margin="6,0,0,0" Padding="12,6"/>
-          </Grid>
-
-          <!-- Teams Status -->
-          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding TeamsLoaded}">
-            <TextBlock Text="✓" FontSize="12" Foreground="{DynamicResource SuccessBrush}"/>
-            <TextBlock Text="{Binding AvailableTeams.Count, StringFormat='{}{0} teams loaded'}"
-                       FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-            <Button Content="Clear" 
-                    Command="{Binding ClearTeamsSelectionCommand}"
-                    Padding="8,2" FontSize="10"/>
-          </StackPanel>
-
-          <!-- Progress for teams extraction -->
-          <ProgressBar IsIndeterminate="True" 
-                       IsVisible="{Binding IsExtractingTeams}"
-                       Height="4"/>
-        </StackPanel>
-      </Border>
-
-      <!-- 4. Team Selection/Team ID -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
-        <StackPanel Spacing="8">
-          <!-- Team Dropdown (visible when teams are loaded and UseTeams is true) -->
-          <StackPanel IsVisible="{Binding UseTeams}">
-            <TextBlock Text="🏷️ Select Team" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <ComboBox ItemsSource="{Binding AvailableTeams}"
-                      SelectedItem="{Binding SelectedTeam}"
-                      HorizontalAlignment="Stretch" Height="32">
-              <ComboBox.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Text="{Binding DisplayName}"/>
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <Panel>
+                <TextBlock Text="5" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"
+                           IsVisible="{Binding UseTeams}"/>
+                <TextBlock Text="4" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"
+                           IsVisible="{Binding !UseTeams}"/>
+              </Panel>
+            </Border>
+            <TextBlock Text="Output" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           </StackPanel>
           
-          <!-- Manual Team ID (visible when teams are not used) -->
-          <StackPanel IsVisible="{Binding !UseTeams}">
-            <TextBlock Text="🏷️ Team ID" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <NumericUpDown Value="{Binding TeamId}" 
-                          Minimum="0" Maximum="9999999"
-                          HorizontalAlignment="Stretch" Height="32"/>
-          </StackPanel>
-        </StackPanel>
-      </Border>
-
-      <!-- Output File Name (auto-generated when team selected) -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
-        <StackPanel Spacing="8">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="📄 Output File Name" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <TextBlock Text="(auto-generated from team selection)" 
-                       FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
-                       IsVisible="{Binding UseTeams}"
-                       VerticalAlignment="Center"/>
-          </StackPanel>
-          <TextBox Text="{Binding OutputFileName}" 
-                   Watermark="players.csv"
-                   Height="32"
-                   IsReadOnly="{Binding UseTeams}"
-                   Background="{DynamicResource InputBackgroundBrush}"
-                   Foreground="{DynamicResource PrimaryTextBrush}"/>
-        </StackPanel>
-      </Border>
-
-      <!-- Output Folder -->
-      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
-        <StackPanel Spacing="8">
-          <TextBlock Text="📂 Output Folder" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-          <TextBlock Text="Choose where the extracted CSV file will be created"
-                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBox Grid.Column="0" Text="{Binding OutputDirectory}"
-                     Watermark="Path to output folder..."
-                     IsReadOnly="True" Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <Button Grid.Column="1" Content="Browse"
-                    Click="BrowseOutputDirectory_Click"
-                    Margin="6,0,0,0" Padding="12,6"/>
+          <!-- Output Folder -->
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Folder:" 
+                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
+            <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,Auto" Margin="8,0,0,0">
+              <TextBox Grid.Column="0" Text="{Binding OutputDirectory}"
+                       Watermark="Output folder..."
+                       IsReadOnly="True" Height="32"
+                       Background="{DynamicResource InputBackgroundBrush}"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+              <Button Grid.Column="1" Content="Browse"
+                      Click="BrowseOutputDirectory_Click"
+                      Margin="6,0,0,0" Padding="12,6"/>
+            </Grid>
+          </Grid>
+          
+          <!-- Output Filename -->
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Filename:" 
+                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
+            <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,0">
+              <TextBox Text="{Binding OutputFileName}" 
+                       Watermark="players.csv"
+                       Height="32"
+                       IsReadOnly="{Binding UseTeams}"
+                       Background="{DynamicResource InputBackgroundBrush}"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+              <TextBlock Text="Auto-generated from team selection" 
+                         FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"
+                         IsVisible="{Binding UseTeams}" Margin="0,2,0,0"/>
+            </StackPanel>
           </Grid>
         </StackPanel>
       </Border>
 
-      <!-- Execute Button -->
-      <Button Content="▶ Extract Data" 
+      <!-- STEP 6: Execute -->
+      <Button Content="▶ Extract Player Data" 
               Click="ExecuteExtract_Click"
               IsEnabled="{Binding !IsProcessing}"
               Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}"
-              FontSize="14" Padding="20,8"
+              FontSize="14" FontWeight="SemiBold" Padding="24,10"
               HorizontalAlignment="Center"/>
 
       <!-- Status -->
@@ -216,7 +290,22 @@
         </StackPanel>
       </Border>
 
-      <!-- Run Log -->
+      <!-- Success indicator -->
+      <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="12"
+              IsVisible="{Binding IsComplete}">
+        <StackPanel Spacing="4">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="✓" FontSize="18" Foreground="{DynamicResource SuccessBrush}"/>
+            <TextBlock Text="{Binding PlayersExtracted, StringFormat='Successfully extracted {0} players'}"
+                       FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SuccessDarkBrush}"/>
+          </StackPanel>
+          <TextBlock Text="{Binding OutputCsvPath, StringFormat='Saved to: {0}'}"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"
+                     IsVisible="{Binding OutputCsvPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Run Log (collapsed by default) -->
       <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch"
                 Background="{DynamicResource SurfaceBrush}">
         <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="10" Margin="0,6,0,0" HorizontalAlignment="Stretch">
@@ -235,16 +324,6 @@
           </StackPanel>
         </Border>
       </Expander>
-
-      <!-- Success indicator -->
-      <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="12"
-              IsVisible="{Binding IsComplete}">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="✓" FontSize="18" Foreground="{DynamicResource SuccessBrush}"/>
-          <TextBlock Text="{Binding PlayersExtracted, StringFormat='Successfully extracted {0} players'}"
-                     FontSize="13" Foreground="{DynamicResource SuccessDarkBrush}"/>
-        </StackPanel>
-      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>
