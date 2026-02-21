@@ -81,6 +81,10 @@ tests/Data/*
 appsettings.local.json
 appsettings.json
 
+# Allow default size_profiles.json to be tracked (but not local overrides)
+!size_profiles.json
+size_profiles.local.json
+
 # Test outputs and generated files
 *.csv
 !test-*.csv

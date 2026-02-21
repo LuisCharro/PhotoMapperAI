@@ -1225,6 +1225,11 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         var candidates = new[]
         {
+            // Primary: size_profiles.json next to appsettings.json
+            Path.Combine(Directory.GetCurrentDirectory(), "size_profiles.json"),
+            Path.Combine(AppContext.BaseDirectory, "size_profiles.json"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "size_profiles.json")),
+            // Fallback: samples/size_profiles.default.json for backwards compatibility
             Path.Combine(Directory.GetCurrentDirectory(), "samples", "size_profiles.default.json"),
             Path.Combine(AppContext.BaseDirectory, "samples", "size_profiles.default.json"),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "samples", "size_profiles.default.json")),
