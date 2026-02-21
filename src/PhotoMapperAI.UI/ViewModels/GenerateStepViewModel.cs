@@ -18,6 +18,9 @@ using PhotoMapperAI.Services.Image;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
 using PhotoMapperAI.Utils;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 
 namespace PhotoMapperAI.UI.ViewModels;
@@ -488,7 +491,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                 BuildCurrentCropOffsetPreset());
 
             using var stream = new MemoryStream();
-            cropped.Save(stream, new PngEncoder());
+            cropped.Save(stream, new JpegEncoder { Quality = 92 });
             stream.Position = 0;
             PreviewImage = new Bitmap(stream);
 
@@ -646,8 +649,38 @@ public partial class GenerateStepViewModel : ViewModelBase
             {
                 try
                 {
-                    await using var stream = File.OpenRead(item.FilePath);
-                    item.Thumbnail = new Bitmap(stream);
+                    // Load image with ImageSharp and resize to thumbnail size
+                    using var image = await Image.LoadAsync(item.FilePath);
+
+                    // Calculate thumbnail size (max 160x80, preserve aspect ratio)
+                    int thumbnailWidth = 160;
+                    int thumbnailHeight = 80;
+                    double aspectRatio = (double)image.Width / image.Height;
+
+                    if (aspectRatio > (thumbnailWidth / (double)thumbnailHeight))
+                    {
+                        // Image is wider than target - scale by width
+                        thumbnailHeight = (int)(thumbnailWidth / aspectRatio);
+                    }
+                    else
+                    {
+                        // Image is taller than target - scale by height
+                        thumbnailWidth = (int)(thumbnailHeight * aspectRatio);
+                    }
+
+                    // Resize image using high-quality resampling
+                    image.Mutate(x => x
+                        .Resize(new ResizeOptions
+                        {
+                            Size = new Size(thumbnailWidth, thumbnailHeight),
+                            Sampler = KnownResamplers.Lanczos3
+                        }));
+
+                    // Convert to Avalonia Bitmap
+                    using var outputStream = new MemoryStream();
+                    await image.SaveAsJpegAsync(outputStream);
+                    outputStream.Position = 0;
+                    item.Thumbnail = new Bitmap(outputStream);
                 }
                 catch
                 {
