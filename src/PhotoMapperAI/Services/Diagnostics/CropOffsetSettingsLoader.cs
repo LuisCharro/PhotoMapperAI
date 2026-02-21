@@ -71,6 +71,18 @@ public static class CropOffsetSettingsLoader
         offsetsNode["Presets"] = presetsArray;
         imageNode["CropOffsets"] = offsetsNode;
 
+        // Save PreviewCustomDimensions if present
+        if (settings.PreviewCustomDimensions != null)
+        {
+            var dimensionsNode = new JsonObject
+            {
+                ["Width"] = settings.PreviewCustomDimensions.Width,
+                ["Height"] = settings.PreviewCustomDimensions.Height,
+                ["UseCustom"] = settings.PreviewCustomDimensions.UseCustom
+            };
+            imageNode["PreviewCustomDimensions"] = dimensionsNode;
+        }
+
         File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
@@ -129,6 +141,33 @@ public static class CropOffsetSettingsLoader
         if (settings.Presets.Count == 0)
         {
             settings.Presets.Add(new CropOffsetPreset { Name = "default" });
+        }
+
+        // Load PreviewCustomDimensions if present
+        if (imageRoot.TryGetProperty("PreviewCustomDimensions", out var dimensionsRoot) &&
+            dimensionsRoot.ValueKind == JsonValueKind.Object)
+        {
+            var dimensions = new PreviewCustomDimensions();
+
+            if (dimensionsRoot.TryGetProperty("Width", out var widthElement) &&
+                widthElement.ValueKind == JsonValueKind.Number)
+            {
+                dimensions.Width = widthElement.GetInt32();
+            }
+
+            if (dimensionsRoot.TryGetProperty("Height", out var heightElement) &&
+                heightElement.ValueKind == JsonValueKind.Number)
+            {
+                dimensions.Height = heightElement.GetInt32();
+            }
+
+            if (dimensionsRoot.TryGetProperty("UseCustom", out var useCustomElement) &&
+                useCustomElement.ValueKind == JsonValueKind.True || useCustomElement.ValueKind == JsonValueKind.False)
+            {
+                dimensions.UseCustom = useCustomElement.GetBoolean();
+            }
+
+            settings.PreviewCustomDimensions = dimensions;
         }
 
         return settings;

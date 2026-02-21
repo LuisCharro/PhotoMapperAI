@@ -11,10 +11,18 @@ public sealed class CropOffsetPreset
     public double VerticalPercent { get; set; }
 }
 
+public sealed class PreviewCustomDimensions
+{
+    public int Width { get; set; } = 200;
+    public int Height { get; set; } = 300;
+    public bool UseCustom { get; set; }
+}
+
 public sealed class CropOffsetSettings
 {
     public string ActivePresetName { get; set; } = "default";
     public List<CropOffsetPreset> Presets { get; set; } = new();
+    public PreviewCustomDimensions? PreviewCustomDimensions { get; set; }
 
     public CropOffsetPreset GetActivePreset()
     {
@@ -37,7 +45,8 @@ public sealed class CropOffsetSettings
             Presets = new List<CropOffsetPreset>
             {
                 new CropOffsetPreset { Name = "default", HorizontalPercent = 0, VerticalPercent = 0 }
-            }
+            },
+            PreviewCustomDimensions = new PreviewCustomDimensions()
         };
     }
 }
