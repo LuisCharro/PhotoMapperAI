@@ -225,6 +225,9 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _cropOffsetStatus = string.Empty;
 
+    [ObservableProperty]
+    private bool _strictModeEnabled;
+
     public ObservableCollection<string> LogLines { get; } = new();
 
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
@@ -422,6 +425,14 @@ public partial class GenerateStepViewModel : ViewModelBase
         PreviewPlayerLabel = string.Empty;
         IsPreviewing = true;
 
+        var diagnostics = new List<string>();
+
+        void LogDiagnostic(string message)
+        {
+            diagnostics.Add(message);
+            AppendLog($"[PREVIEW] {message}");
+        }
+
         try
         {
             if (string.IsNullOrWhiteSpace(InputCsvPath) || !File.Exists(InputCsvPath))
@@ -460,6 +471,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                     PreviewImage = new Bitmap(placeholderStream);
                     PreviewStatus = "Previewed placeholder image.";
                     PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
+                    LogDiagnostic($"Using placeholder: {placeholderPath}");
                     return;
                 }
 
@@ -467,40 +479,121 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
+            LogDiagnostic($"Face detection model requested: {FaceDetectionModel}");
+
             var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
-            await faceDetectionService.InitializeAsync();
+            LogDiagnostic($"Face detection service created: {faceDetectionService.ModelName}");
+
+            var initResult = await faceDetectionService.InitializeAsync();
+            LogDiagnostic($"Detector initialization: {(initResult ? "SUCCESS" : "FAILED")}");
+
+            if (!initResult && StrictModeEnabled)
+            {
+                var errorMsg = "Strict mode: Detector initialization failed, cannot proceed with preview.";
+                LogDiagnostic(errorMsg);
+                PreviewStatus = errorMsg;
+                return;
+            }
+
+            if (faceDetectionService is OpenCVDNNFaceDetectionService openCvService)
+            {
+                try
+                {
+                    var (modelsPath, prototxtPath, weightsPath) = OpenCVDNNFaceDetectionService.GetResolvedModelPaths();
+                    LogDiagnostic($"Resolved model paths:");
+                    LogDiagnostic($"  - Models dir: {modelsPath}");
+                    LogDiagnostic($"  - Prototxt: {prototxtPath}");
+                    LogDiagnostic($"  - Caffemodel: {weightsPath}");
+                    LogDiagnostic($"  - Prototxt exists: {File.Exists(prototxtPath)}");
+                    LogDiagnostic($"  - Caffemodel exists: {File.Exists(weightsPath)}");
+                }
+                catch (Exception ex)
+                {
+                    LogDiagnostic($"Could not resolve model paths: {ex.Message}");
+                }
+            }
+
+            try
+            {
+                var isAvailable = await faceDetectionService.IsAvailableAsync();
+                LogDiagnostic($"Native OpenCV runtime status: {(isAvailable ? "LOADED" : "FAILED/UNAVAILABLE")}");
+            }
+            catch (Exception ex)
+            {
+                LogDiagnostic($"OpenCV runtime check failed: {ex.Message}");
+            }
 
             FaceLandmarks landmarks;
             if (PortraitOnly)
             {
                 landmarks = new FaceLandmarks { FaceDetected = false };
+                LogDiagnostic("Portrait-only mode: skipping face detection");
             }
             else
             {
                 PreviewStatus = "Detecting face for preview...";
                 landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath);
+
+                if (landmarks.FaceDetected && landmarks.FaceRect != null)
+                {
+                    LogDiagnostic($"Detected face rectangle: X={landmarks.FaceRect.X}, Y={landmarks.FaceRect.Y}, W={landmarks.FaceRect.Width}, H={landmarks.FaceRect.Height}");
+                    LogDiagnostic($"Detected face confidence: {landmarks.FaceConfidence:F4}");
+                    LogDiagnostic($"Face center: ({landmarks.FaceCenter?.X}, {landmarks.FaceCenter?.Y})");
+                }
+                else
+                {
+                    LogDiagnostic("No face detected");
+                    if (StrictModeEnabled)
+                    {
+                        var errorMsg = "Strict mode: No face detected, cannot proceed with preview.";
+                        LogDiagnostic(errorMsg);
+                        PreviewStatus = errorMsg;
+                        return;
+                    }
+                }
             }
 
             var imageProcessor = new ImageProcessor();
             using var image = await imageProcessor.LoadImageAsync(photoPath);
+            LogDiagnostic($"Source image loaded: {image.Width}x{image.Height}");
+
+            var cropOffsetPreset = BuildCurrentCropOffsetPreset();
+            LogDiagnostic($"Using crop offset preset: {cropOffsetPreset.Name} (X: {cropOffsetPreset.HorizontalPercent}%, Y: {cropOffsetPreset.VerticalPercent}%)");
+
             using var cropped = await imageProcessor.CropPortraitAsync(
                 image,
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
                 previewWidth,
                 previewHeight,
-                BuildCurrentCropOffsetPreset());
+                cropOffsetPreset);
+
+            LogDiagnostic($"Computed crop rectangle (final): X={0}, Y={0}, W={cropped.Width}, H={cropped.Height}");
+            LogDiagnostic($"Output dimensions: {previewWidth}x{previewHeight}");
 
             using var stream = new MemoryStream();
             cropped.Save(stream, new JpegEncoder { Quality = 92 });
             stream.Position = 0;
             PreviewImage = new Bitmap(stream);
 
+            LogDiagnostic("Preview image encoded as JPEG (quality=92)");
+
             PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
             PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+
+            if (StrictModeEnabled && diagnostics.Count > 0)
+            {
+                var diagnosticSummary = string.Join("\n", diagnostics);
+                PreviewStatus = $"[STRICT] {PreviewStatus}\n\nDiagnostics:\n{diagnosticSummary}";
+            }
         }
         catch (Exception ex)
         {
             PreviewStatus = $"Preview failed: {ex.Message}";
+            LogDiagnostic($"ERROR: {ex.Message}");
+            if (StrictModeEnabled)
+            {
+                PreviewStatus = $"[STRICT ERROR] {ex.Message}\n\nDiagnostics:\n{string.Join("\n", diagnostics)}";
+            }
         }
         finally
         {
