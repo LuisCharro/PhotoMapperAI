@@ -1,6 +1,6 @@
 # PhotoMapperAI
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-production--ready-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -301,12 +301,16 @@ PhotoMapperAI/
 │       │   ├── MainWindowViewModel.cs
 │       │   ├── ExtractStepViewModel.cs
 │       │   ├── MapStepViewModel.cs
-│       │   └── GenerateStepViewModel.cs
+│       │   ├── GenerateStepViewModel.cs
+│       │   └── BatchAutomationViewModel.cs
 │       ├── Views/                # Avalonia XAML views
 │       │   ├── MainWindow.axaml
 │       │   ├── ExtractStepView.axaml
 │       │   ├── MapStepView.axaml
-│       │   └── GenerateStepView.axaml
+│       │   ├── GenerateStepView.axaml
+│       │   └── BatchAutomationView.axaml
+│       ├── Models/               # UI-specific models
+│       │   └── BatchTeamItem.cs
 │       ├── App.axaml             # Application resources
 │       ├── Program.cs            # GUI entry point
 │       └── ViewLocator.cs        # ViewModel-to-View mapping
@@ -344,13 +348,17 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 
 **Features:**
 - Visual step-by-step workflow (Extract → Map → Generate)
+- **Batch Automation view** for processing multiple teams in one run
 - File browser dialogs for easy file selection
 - Real-time progress indicators
 - All CLI parameters with friendly UI controls
 - Session save/load for continuing work later
+- **AI model selection tiers** (Free Tier, Local, Paid)
+- **Model refresh and check** functionality
+- **Filename pattern presets** with save/load
 
 **Known Issues (GUI):**
-- Session save/load currently uses default app data path (no file picker yet)
+- None currently
 
 **Documentation:** See [`docs/guides/GUIDE.md`](docs/guides/GUIDE.md) for complete GUI documentation.
 
@@ -479,8 +487,8 @@ dotnet run -- extract -inputSqlPath data.sql -outputName team.csv
 # 1. Automatic pattern detection
 dotnet run -- map -inputCsvPath team.csv -photosDir ./photos
 
-# 2. User-specified pattern
-dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -filenamePattern "{id}_{family}_{sur}.png"
+# 2. User-specified pattern (new placeholders)
+dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -filenamePattern "{first}_{last}_{id}.jpg"
 
 # 3. Photo manifest
 dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest manifest.json
@@ -563,7 +571,7 @@ Test Data (local, not in repo):
 
 ## Current Status
 
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-02-22
 
 ### Feature Status
 
@@ -575,15 +583,32 @@ Test Data (local, not in repo):
 | Face detection (OpenCV) | ✅ Fixed | Model files added, fallback working |
 | Face detection (Ollama Vision) | ✅ Working | qwen3-vl and llava:7b supported |
 | Portrait generation | ✅ Fixed | Correct 200x300 dimensions |
-| Desktop GUI (Avalonia) | 🚧 In Progress | Core workflow works; see GUI known issues |
+| Desktop GUI (Avalonia) | ✅ Production Ready | Full workflow with batch automation |
+| Batch Automation | ✅ Production Ready | Process multiple teams in one run |
 | PowerShell scripts | ✅ Complete | Windows support available |
 
 ### Known Issues
 
-No critical CLI issues currently.
+No critical issues currently.
 
-GUI known issues:
-- Session save/load currently uses default app data path (no file picker yet).
+### Filename Pattern Placeholders
+
+Use these placeholders in filename patterns:
+
+| Placeholder | Meaning |
+|-------------|---------|
+| `{id}` | Player ID (ExternalId) |
+| `{first}` | First name |
+| `{last}` | Last name |
+
+**Examples:**
+```
+{first}_{last}_{id}.jpg    →  Dani_Carvajal_250024448.jpg
+{id}_{first}_{last}.png    →  250024448_Dani_Carvajal.png
+{first}-{last}-{id}.jpg    →  Dani-Carvajal-250024448.jpg
+```
+
+Legacy placeholders `{sur}` (first name) and `{family}` (last name) are still supported for backward compatibility.
 
 ### Planned Improvements
 
@@ -593,10 +618,13 @@ See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPRO
 - ✅ **Face-Based Crop Dimensions** - Crop size based on detected face (2x width, 3x height)
 - ✅ **Portrait Photo Detection** - Skip cropping for photos that are already portraits
 - ✅ **Eye Position Centering** - Eyes positioned at 35% from top for standard composition
+- ✅ **Batch Automation View** - Process multiple teams in one run with combined Extract→Map→Generate workflow
+- ✅ **Filename Pattern Presets** - Save and reuse filename patterns with `{first}`, `{last}`, `{id}` placeholders
+- ✅ **AI Model Selection Tiers** - Organized model selection (Free Tier, Local, Paid)
+- ✅ **Model Refresh/Check** - Verify model availability before processing
 
 **Pending:**
 - ⏳ **Haar Cascade Eye Detection** - Created but has native library issues on macOS
-- ⏳ **Multiple Output Sizes** - Generate multiple portrait sizes in one run
 - ⏳ **Debug Visualization** - Save intermediate images with detected regions highlighted
 
 ### Recent Commits (feature/phase1-implementation)
@@ -629,15 +657,15 @@ See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPRO
 
 1. **Automatic Detection:** Try common regex patterns
    ```csharp
-   // Pattern examples:
-   // {id}_{family}_{sur}.png
-   // {sur}-{family}-{id}.jpg
-   // {family}, {sur} - {id}.png
+   // Pattern examples (auto-detected):
+   // {first}_{last}_{id}.jpg      → Dani_Carvajal_250024448.jpg
+   // {id}_{first}_{last}.png      → 250024448_Dani_Carvajal.png
+   // {first}-{last}-{id}.jpg      → Dani-Carvajal-250024448.jpg
    ```
 
 2. **User-Specified Pattern:** Template-based parsing
    ```bash
-   -filenamePattern "{id}_{family}_{sur}.png"
+   -filenamePattern "{first}_{last}_{id}.jpg"
    ```
 
 3. **Photo Manifest:** JSON file for complex cases
@@ -649,6 +677,8 @@ See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPRO
      }
    }
    ```
+
+**Pattern Presets:** The GUI includes a preset system for saving and reusing filename patterns. Patterns are stored in `appsettings.local.json`.
 
 ## Benchmarking & Model Comparison
 

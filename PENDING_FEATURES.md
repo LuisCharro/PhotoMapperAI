@@ -2,40 +2,40 @@
 
 This document tracks features that are planned or under consideration for future implementation.
 
-**Last Updated:** 2026-02-16
+**Last Updated:** 2026-02-22
 
 ---
 
 ## High Priority
 
-### 1. Single Player Processing Option
+### 1. Batch Automation View ✅ IMPLEMENTED
 
-**Description:** Add the ability to generate portraits for a specific player by ID, rather than processing all players in the CSV.
-
-**Use Cases:**
-- Testing and debugging individual players
-- Re-processing failed portraits
-- Selective updates without full regeneration
+**Description:** New GUI view for processing multiple teams in one run with combined Extract→Map→Generate workflow.
 
 **Implementation:**
-- CLI: `--onlyPlayer <PlayerId>` parameter in `GeneratePhotosCommand.cs`
-- GUI: Filter field in `GenerateStepViewModel.cs` / `GenerateStepView.axaml`
-- Supports both internal PlayerId and ExternalId for filtering
+- New `BatchAutomationView.axaml` and `BatchAutomationViewModel.cs`
+- Team list management with CSV/Database import
+- Progress tracking across all teams
+- Session state persistence for batch runs
+- Select/deselect teams for processing
+- Photo directory validation
 
-**Status:** ✅ Implemented (2026-02-15)
+**Status:** ✅ Implemented (2026-02-22)
 
 ---
 
-### 2. PNG to JPG Transparency Handling
+### 2. Filename Pattern Presets ✅ IMPLEMENTED
 
-**Description:** When converting transparent PNG images to JPG format, transparent areas become black by default. The expected behavior is to replace transparent areas with a white background for better appearance.
+**Description:** Save and reuse filename patterns with user-friendly placeholders.
 
 **Implementation:**
-- Modified `ImageProcessor.cs` to detect transparent PNG sources
-- Added `HasTransparency()` method to check for alpha channel
-- Added `FillTransparentAreasWithWhite()` method to apply white background fill before saving as JPG
+- New placeholders: `{first}`, `{last}`, `{id}` (clearer naming)
+- Backward compatible with legacy `{sur}`, `{family}` placeholders
+- Presets stored in `appsettings.local.json`
+- GUI: Preset dropdown with Save/New buttons
+- Default presets: Auto-detect, FirstName_LastName_ID, etc.
 
-**Status:** ✅ Implemented (2026-02-16)
+**Status:** ✅ Implemented (2026-02-22)
 
 ---
 
@@ -177,6 +177,9 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 
 | Feature | Priority | Status | Notes |
 |---------|----------|--------|-------|
+| Batch Automation View | High | ✅ Implemented | Process multiple teams in one run |
+| Filename Pattern Presets | High | ✅ Implemented | `{first}`, `{last}`, `{id}` placeholders |
+| AI Model Selection Tiers | High | ✅ Implemented | Free Tier, Local, Paid tabs |
 | Single Player Processing | High | ✅ Implemented | CLI `--onlyPlayer` + GUI filter field |
 | PNG→JPG Transparency | High | ✅ Implemented | White background fill for transparent PNGs |
 | Placeholder Images | Medium | ✅ Implemented | CLI `--placeholderImage` + size profile |

@@ -9,9 +9,12 @@ The PhotoMapperAI GUI provides a visual interface for all CLI commands with sess
 ## Features
 
 - **Step-by-step wizard interface** - Extract → Map → Generate
+- **Batch Automation view** - Process multiple teams in one run
 - **Session persistence** - Save/Load sessions to continue work later
 - **Visual feedback** - Real-time status updates and progress indicators
 - **All CLI parameters** - Complete access to all command options
+- **AI model management** - Refresh and check model availability
+- **Filename pattern presets** - Save and reuse patterns
 - **Cross-platform** - Windows, macOS, Linux support
 
 ## Getting Started
@@ -96,10 +99,20 @@ Map external photos to internal player records using AI-powered name matching.
 
 **Filename Pattern Syntax:**
 ```
-{id}_{family}_{sur}.png  - Standard FIFA format
-{sur}-{family}-{id}.jpg   - Alternative format
-{family}, {sur} - {id}.png - Custom separator
+{first}_{last}_{id}.jpg    - FirstName_LastName_ID (FIFA/Euro format)
+{id}_{first}_{last}.png    - ID_FirstName_LastName
+{first}-{last}-{id}.jpg    - FirstName-LastName-ID (dash separated)
+{id}.jpg                   - ID only
 ```
+
+**Pattern Presets:**
+The GUI includes a preset system for saving and reusing patterns:
+- Select from dropdown to use a saved pattern
+- Edit the pattern and click "Save Preset" to update
+- Click "New" to create a new preset with current pattern
+- Presets are stored in `appsettings.local.json`
+
+**Legacy Placeholders:** `{sur}` (first name) and `{family}` (last name) are still supported for backward compatibility.
 
 **Photo Manifest Format (JSON):**
 ```json
@@ -172,6 +185,100 @@ Generate portrait photos from full-body images using face detection.
 - Portrait images named by internal PlayerId
 - Statistics: portraits generated, portraits failed
 - Progress indicator shows completion percentage
+
+## Batch Automation View
+
+The Batch Automation view provides a streamlined interface for processing multiple teams in one run. It combines all three steps (Extract, Map, Generate) into a single workflow.
+
+### Accessing Batch Automation
+
+Click the "Batch Automation" tab in the main navigation.
+
+### Configuration Sections
+
+#### 1. Database Configuration
+| Field | Description | Required |
+|-------|-------------|----------|
+| Connection String | Database connection string | Yes |
+| Teams SQL File | SQL query to get team list | Yes |
+| Players SQL File | SQL query to get players per team | Yes |
+
+#### 2. Paths Configuration
+| Field | Description | Required |
+|-------|-------------|----------|
+| CSV Output Directory | Where to store intermediate CSV files | Yes |
+| Photos Directory | Root directory containing team photo folders | Yes |
+| Output Directory | Where to store generated portraits | Yes |
+| Team Subdirectories | Check if photos are in team-named subfolders | - |
+
+#### 3. Processing Settings
+
+**Name Matching:**
+- Enable AI for unmatched players
+- AI-only mode (skip deterministic matching)
+- AI Second Pass for remaining unmatched
+- Model selection via tabs (Free Tier, Local, Paid)
+- Refresh Models / Check Model buttons
+- Confidence threshold slider (0.80 - 1.0)
+
+**Face Detection:**
+- Model selection via tabs (Recommended, Local Vision, Advanced)
+- Download missing OpenCV DNN files option
+
+**Output Size:**
+- Size profile JSON (optional)
+- Manual width/height dimensions
+
+**Crop Offset (Optional):**
+- Horizontal/vertical offset sliders
+- Preset selection
+
+**Photo Filename Parsing:**
+- Pattern presets dropdown
+- Custom pattern input
+- Save/New preset buttons
+
+#### 4. Team List
+
+**Loading Teams:**
+- Load from Database - Uses SQL query
+- Load from CSV - Import existing team list
+- Save to CSV - Export team list
+- Refresh Status - Re-validate photo directories
+- Clear - Remove all teams
+
+**Managing Teams:**
+- Select All / Deselect All buttons
+- Check/uncheck individual teams in the "Run" column
+- Teams without photo directories are flagged
+
+#### 5. Execute
+
+**Actions:**
+1. Configure all settings
+2. Load teams from database or CSV
+3. Verify teams have photo directories (click "Refresh Status")
+4. Click "Start Batch Processing"
+5. Monitor progress and logs
+
+**Progress Display:**
+- Overall progress bar
+- Teams completed/failed/skipped counts
+- Per-team status in grid
+- Execution log (collapsible)
+
+### Batch Session State
+
+Batch runs automatically save session state to:
+```
+<OutputDirectory>/batch_session_<timestamp>.json
+```
+
+This includes:
+- All configuration settings
+- Per-team results (players extracted, mapped, photos generated)
+- Error messages for failed teams
+- Timestamps
 
 ## Session Management
 
@@ -286,24 +393,28 @@ PhotoMapperAI.UI/
 │   ├── MainWindowViewModel.cs    # Main window logic
 │   ├── ExtractStepViewModel.cs   # Step 1: Extract data
 │   ├── MapStepViewModel.cs       # Step 2: Map photos
-│   ├── GenerateStepViewModel.cs   # Step 3: Generate portraits
-│   └── ViewModelBase.cs        # Base ViewModel class
-├── Views/                  # Avalonia XAML views
+│   ├── GenerateStepViewModel.cs  # Step 3: Generate portraits
+│   ├── BatchAutomationViewModel.cs # Batch processing
+│   └── ViewModelBase.cs          # Base ViewModel class
+├── Views/                   # Avalonia XAML views
 │   ├── MainWindow.axaml          # Main window
 │   ├── ExtractStepView.axaml     # Step 1 UI
 │   ├── MapStepView.axaml         # Step 2 UI
-│   └── GenerateStepView.axaml   # Step 3 UI
-├── App.axaml              # Application resources
-├── Program.cs             # Entry point
-└── ViewLocator.cs         # ViewModel-to-View mapping
+│   ├── GenerateStepView.axaml    # Step 3 UI
+│   └── BatchAutomationView.axaml # Batch processing UI
+├── Models/                  # UI-specific models
+│   └── BatchTeamItem.cs          # Team item for batch view
+├── App.axaml               # Application resources
+├── Program.cs              # Entry point
+└── ViewLocator.cs          # ViewModel-to-View mapping
 ```
 
 ### Future Enhancements
 
 - [x] Implement Save/Load Session feature (default path)
-- [ ] Add batch processing for multiple teams
-- [ ] Add diagnostic tools for model testing
-- [ ] Support custom portrait size presets
+- [x] Add batch processing for multiple teams (BatchAutomationView)
+- [x] Add diagnostic tools for model testing (Refresh/Check Model buttons)
+- [x] Support custom filename pattern presets
 - [ ] Add preview images for each step
 - [ ] Dark/light theme toggle
 - [ ] Export processing reports

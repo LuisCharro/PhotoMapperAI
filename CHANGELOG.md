@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **BatchAutomationView** - New GUI view for processing multiple teams in one run
+  - Combined Extract → Map → Generate workflow
+  - Team list management with CSV/Database import
+  - Progress tracking across all teams
+  - Session state persistence for batch runs
+  - Select/deselect teams for processing
+  - Photo directory validation with refresh button
+
+- **Filename Pattern Preset System**
+  - Save and reuse filename patterns
+  - New placeholders: `{first}`, `{last}`, `{id}`
+  - Backward compatible with legacy `{sur}`, `{family}` placeholders
+  - Presets stored in `appsettings.local.json`
+  - Default presets: Auto-detect, FirstName_LastName_ID, ID_FirstName_LastName, FirstName-LastName-ID, ID only
+
+- **AI Model Selection Tiers** (MapStepView and BatchAutomationView)
+  - Free Tier (Cloud) - quota-limited cloud models
+  - Local (Ollama) - local models via Ollama
+  - Paid (API) - OpenAI and Anthropic models
+  - Refresh Models button to discover available models
+  - Check Model button to verify model availability
+
+- **Face Detection Model Tiers** (BatchAutomationView)
+  - Recommended - opencv-dnn (fast, good accuracy)
+  - Local Vision - llava:7b, qwen3-vl (for challenging angles)
+  - Advanced - yolov8-face, haar-cascade, center
+
+- **Crop Offset Settings** (BatchAutomationView)
+  - Adjustable horizontal/vertical offset with sliders
+  - Preset selection for common offsets
+  - Settings persist to `appsettings.local.json`
+
+- **Photo Filename Parsing** improvements (MapStepView)
+  - Renamed from "Advanced Options" to "Photo Filename Parsing"
+  - Clearer explanation of auto-detection
+  - Example filenames that work automatically
+  - Pattern preset dropdown with Save/New buttons
+
 - **VS Code publish tasks** - One-click publishing from Visual Studio Code
   - Added `publish-windows` task (CLI + GUI for Windows x64)
   - Added `publish-macos` task (CLI + GUI for macOS ARM64)
@@ -17,6 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Accessible via `Ctrl+Shift+P` → "Tasks: Run Task"
 
 ### Fixed
+
+- **DataGrid not displaying teams** - Fixed DataGrid rendering in BatchAutomationView
+  - Added DataGrid Fluent theme styles
+  - Fixed grid row definition (* to Auto)
+  - Added explicit column definitions
+  - Added DataGridCheckBoxColumn for team selection
 
 - **GUI generation result handling** - Generate step now uses command result metrics (`PortraitsGenerated`, `PortraitsFailed`) correctly
 - **GUI progress reporting** - Determinate progress updates added for map and generate workflows
