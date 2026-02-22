@@ -123,6 +123,9 @@
               <TextBlock Text="✓" FontSize="12" Foreground="{DynamicResource SuccessBrush}"/>
               <TextBlock Text="{Binding AvailableTeams.Count, StringFormat='{}{0} teams loaded'}"
                          FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <Button Content="Save to CSV" 
+                      Click="SaveTeamsCsv_Click"
+                      Padding="8,2" FontSize="10"/>
               <Button Content="Clear" 
                       Command="{Binding ClearTeamsSelectionCommand}"
                       Padding="8,2" FontSize="10"/>

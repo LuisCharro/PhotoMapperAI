@@ -300,6 +300,31 @@ public partial class ExtractStepViewModel : ViewModelBase
         OutputFileName = "players.csv";
     }
 
+    public async Task SaveTeamsToCsvAsync(string csvPath)
+    {
+        if (string.IsNullOrWhiteSpace(csvPath))
+        {
+            ProcessingStatus = "Error: CSV path is required.";
+            return;
+        }
+
+        if (AvailableTeams.Count == 0)
+        {
+            ProcessingStatus = "Error: No teams to save. Load teams first.";
+            return;
+        }
+
+        try
+        {
+            await DatabaseExtractor.WriteTeamsCsvAsync(AvailableTeams.ToList(), csvPath);
+            ProcessingStatus = $"✓ Saved {AvailableTeams.Count} teams to {Path.GetFileName(csvPath)}";
+        }
+        catch (Exception ex)
+        {
+            ProcessingStatus = $"✗ Error saving teams to CSV: {ex.Message}";
+        }
+    }
+
     private void AppendLog(string message)
     {
         if (LogLines.Count >= 200)

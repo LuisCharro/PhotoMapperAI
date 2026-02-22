@@ -219,6 +219,10 @@
                       Click="LoadTeamsCsv_Click"
                       IsEnabled="{Binding !IsLoadingTeams}"
                       Padding="12,6" FontSize="11"/>
+              <Button Content="Save to CSV" 
+                      Click="SaveTeamsCsv_Click"
+                      IsEnabled="{Binding !IsLoadingTeams}"
+                      Padding="12,6" FontSize="11"/>
               <Button Content="Validate Photos" 
                       Command="{Binding ValidatePhotoDirectoriesCommand}"
                       Padding="12,6" FontSize="11"/>

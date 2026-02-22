@@ -171,4 +171,30 @@ public partial class BatchAutomationView : UserControl
             }
         }
     }
+
+    private async void SaveTeamsCsv_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Teams CSV File",
+            SuggestedFileName = "teams.csv",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("CSV Files") { Patterns = new[] { "*.csv" } },
+                new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (file != null)
+        {
+            var path = file.Path.LocalPath;
+            if (DataContext is ViewModels.BatchAutomationViewModel vm)
+            {
+                await vm.SaveTeamsToCsvAsync(path);
+            }
+        }
+    }
 }

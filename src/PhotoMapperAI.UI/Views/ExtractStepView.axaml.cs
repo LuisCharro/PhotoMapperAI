@@ -119,6 +119,33 @@ public partial class ExtractStepView : UserControl
         }
     }
 
+    private async void SaveTeamsCsv_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is ExtractStepViewModel vm)
+        {
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage != null)
+            {
+                var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = "Save Teams CSV File",
+                    SuggestedFileName = "teams.csv",
+                    FileTypeChoices = new[]
+                    {
+                        new FilePickerFileType("CSV Files") { Patterns = new[] { "*.csv" } },
+                        new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+                    }
+                });
+
+                if (file != null)
+                {
+                    var path = file.Path.LocalPath;
+                    await vm.SaveTeamsToCsvAsync(path);
+                }
+            }
+        }
+    }
+
     private async void ExtractTeams_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not ExtractStepViewModel vm)

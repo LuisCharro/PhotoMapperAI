@@ -309,6 +309,37 @@ public partial class BatchAutomationViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanStart));
     }
 
+    public async Task SaveTeamsToCsvAsync(string csvPath)
+    {
+        if (string.IsNullOrWhiteSpace(csvPath))
+        {
+            AppendLog("Error: CSV path is required.");
+            return;
+        }
+
+        if (Teams.Count == 0)
+        {
+            AppendLog("Error: No teams to save. Load teams first.");
+            return;
+        }
+
+        try
+        {
+            var teamRecords = Teams.Select(t => new TeamRecord
+            {
+                TeamId = t.TeamId,
+                TeamName = t.TeamName
+            }).ToList();
+
+            await DatabaseExtractor.WriteTeamsCsvAsync(teamRecords, csvPath);
+            AppendLog($"Saved {Teams.Count} teams to {csvPath}");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error saving teams to CSV: {ex.Message}");
+        }
+    }
+
     [RelayCommand]
     private void SelectAllTeams()
     {
