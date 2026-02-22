@@ -14,6 +14,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ExtractStepViewModel _extractStep;
     private readonly MapStepViewModel _mapStep;
     private readonly GenerateStepViewModel _generateStep;
+    private readonly BatchAutomationViewModel _batchAutomation;
 
     [ObservableProperty]
     private ViewModelBase _currentView;
@@ -30,13 +31,20 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isDarkTheme;
 
+    [ObservableProperty]
+    private bool _isBatchMode;
+
     public string ThemeToggleText => IsDarkTheme ? "☀️ Light" : "🌙 Dark";
+
+    public string ModeToggleText => IsBatchMode ? "📋 Step-by-Step Mode" : "🔄 Batch Mode";
 
     public MainWindowViewModel()
     {
         _extractStep = new ExtractStepViewModel();
         _mapStep = new MapStepViewModel();
         _generateStep = new GenerateStepViewModel();
+        _batchAutomation = new BatchAutomationViewModel();
+        
         _extractStep.PropertyChanged += OnStepPropertyChanged;
         _mapStep.PropertyChanged += OnStepPropertyChanged;
         _generateStep.PropertyChanged += OnStepPropertyChanged;
@@ -147,6 +155,36 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(Step3Foreground));
         
         StatusMessage = $"Theme changed to {(IsDarkTheme ? "Dark" : "Light")}";
+    }
+
+    [RelayCommand]
+    private void ToggleMode()
+    {
+        IsBatchMode = !IsBatchMode;
+        OnPropertyChanged(nameof(ModeToggleText));
+
+        if (IsBatchMode)
+        {
+            CurrentView = _batchAutomation;
+            CurrentStepDescription = "Batch Mode: Process multiple teams automatically";
+            StatusMessage = "Switched to Batch Mode - Configure and run batch processing";
+        }
+        else
+        {
+            UpdateCurrentView();
+            StatusMessage = "Switched to Step-by-Step Mode";
+        }
+
+        // Notify UI of property changes
+        OnPropertyChanged(nameof(Step1Background));
+        OnPropertyChanged(nameof(Step1Foreground));
+        OnPropertyChanged(nameof(Step2Background));
+        OnPropertyChanged(nameof(Step2Foreground));
+        OnPropertyChanged(nameof(Step3Background));
+        OnPropertyChanged(nameof(Step3Foreground));
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanGoNext));
+        OnPropertyChanged(nameof(CanFinish));
     }
 
 

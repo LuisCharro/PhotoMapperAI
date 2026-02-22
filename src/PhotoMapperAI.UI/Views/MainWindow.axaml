@@ -28,14 +28,17 @@
                    FontSize="11" VerticalAlignment="Center"
                    Foreground="{DynamicResource HeaderSubTextBrush}" Margin="16,0,0,0"/>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+          <Button Content="{Binding ModeToggleText}" Command="{Binding ToggleModeCommand}"
+                  Background="{DynamicResource SecondaryBrush}" Foreground="{DynamicResource HeaderTextBrush}" Padding="10,5"/>
           <Button Content="{Binding ThemeToggleText}" Command="{Binding ToggleThemeCommand}"
                   Background="{DynamicResource PrimaryLightBrush}" Foreground="{DynamicResource HeaderTextBrush}" Padding="10,5"/>
         </StackPanel>
       </Grid>
     </Border>
 
-    <!-- Step Navigation Buttons -->
-    <Border Grid.Row="1" Background="{DynamicResource StepProgressBackgroundBrush}" Padding="12,6">
+    <!-- Step Navigation Buttons (hidden in batch mode) -->
+    <Border Grid.Row="1" Background="{DynamicResource StepProgressBackgroundBrush}" Padding="12,6"
+            IsVisible="{Binding !IsBatchMode}">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
         <!-- Step 1 -->
         <Button Click="Step1Button_Click"

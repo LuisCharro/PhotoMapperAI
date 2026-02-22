@@ -15,6 +15,7 @@
   <Application.Resources>
     <ResourceDictionary>
       <converters:BoolToStatusBackgroundConverter x:Key="BoolToStatusBackgroundConverter"/>
+      <converters:BatchStatusToColorConverter x:Key="BatchStatusToColorConverter"/>
       <ResourceDictionary.ThemeDictionaries>
         <!-- Light Theme -->
         <ResourceDictionary x:Key="Light">
