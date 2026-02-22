@@ -9,33 +9,35 @@ namespace PhotoMapperAI.Utils;
 public class FilenameParser
 {
     // Common regex patterns for filename extraction
+    // Note: Internal regex groups use "sur" for first name and "family" for last name
+    // User-facing placeholders are {first}, {last}, {id}
     private static readonly Regex[] _patterns =
     {
-        // Pattern 1: {ExternalId}_{FamilyName}_{SurName}.png
+        // Pattern 1: {id}_{last}_{first}.png (ID_LastName_FirstName)
         new Regex(@"^(?<id>\d+)_(?<family>[^_]+)_(?<sur>[^\.]+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 
-        // Pattern 2: {SurName}-{FamilyName}-{ExternalId}.jpg
+        // Pattern 2: {first}-{last}-{id}.jpg (FirstName-LastName-ID)
         new Regex(@"^(?<sur>[^-]+)-(?<family>[^-]+)-(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 
-        // Pattern 3: {FamilyName}, {SurName} - {ExternalId}.png
+        // Pattern 3: {last}, {first} - {id}.png (LastName, FirstName - ID)
         new Regex(@"^(?<family>[^,]+),\s*(?<sur>[^-]+)\s*-\s*(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 
-        // Pattern 4: {FamilyName}_{SurName}_position_{ExternalId}.png
+        // Pattern 4: {last}_{first}_position_{id}.png
         new Regex(@"^(?<family>[^_]+)_(?<sur>[^_]+)_position_(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 
-        // Pattern 5: {ExternalId}-{SurName}-{FamilyName}.jpg
+        // Pattern 5: {id}-{first}-{last}.jpg (ID-FirstName-LastName)
         new Regex(@"^(?<id>\d+)-(?<sur>[^-]+)-(?<family>[^\.]+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 
-        // Pattern 6: {FamilyName}_{SurName}_{ExternalId}.jpg (variation)
-        new Regex(@"^(?<family>[^_]+)_(?<sur>[^_]+)_(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
+        // Pattern 6: {first}_{last}_{id}.jpg (FirstName_LastName_ID) - FIFA/Euro format
+        new Regex(@"^(?<sur>[^_]+)_(?<family>[^_]+)_(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 
-        // Pattern 7: {ExternalId}.jpg (simple ID naming)
+        // Pattern 7: {id}.jpg (simple ID naming)
         new Regex(@"^(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase)
     };
@@ -64,15 +66,22 @@ public class FilenameParser
     /// Extracts metadata using user-specified template.
     /// </summary>
     /// <param name="filename">Photo filename</param>
-    /// <param name="template">Template string (e.g., "{id}_{family}_{sur}.png")</param>
+    /// <param name="template">Template string (e.g., "{first}_{last}_{id}.png")</param>
     /// <returns>Photo metadata if template matches, null otherwise</returns>
+    /// <remarks>
+    /// Supported placeholders: {id}, {first}, {last}
+    /// Legacy placeholders (backward compatible): {sur} maps to first name, {family} maps to last name
+    /// </remarks>
     public static PhotoMetadata? ParseWithTemplate(string filename, string template)
     {
         try
         {
             // Convert template to regex pattern
+            // Support both new ({first}, {last}) and legacy ({sur}, {family}) placeholders
             var regexTemplate = template
                 .Replace("{id}", "(?<id>\\d+)")
+                .Replace("{first}", "(?<sur>[^{}_]+)")
+                .Replace("{last}", "(?<family>[^{}_]+)")
                 .Replace("{family}", "(?<family>[^{}_]+)")
                 .Replace("{sur}", "(?<sur>[^{}.]+)")
                 .Replace(".", @"\.");
