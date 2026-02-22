@@ -7,7 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Database;
+using PhotoMapperAI.Services.Diagnostics;
+using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
 using PhotoMapperAI.UI.Models;
 using PhotoMapperAI.Models;
@@ -16,17 +19,50 @@ namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class BatchAutomationViewModel : ViewModelBase
 {
+    private const double MinConfidenceThreshold = 0.8;
     private readonly DatabaseExtractor _databaseExtractor;
     private readonly ExternalMapCliRunner _mapRunner;
     private readonly ExternalGenerateCliRunner _generateRunner;
     private CancellationTokenSource? _cancellationTokenSource;
     private BatchSessionState _sessionState = new();
 
+    private static readonly string[] DefaultLocalNameModels =
+    {
+        "qwen2.5:7b",
+        "qwen2.5-coder:7b-instruct-q4_K_M",
+        "qwen3:8b",
+        "llava:7b"
+    };
+    private static readonly string[] KnownCloudNameModels =
+    {
+        "gemini-3-flash-preview:cloud",
+        "qwen3-coder-next:cloud",
+        "kimi-k2.5:cloud",
+        "glm-4.7:cloud",
+        "minimax-m2:cloud",
+        "qwen3-coder:480b-cloud"
+    };
+    private static readonly string[] DefaultPaidNameModels =
+    {
+        "openai:gpt-4.1",
+        "openai:gpt-4o",
+        "openai:o3-mini",
+        "anthropic:claude-3-5-sonnet"
+    };
+
+    private static readonly string[] ConfiguredPaidNameModels =
+        UiModelConfigLoader.Load().MapPaidModels.ToArray();
+
     public BatchAutomationViewModel()
     {
         _databaseExtractor = new DatabaseExtractor();
         _mapRunner = new ExternalMapCliRunner();
         _generateRunner = new ExternalGenerateCliRunner();
+        
+        SeedNameModelList();
+        LoadCropOffsetPresets();
+        LoadFilenamePatternPresets();
+        _ = RefreshNameModelsAsync(showStatus: false);
     }
 
     #region Configuration Properties
@@ -60,7 +96,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private string _nameMatchingModel = "qwen2.5:7b";
 
     [ObservableProperty]
-    private double _nameMatchingThreshold = 0.8;
+    private double _nameMatchingThreshold = MinConfidenceThreshold;
 
     [ObservableProperty]
     private bool _useAiMapping;
@@ -69,7 +105,20 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private bool _aiOnly;
 
     [ObservableProperty]
-    private bool _aiSecondPass;
+    private bool _aiSecondPass = true;
+
+    [ObservableProperty]
+    private int _selectedModelTierIndex;
+
+    [ObservableProperty]
+    private bool _isCheckingModel;
+
+    [ObservableProperty]
+    private string _modelDiagnosticStatus = string.Empty;
+
+    public ObservableCollection<string> LocalNameModels { get; } = new();
+    public ObservableCollection<string> FreeTierNameModels { get; } = new();
+    public ObservableCollection<string> PaidNameModels { get; } = new();
 
     // Face Detection Settings
     [ObservableProperty]
@@ -78,8 +127,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private bool _downloadOpenCvModels;
 
-    // Available face detection models for dropdown
-    public string[] FaceDetectionModels { get; } = new[] { "opencv-dnn", "haar-cascade", "ollama" };
+    [ObservableProperty]
+    private int _selectedFaceModelTierIndex;
+
+    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new() { "opencv-dnn" };
+    public ObservableCollection<string> LocalVisionFaceDetectionModels { get; } = new() { "llava:7b", "qwen3-vl" };
+    public ObservableCollection<string> AdvancedFaceDetectionModels { get; } = new() { "yolov8-face", "haar-cascade", "center" };
 
     // Size Settings
     [ObservableProperty]
@@ -101,12 +154,35 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private double _cropOffsetY;
 
+    [ObservableProperty]
+    private CropOffsetPreset? _selectedCropOffsetPreset;
+
+    public ObservableCollection<CropOffsetPreset> CropOffsetPresets { get; } = new();
+
     // Output Settings
     [ObservableProperty]
     private string _imageFormat = "jpg";
 
     [ObservableProperty]
     private string _outputProfile = "none";
+
+    // Photo Filename Parsing
+    [ObservableProperty]
+    private string _filenamePattern = string.Empty;
+
+    [ObservableProperty]
+    private FilenamePatternPreset? _selectedFilenamePatternPreset;
+
+    [ObservableProperty]
+    private string _filenamePatternStatus = string.Empty;
+
+    public ObservableCollection<FilenamePatternPreset> FilenamePatternPresets { get; } = new();
+
+    [ObservableProperty]
+    private bool _usePhotoManifest;
+
+    [ObservableProperty]
+    private string _photoManifestPath = string.Empty;
 
     #endregion
 
@@ -150,6 +226,110 @@ public partial class BatchAutomationViewModel : ViewModelBase
     #endregion
 
     #region Commands
+
+    [RelayCommand]
+    private async Task RefreshNameModels()
+    {
+        await RefreshNameModelsAsync(showStatus: true);
+    }
+
+    [RelayCommand]
+    private async Task CheckNameModel()
+    {
+        if (!UseAiMapping)
+        {
+            ModelDiagnosticStatus = "Enable AI mapping to check models.";
+            return;
+        }
+
+        if (IsProcessing)
+            return;
+
+        IsCheckingModel = true;
+        ModelDiagnosticStatus = $"Checking model '{NameMatchingModel}'...";
+
+        try
+        {
+            if (IsOpenAiModel(NameMatchingModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ OpenAI API key available (environment variable)."
+                    : "✗ OpenAI API key is missing (OPENAI_API_KEY).";
+                return;
+            }
+
+            if (IsAnthropicModel(NameMatchingModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ Anthropic API key available (environment variable)."
+                    : "✗ Anthropic API key is missing (ANTHROPIC_API_KEY).";
+                return;
+            }
+
+            var client = new OllamaClient();
+            var available = await client.IsAvailableAsync();
+            if (!available)
+            {
+                ModelDiagnosticStatus = "✗ Ollama server is not reachable (http://localhost:11434)";
+                return;
+            }
+
+            if (IsFreeTierModel(NameMatchingModel))
+            {
+                ModelDiagnosticStatus = $"ℹ Free-tier cloud model selected: {NameMatchingModel}.";
+                return;
+            }
+
+            var models = await client.GetAvailableModelsAsync();
+            var exists = models.Any(m => string.Equals(m, NameMatchingModel, StringComparison.OrdinalIgnoreCase));
+            ModelDiagnosticStatus = exists
+                ? $"✓ Model available: {NameMatchingModel}"
+                : $"✗ Model not found in Ollama: {NameMatchingModel}";
+        }
+        catch (Exception ex)
+        {
+            ModelDiagnosticStatus = $"✗ Model check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingModel = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckFaceModel()
+    {
+        if (IsProcessing)
+            return;
+
+        IsCheckingModel = true;
+        ModelDiagnosticStatus = $"Checking face detection model '{FaceDetectionModel}'...";
+
+        try
+        {
+            var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetectionModel, DownloadOpenCvModels);
+            if (!preflight.IsOk)
+            {
+                ModelDiagnosticStatus = preflight.BuildMessage();
+                return;
+            }
+
+            var warningMessage = preflight.BuildWarningMessage();
+            ModelDiagnosticStatus = string.IsNullOrWhiteSpace(warningMessage)
+                ? $"✓ Face detection model ready: {FaceDetectionModel}"
+                : $"✓ Face detection model ready: {FaceDetectionModel}\n{warningMessage}";
+        }
+        catch (Exception ex)
+        {
+            ModelDiagnosticStatus = $"✗ Model check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingModel = false;
+        }
+    }
 
     [RelayCommand]
     private async Task LoadTeamsFromDatabase()
@@ -375,7 +555,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             BaseOutputDirectory = BaseOutputDirectory,
             UseTeamPhotoSubdirectories = UseTeamPhotoSubdirectories,
             NameMatchingModel = NameMatchingModel,
-            NameMatchingThreshold = NameMatchingThreshold,
+            NameMatchingThreshold = NameMatchingThreshold < MinConfidenceThreshold ? MinConfidenceThreshold : NameMatchingThreshold,
             UseAiMapping = UseAiMapping,
             AiOnly = AiOnly,
             AiSecondPass = AiSecondPass,
@@ -390,6 +570,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
             TotalTeams = Teams.Count,
             Status = "Running"
         };
+
+        if (NameMatchingThreshold < MinConfidenceThreshold)
+        {
+            NameMatchingThreshold = MinConfidenceThreshold;
+        }
 
         _cancellationTokenSource = new CancellationTokenSource();
         IsProcessing = true;
@@ -611,8 +796,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     teamCsvDir,
                     csvPath,
                     teamPhotoDir,
-                    filenamePattern: null,
-                    photoManifest: null,
+                    filenamePattern: string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
+                    photoManifest: UsePhotoManifest ? PhotoManifestPath : null,
                     nameModel: NameMatchingModel,
                     confidenceThreshold: NameMatchingThreshold,
                     useAi: UseAiMapping,
@@ -654,7 +839,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             {
                 var cropOffset = new CropOffsetPreset
                 {
-                    Name = "batch",
+                    Name = SelectedCropOffsetPreset?.Name ?? "batch",
                     HorizontalPercent = CropOffsetX,
                     VerticalPercent = CropOffsetY
                 };
@@ -731,6 +916,348 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             LogLines.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
         });
+    }
+
+    #endregion
+
+    #region Model Management
+
+    private async Task RefreshNameModelsAsync(bool showStatus)
+    {
+        if (showStatus)
+        {
+            ModelDiagnosticStatus = "Refreshing models from Ollama...";
+        }
+
+        try
+        {
+            var client = new OllamaClient();
+            var available = await client.IsAvailableAsync();
+
+            if (!available)
+            {
+                if (showStatus)
+                {
+                    ModelDiagnosticStatus = "Ollama server is not reachable. Showing fallback model list.";
+                }
+
+                SeedNameModelList();
+                return;
+            }
+
+            var localModels = await client.GetAvailableModelsAsync();
+            RebuildNameModelLists(localModels);
+
+            if (showStatus)
+            {
+                var total = LocalNameModels.Count + FreeTierNameModels.Count + PaidNameModels.Count;
+                ModelDiagnosticStatus = $"✓ Loaded {total} models (Local {LocalNameModels.Count}, Free {FreeTierNameModels.Count}, Paid {PaidNameModels.Count})";
+            }
+        }
+        catch (Exception ex)
+        {
+            SeedNameModelList();
+            if (showStatus)
+            {
+                ModelDiagnosticStatus = $"✗ Failed to refresh model list: {ex.Message}";
+            }
+        }
+    }
+
+    private void SeedNameModelList()
+    {
+        RebuildNameModelLists(Array.Empty<string>());
+    }
+
+    private void RebuildNameModelLists(IEnumerable<string> discoveredModels)
+    {
+        var previousSelection = NameMatchingModel;
+        var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var model in DefaultLocalNameModels)
+            merged.Add(model);
+
+        foreach (var model in discoveredModels.Where(m => !string.IsNullOrWhiteSpace(m)))
+            merged.Add(model.Trim());
+
+        foreach (var model in KnownCloudNameModels)
+            merged.Add(model);
+
+        var paidModels = ConfiguredPaidNameModels.Length > 0
+            ? ConfiguredPaidNameModels
+            : DefaultPaidNameModels;
+
+        foreach (var model in paidModels)
+            merged.Add(model);
+
+        var local = new List<string>();
+        var freeTier = new List<string>();
+        var paid = new List<string>();
+
+        foreach (var model in merged)
+        {
+            if (IsPaidModel(model))
+            {
+                paid.Add(model);
+            }
+            else if (IsFreeTierModel(model))
+            {
+                freeTier.Add(model);
+            }
+            else
+            {
+                local.Add(model);
+            }
+        }
+
+        local.Sort(StringComparer.OrdinalIgnoreCase);
+        freeTier.Sort(StringComparer.OrdinalIgnoreCase);
+
+        var paidOrdered = new List<string>();
+        foreach (var model in paidModels)
+        {
+            var found = paid.FirstOrDefault(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(found))
+                paidOrdered.Add(found);
+        }
+
+        foreach (var model in paid)
+        {
+            if (!paidOrdered.Any(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase)))
+                paidOrdered.Add(model);
+        }
+
+        paid = paidOrdered;
+
+        LocalNameModels.Clear();
+        foreach (var model in local)
+            LocalNameModels.Add(model);
+
+        FreeTierNameModels.Clear();
+        foreach (var model in freeTier)
+            FreeTierNameModels.Add(model);
+
+        PaidNameModels.Clear();
+        foreach (var model in paid)
+            PaidNameModels.Add(model);
+
+        if (!string.IsNullOrWhiteSpace(previousSelection) &&
+            (LocalNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
+             FreeTierNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
+             PaidNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase))))
+        {
+            NameMatchingModel = previousSelection;
+            return;
+        }
+
+        if (LocalNameModels.Contains("qwen2.5:7b"))
+        {
+            NameMatchingModel = "qwen2.5:7b";
+            return;
+        }
+
+        NameMatchingModel = LocalNameModels.FirstOrDefault()
+                    ?? FreeTierNameModels.FirstOrDefault()
+                    ?? PaidNameModels.FirstOrDefault()
+                    ?? "qwen2.5:7b";
+    }
+
+    private static bool IsCloudModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (modelName.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase) ||
+            modelName.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsFreeTierModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (IsCloudModel(modelName) ||
+            modelName.EndsWith(":free", StringComparison.OrdinalIgnoreCase) ||
+            modelName.EndsWith("/free", StringComparison.OrdinalIgnoreCase) ||
+            modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsPaidModel(string modelName)
+        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName);
+
+    private static bool IsOpenAiModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.StartsWith("openai:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAnthropicModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (modelName.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
+            modelName.StartsWith("claude:", StringComparison.OrdinalIgnoreCase));
+
+    partial void OnNameMatchingModelChanged(string value)
+    {
+        SelectedModelTierIndex = GetTierIndexForModel(value);
+    }
+
+    partial void OnFaceDetectionModelChanged(string value)
+    {
+        SelectedFaceModelTierIndex = GetFaceTierIndexForModel(value);
+    }
+
+    partial void OnSelectedCropOffsetPresetChanged(CropOffsetPreset? value)
+    {
+        if (value == null) return;
+        CropOffsetX = value.HorizontalPercent;
+        CropOffsetY = value.VerticalPercent;
+    }
+
+    partial void OnUseAiMappingChanged(bool value)
+    {
+        if (!value)
+        {
+            AiOnly = false;
+        }
+    }
+
+    partial void OnAiOnlyChanged(bool value)
+    {
+        if (value)
+        {
+            UseAiMapping = true;
+        }
+    }
+
+    private static int GetTierIndexForModel(string modelName)
+    {
+        if (IsPaidModel(modelName))
+            return 2;
+        if (IsFreeTierModel(modelName))
+            return 0;
+        return 1;
+    }
+
+    private static int GetFaceTierIndexForModel(string modelName)
+    {
+        if (string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        if (modelName.Contains("llava", StringComparison.OrdinalIgnoreCase) ||
+            modelName.Contains("qwen3-vl", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        return 2;
+    }
+
+    private void LoadCropOffsetPresets()
+    {
+        var settings = CropOffsetSettingsLoader.Load();
+
+        CropOffsetPresets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            CropOffsetPresets.Add(new CropOffsetPreset
+            {
+                Name = preset.Name,
+                HorizontalPercent = preset.HorizontalPercent,
+                VerticalPercent = preset.VerticalPercent
+            });
+        }
+
+        if (CropOffsetPresets.Count == 0)
+        {
+            CropOffsetPresets.Add(new CropOffsetPreset { Name = "default" });
+        }
+
+        var active = settings.GetActivePreset();
+        SelectedCropOffsetPreset = CropOffsetPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
+            ?? CropOffsetPresets[0];
+    }
+
+    private void LoadFilenamePatternPresets()
+    {
+        var settings = FilenamePatternSettingsLoader.Load();
+
+        FilenamePatternPresets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset
+            {
+                Name = preset.Name,
+                Pattern = preset.Pattern,
+                Description = preset.Description
+            });
+        }
+
+        if (FilenamePatternPresets.Count == 0)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset { Name = "default", Pattern = string.Empty });
+        }
+
+        var active = settings.GetActivePreset();
+        SelectedFilenamePatternPreset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
+            ?? FilenamePatternPresets[0];
+    }
+
+    [RelayCommand]
+    private void SaveFilenamePatternPreset()
+    {
+        var presetName = SelectedFilenamePatternPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new FilenamePatternPreset { Name = presetName };
+            FilenamePatternPresets.Add(preset);
+        }
+
+        preset.Pattern = FilenamePattern;
+
+        var settings = new FilenamePatternSettings
+        {
+            ActivePresetName = presetName,
+            Presets = FilenamePatternPresets
+                .Select(p => new FilenamePatternPreset
+                {
+                    Name = p.Name,
+                    Pattern = p.Pattern,
+                    Description = p.Description
+                })
+                .ToList()
+        };
+
+        FilenamePatternSettingsLoader.SaveToLocal(settings);
+        FilenamePatternStatus = $"Saved preset '{presetName}' to appsettings.local.json";
+        SelectedFilenamePatternPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewFilenamePatternPreset()
+    {
+        var baseName = "new_pattern";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (FilenamePatternPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new FilenamePatternPreset
+        {
+            Name = newName,
+            Pattern = FilenamePattern
+        };
+
+        FilenamePatternPresets.Add(newPreset);
+        SelectedFilenamePatternPreset = newPreset;
+        FilenamePatternStatus = $"Created new preset '{newName}'. Click 'Save' to persist.";
+    }
+
+    partial void OnSelectedFilenamePatternPresetChanged(FilenamePatternPreset? value)
+    {
+        if (value != null)
+        {
+            FilenamePattern = value.Pattern;
+        }
     }
 
     #endregion

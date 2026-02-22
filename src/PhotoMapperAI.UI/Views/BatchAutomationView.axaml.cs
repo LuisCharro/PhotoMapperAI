@@ -197,4 +197,56 @@ public partial class BatchAutomationView : UserControl
             }
         }
     }
+
+    private async void BrowseSizeProfile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Select Size Profile JSON",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("JSON Files") { Patterns = new[] { "*.json" } },
+                new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (files.Count > 0)
+        {
+            var path = files[0].Path.LocalPath;
+            if (DataContext is ViewModels.BatchAutomationViewModel vm)
+            {
+                vm.SizeProfilePath = path;
+            }
+        }
+    }
+
+    private async void BrowsePhotoManifest_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Select Photo Manifest JSON",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("JSON Files") { Patterns = new[] { "*.json" } },
+                new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (files.Count > 0)
+        {
+            var path = files[0].Path.LocalPath;
+            if (DataContext is ViewModels.BatchAutomationViewModel vm)
+            {
+                vm.PhotoManifestPath = path;
+            }
+        }
+    }
 }
