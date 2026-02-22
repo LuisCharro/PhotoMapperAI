@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.UI.Configuration;
@@ -57,6 +58,14 @@ public partial class MapStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _filenamePattern = string.Empty;
+
+    [ObservableProperty]
+    private FilenamePatternPreset? _selectedFilenamePatternPreset;
+
+    [ObservableProperty]
+    private string _filenamePatternStatus = string.Empty;
+
+    public ObservableCollection<FilenamePatternPreset> FilenamePatternPresets { get; } = new();
 
     [ObservableProperty]
     private string _photoManifestPath = string.Empty;
@@ -132,6 +141,7 @@ public partial class MapStepViewModel : ViewModelBase
     public MapStepViewModel()
     {
         SeedNameModelList();
+        LoadFilenamePatternPresets();
         UpdateProviderKeyInputVisibility();
         _ = RefreshNameModelsAsync(showStatus: false);
     }
@@ -598,6 +608,102 @@ public partial class MapStepViewModel : ViewModelBase
         if (IsFreeTierModel(modelName))
             return 0;
         return 1;
+    }
+
+    private void LoadFilenamePatternPresets()
+    {
+        var settings = FilenamePatternSettingsLoader.Load();
+
+        FilenamePatternPresets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset
+            {
+                Name = preset.Name,
+                Pattern = preset.Pattern,
+                Description = preset.Description
+            });
+        }
+
+        if (FilenamePatternPresets.Count == 0)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset { Name = "default", Pattern = string.Empty });
+        }
+
+        var active = settings.GetActivePreset();
+        SelectedFilenamePatternPreset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
+            ?? FilenamePatternPresets[0];
+    }
+
+    [RelayCommand]
+    private void SaveFilenamePatternPreset()
+    {
+        var presetName = SelectedFilenamePatternPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new FilenamePatternPreset { Name = presetName };
+            FilenamePatternPresets.Add(preset);
+        }
+
+        preset.Pattern = FilenamePattern;
+
+        var settings = new FilenamePatternSettings
+        {
+            ActivePresetName = presetName,
+            Presets = FilenamePatternPresets
+                .Select(p => new FilenamePatternPreset
+                {
+                    Name = p.Name,
+                    Pattern = p.Pattern,
+                    Description = p.Description
+                })
+                .ToList()
+        };
+
+        FilenamePatternSettingsLoader.SaveToLocal(settings);
+        FilenamePatternStatus = $"Saved preset '{presetName}' to appsettings.local.json";
+        SelectedFilenamePatternPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewFilenamePatternPreset()
+    {
+        var baseName = "new_pattern";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (FilenamePatternPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new FilenamePatternPreset
+        {
+            Name = newName,
+            Pattern = FilenamePattern
+        };
+
+        FilenamePatternPresets.Add(newPreset);
+        SelectedFilenamePatternPreset = newPreset;
+        FilenamePatternStatus = $"Created new preset '{newName}'. Click 'Save' to persist.";
+    }
+
+    partial void OnSelectedFilenamePatternPresetChanged(FilenamePatternPreset? value)
+    {
+        if (value != null)
+        {
+            FilenamePattern = value.Pattern;
+        }
     }
 
 }
