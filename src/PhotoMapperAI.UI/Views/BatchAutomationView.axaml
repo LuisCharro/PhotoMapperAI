@@ -200,7 +200,7 @@
 
         <!-- STEP 4: Team List -->
         <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
-          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
+          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
             <!-- Header -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
               <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
@@ -223,7 +223,7 @@
                       Click="SaveTeamsCsv_Click"
                       IsEnabled="{Binding !IsLoadingTeams}"
                       Padding="12,6" FontSize="11"/>
-              <Button Content="Validate Photos" 
+              <Button Content="Refresh Status" 
                       Command="{Binding ValidatePhotoDirectoriesCommand}"
                       Padding="12,6" FontSize="11"/>
               <Button Content="Clear" 
@@ -255,13 +255,22 @@
             <!-- DataGrid with explicit binding -->
             <DataGrid Grid.Row="5"
                       ItemsSource="{Binding Teams}"
-                      AutoGenerateColumns="True"
+                      AutoGenerateColumns="False"
                       Height="250"
                       GridLinesVisibility="All"
                       BorderThickness="1"
                       BorderBrush="{DynamicResource BorderBrush}"
-                      Background="White"
-                      Foreground="Black">
+                      Background="{DynamicResource SurfaceBrush}"
+                      Foreground="{DynamicResource PrimaryTextBrush}"
+                      HeadersVisibility="Column">
+              <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="Run" Binding="{Binding IsEnabled}" Width="Auto"/>
+                <DataGridTextColumn Header="ID" Binding="{Binding TeamId}" Width="Auto"/>
+                <DataGridTextColumn Header="Team Name" Binding="{Binding TeamName}" Width="2*"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="Auto"/>
+                <DataGridTextColumn Header="Message" Binding="{Binding StatusMessage}" Width="3*"/>
+                <DataGridTextColumn Header="Photos" Binding="{Binding PhotoDirectoryStatus}" Width="Auto"/>
+              </DataGrid.Columns>
             </DataGrid>
           </Grid>
         </Border>
