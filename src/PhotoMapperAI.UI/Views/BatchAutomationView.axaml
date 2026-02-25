@@ -443,6 +443,9 @@
               <Button Content="Refresh Status" 
                       Command="{Binding ValidatePhotoDirectoriesCommand}"
                       Padding="12,6" FontSize="11"/>
+                    <Button Content="Fix Missing Folders"
+                      Click="OpenMissingPhotoFolders_Click"
+                      Padding="12,6" FontSize="11"/>
               <Button Content="Clear" 
                       Command="{Binding ClearTeamsCommand}"
                       Padding="12,6" FontSize="11"/>

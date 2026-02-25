@@ -198,6 +198,24 @@ public partial class BatchAutomationView : UserControl
         }
     }
 
+    private async void OpenMissingPhotoFolders_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is ViewModels.BatchAutomationViewModel vm)
+        {
+            vm.RefreshMissingPhotoFoldersCommand.Execute(null);
+            var dialog = new MissingPhotoFoldersDialog(vm);
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel is Window window)
+            {
+                await dialog.ShowDialog(window);
+            }
+            else
+            {
+                dialog.Show();
+            }
+        }
+    }
+
     private async void BrowseSizeProfile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;

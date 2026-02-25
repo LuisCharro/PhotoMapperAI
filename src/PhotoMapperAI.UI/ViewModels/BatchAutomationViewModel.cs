@@ -197,6 +197,21 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLoadingTeams;
 
+    [ObservableProperty]
+    private ObservableCollection<MissingTeamFolderItem> _missingPhotoTeams = new();
+
+    [ObservableProperty]
+    private MissingTeamFolderItem? _selectedMissingPhotoTeam;
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availablePhotoFolders = new();
+
+    [ObservableProperty]
+    private string? _selectedPhotoFolder;
+
+    [ObservableProperty]
+    private string _missingPhotoStatus = string.Empty;
+
     #endregion
 
     #region Execution State
@@ -222,6 +237,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
     public ObservableCollection<string> LogLines { get; } = new();
 
     public bool CanStart => !IsProcessing && Teams.Count > 0;
+
+    public bool CanRenameMissingPhotoFolder =>
+        !IsProcessing &&
+        SelectedMissingPhotoTeam != null &&
+        !string.IsNullOrWhiteSpace(SelectedPhotoFolder);
 
     #endregion
 
@@ -477,6 +497,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         }
         
         AppendLog($"Photo directory validation complete. {teamsWithoutPhotos} teams missing photos.");
+        RefreshMissingPhotoFolders();
     }
 
     [RelayCommand]
@@ -716,6 +737,108 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         _cancellationTokenSource?.Cancel();
         ProcessingStatus = "Cancelling batch processing...";
+    }
+
+    [RelayCommand]
+    private void RefreshMissingPhotoFolders()
+    {
+        MissingPhotoTeams.Clear();
+        AvailablePhotoFolders.Clear();
+        SelectedMissingPhotoTeam = null;
+        SelectedPhotoFolder = null;
+
+        if (string.IsNullOrWhiteSpace(BasePhotoDirectory))
+        {
+            MissingPhotoStatus = "Photo directory not configured.";
+            return;
+        }
+
+        if (!Directory.Exists(BasePhotoDirectory))
+        {
+            MissingPhotoStatus = $"Photo directory not found: {BasePhotoDirectory}";
+            return;
+        }
+
+        if (!UseTeamPhotoSubdirectories)
+        {
+            MissingPhotoStatus = "Team subdirectories are disabled; no per-team folders required.";
+            return;
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(BasePhotoDirectory))
+        {
+            var name = Path.GetFileName(directory);
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                AvailablePhotoFolders.Add(name);
+            }
+        }
+
+        var missingCount = 0;
+        foreach (var team in Teams)
+        {
+            var teamPhotoDir = Path.Combine(BasePhotoDirectory, team.TeamName);
+            var hasPhotoDir = Directory.Exists(teamPhotoDir);
+            team.HasPhotoDirectory = hasPhotoDir;
+            team.StatusMessage = hasPhotoDir ? "Ready" : "No photo directory";
+
+            if (!hasPhotoDir)
+            {
+                MissingPhotoTeams.Add(new MissingTeamFolderItem
+                {
+                    TeamId = team.TeamId,
+                    TeamName = team.TeamName
+                });
+                missingCount++;
+            }
+        }
+
+        MissingPhotoStatus = missingCount == 0
+            ? "All teams have photo folders."
+            : $"Missing folders: {missingCount}.";
+    }
+
+    [RelayCommand]
+    private void RenameMissingPhotoFolder()
+    {
+        if (string.IsNullOrWhiteSpace(BasePhotoDirectory))
+        {
+            MissingPhotoStatus = "Photo directory not configured.";
+            return;
+        }
+
+        if (SelectedMissingPhotoTeam == null || string.IsNullOrWhiteSpace(SelectedPhotoFolder))
+        {
+            MissingPhotoStatus = "Select a missing team and an existing folder.";
+            return;
+        }
+
+        var sourceDir = Path.Combine(BasePhotoDirectory, SelectedPhotoFolder);
+        var targetDir = Path.Combine(BasePhotoDirectory, SelectedMissingPhotoTeam.TeamName);
+
+        if (!Directory.Exists(sourceDir))
+        {
+            MissingPhotoStatus = $"Source folder not found: {sourceDir}";
+            return;
+        }
+
+        if (Directory.Exists(targetDir))
+        {
+            MissingPhotoStatus = $"Target folder already exists: {targetDir}";
+            return;
+        }
+
+        try
+        {
+            Directory.Move(sourceDir, targetDir);
+            AppendLog($"Renamed photo folder '{SelectedPhotoFolder}' to '{SelectedMissingPhotoTeam.TeamName}'.");
+            MissingPhotoStatus = $"Renamed '{SelectedPhotoFolder}' to '{SelectedMissingPhotoTeam.TeamName}'.";
+            RefreshMissingPhotoFolders();
+        }
+        catch (Exception ex)
+        {
+            MissingPhotoStatus = $"Rename failed: {ex.Message}";
+        }
     }
 
     #endregion
@@ -1117,6 +1240,21 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             UseAiMapping = true;
         }
+    }
+
+    partial void OnSelectedMissingPhotoTeamChanged(MissingTeamFolderItem? value)
+    {
+        OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
+    }
+
+    partial void OnSelectedPhotoFolderChanged(string? value)
+    {
+        OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
+    }
+
+    partial void OnIsProcessingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
     }
 
     private static int GetTierIndexForModel(string modelName)
