@@ -17,6 +17,7 @@ using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.Services.Image;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
+using PhotoMapperAI.UI.Models;
 using PhotoMapperAI.Utils;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -205,6 +206,15 @@ public partial class GenerateStepViewModel : ViewModelBase
     private bool _isLoadingPhotoGrid;
 
     [ObservableProperty]
+    private ObservableCollection<GenerateIssueSummaryItem> _generateIssueItems = new();
+
+    [ObservableProperty]
+    private bool _hasGenerateIssues;
+
+    [ObservableProperty]
+    private string _generateIssueTitle = "Mapping issues: none";
+
+    [ObservableProperty]
     private PhotoPreviewItem? _selectedPhotoItem;
 
     [ObservableProperty]
@@ -274,6 +284,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         InputCsvPath = string.Empty;
         IsComplete = false;
+        ResetGenerateIssues();
     }
 
     [RelayCommand]
@@ -287,6 +298,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         PhotosDirectory = string.Empty;
         IsComplete = false;
+        ResetGenerateIssues();
     }
 
     [RelayCommand]
@@ -668,7 +680,7 @@ public partial class GenerateStepViewModel : ViewModelBase
             PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
             LogDiagnostic($"Preview encoded message: {PreviewStatus}");
 
-            if (_strictModeEnabled && diagnostics.Count > 0)
+            if (StrictModeEnabled && diagnostics.Count > 0)
             {
                 var diagnosticSummary = string.Join("\n", diagnostics);
                 PreviewStatus = $"[STRICT] {PreviewStatus}\n\nDiagnostics:\n{diagnosticSummary}";
@@ -677,7 +689,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         catch (Exception ex)
         {
             LogDiagnostic($"Error: {ex.Message}");
-            if (_strictModeEnabled && diagnostics.Count > 0)
+            if (StrictModeEnabled && diagnostics.Count > 0)
             {
                 var diagnosticSummary = string.Join("\n", diagnostics);
                 PreviewStatus = $"[STRICT] Preview failed: {ex.Message}\n\nDiagnostics:\n{diagnosticSummary}";
@@ -701,6 +713,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(PhotosDirectory) || !Directory.Exists(PhotosDirectory))
         {
             PreviewStatus = "Select a valid photos directory to load photo grid.";
+            ResetGenerateIssues();
             return;
         }
 
@@ -736,19 +749,14 @@ public partial class GenerateStepViewModel : ViewModelBase
             }
 
             // Get all supported image files
-            var supportedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ".png", ".jpg", ".jpeg", ".bmp"
-            };
-
-            var imageFiles = Directory.EnumerateFiles(PhotosDirectory, "*.*", SearchOption.AllDirectories)
-                .Where(path => supportedExtensions.Contains(Path.GetExtension(path)))
+            var imageFiles = BuildImageFileList(PhotosDirectory)
                 .OrderBy(Path.GetFileName)
                 .ToList();
 
             if (imageFiles.Count == 0)
             {
                 PreviewStatus = "No supported images found in photos directory.";
+                ResetGenerateIssues();
                 return;
             }
 
@@ -904,6 +912,11 @@ public partial class GenerateStepViewModel : ViewModelBase
             {
                 PreviewStatus = statusMessage;
             }
+
+            UpdateGenerateIssues(new GenerateIssueCounts(
+                externalIdNotInCsvCount,
+                noIdInFilenameCount,
+                unmatchedCsvPlayers));
         }
         catch (Exception ex)
         {
@@ -983,6 +996,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         PortraitsFailed = 0;
         ProcessingStatus = "Generating portraits...";
         Progress = 0;
+        ResetGenerateIssues();
         _cancellationTokenSource = new CancellationTokenSource();
 
         var selectedFaceDetectionModel = FaceDetectionModel;
@@ -1005,6 +1019,9 @@ public partial class GenerateStepViewModel : ViewModelBase
 
             var resolvedService = FaceDetectionServiceFactory.Create(selectedFaceDetectionModel);
             AppendLog($"Resolved face detection service: {resolvedService.ModelName}");
+
+            var issueCounts = await ComputeGenerateIssueCountsAsync();
+            UpdateGenerateIssues(issueCounts);
 
             var baseOutputDirectory = OutputDirectory;
             if (!string.Equals(OutputProfile, "none", StringComparison.OrdinalIgnoreCase))
@@ -1301,6 +1318,115 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         var extension = Path.GetExtension(path);
         return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
+    }
+
+    private static List<string> BuildImageFileList(string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return new List<string>();
+        }
+
+        return Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories)
+            .Where(IsSupportedImageFormat)
+            .ToList();
+    }
+
+    private sealed record GenerateIssueCounts(
+        int ExternalIdNotInCsv,
+        int NoIdInFilename,
+        int CsvPlayersWithoutPhoto);
+
+    private void ResetGenerateIssues()
+    {
+        GenerateIssueItems.Clear();
+        HasGenerateIssues = false;
+        GenerateIssueTitle = "Mapping issues: none";
+    }
+
+    private void UpdateGenerateIssues(GenerateIssueCounts counts)
+    {
+        GenerateIssueItems.Clear();
+
+        AddGenerateIssue("CSV players without photo", counts.CsvPlayersWithoutPhoto);
+        AddGenerateIssue("Photos with ExternalId not in CSV", counts.ExternalIdNotInCsv);
+        AddGenerateIssue("Photos missing ExternalId", counts.NoIdInFilename);
+
+        HasGenerateIssues = GenerateIssueItems.Count > 0;
+        var totalIssues = GenerateIssueItems.Sum(item => item.Count);
+        GenerateIssueTitle = HasGenerateIssues
+            ? $"Mapping issues: {totalIssues}"
+            : "Mapping issues: none";
+    }
+
+    private void AddGenerateIssue(string label, int count)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        GenerateIssueItems.Add(new GenerateIssueSummaryItem
+        {
+            Label = label,
+            Count = count,
+            Message = $"{count}",
+            IsCritical = true
+        });
+    }
+
+    private async Task<GenerateIssueCounts> ComputeGenerateIssueCountsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(InputCsvPath) || !File.Exists(InputCsvPath))
+        {
+            return new GenerateIssueCounts(0, 0, 0);
+        }
+
+        if (string.IsNullOrWhiteSpace(PhotosDirectory) || !Directory.Exists(PhotosDirectory))
+        {
+            return new GenerateIssueCounts(0, 0, 0);
+        }
+
+        var extractor = new DatabaseExtractor();
+        var players = await extractor.ReadCsvAsync(InputCsvPath);
+
+        var csvByExternalId = players
+            .Where(player => !string.IsNullOrWhiteSpace(player.ExternalId))
+            .ToDictionary(player => player.ExternalId!, StringComparer.OrdinalIgnoreCase);
+
+        var foundExternalIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var externalIdNotInCsvCount = 0;
+        var noIdInFilenameCount = 0;
+
+        var imageFiles = BuildImageFileList(PhotosDirectory);
+        foreach (var imagePath in imageFiles)
+        {
+            var fileName = Path.GetFileName(imagePath);
+            var metadata = FilenameParser.ParseAutoDetect(fileName);
+            var externalId = metadata?.ExternalId;
+
+            if (string.IsNullOrWhiteSpace(externalId))
+            {
+                noIdInFilenameCount++;
+                continue;
+            }
+
+            if (csvByExternalId.ContainsKey(externalId))
+            {
+                foundExternalIds.Add(externalId);
+            }
+            else
+            {
+                externalIdNotInCsvCount++;
+            }
+        }
+
+        var csvPlayersWithoutPhoto = Math.Max(0, csvByExternalId.Count - foundExternalIds.Count);
+
+        return new GenerateIssueCounts(
+            externalIdNotInCsvCount,
+            noIdInFilenameCount,
+            csvPlayersWithoutPhoto);
     }
 
     private static string BuildPreviewPlayerLabel(PlayerRecord player)

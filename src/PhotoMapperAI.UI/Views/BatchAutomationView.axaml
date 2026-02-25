@@ -551,7 +551,8 @@
                     <Grid ColumnDefinitions="2*,Auto,4*" Margin="0,2">
                       <TextBlock Grid.Column="0" Text="{Binding TeamName}" FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
                       <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="8,0"/>
-                      <TextBlock Grid.Column="2" Text="{Binding Message}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Grid.Column="2" Text="{Binding Message}" FontSize="11" TextWrapping="Wrap"
+                                 Foreground="{Binding IsCritical, Converter={StaticResource BoolToTextBrushConverter}}"/>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>

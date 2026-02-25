@@ -1080,8 +1080,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
             .Select(team =>
             {
                 var unmappedCount = GetUnmappedCount(team.PlayersExtracted, team.PlayersMapped);
-                var isIssue = team.Status is BatchTeamStatus.Failed or BatchTeamStatus.Skipped ||
-                              (team.Status == BatchTeamStatus.Completed && unmappedCount > 0);
+                var hasUnmapped = team.Status == BatchTeamStatus.Completed && unmappedCount > 0;
+                var isIssue = team.Status is BatchTeamStatus.Failed or BatchTeamStatus.Skipped || hasUnmapped;
                 if (!isIssue)
                 {
                     return null;
@@ -1091,11 +1091,14 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     ? $"Unmapped players: {unmappedCount}"
                     : team.StatusMessage;
 
+                var isCritical = team.Status == BatchTeamStatus.Failed || hasUnmapped;
+
                 return new BatchIssueSummaryItem
                 {
                     TeamName = team.TeamName,
                     Status = team.Status.ToString(),
-                    Message = message
+                    Message = message,
+                    IsCritical = isCritical
                 };
             })
             .Where(item => item != null)

@@ -8,4 +8,5 @@ public class BatchIssueSummaryItem
     public string TeamName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+    public bool IsCritical { get; set; }
 }
