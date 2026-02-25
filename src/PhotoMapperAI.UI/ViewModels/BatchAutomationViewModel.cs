@@ -240,6 +240,15 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private int _teamsSkipped;
 
+    [ObservableProperty]
+    private ObservableCollection<BatchIssueSummaryItem> _errorSummaryItems = new();
+
+    [ObservableProperty]
+    private bool _hasErrorSummary;
+
+    [ObservableProperty]
+    private string _errorSummaryTitle = "Issues: none";
+
     public ObservableCollection<string> LogLines { get; } = new();
 
     public bool CanStart => !IsProcessing && Teams.Count > 0;
@@ -513,6 +522,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         TeamsCompleted = 0;
         TeamsFailed = 0;
         TeamsSkipped = 0;
+        ResetErrorSummary();
         OnPropertyChanged(nameof(CanStart));
     }
 
@@ -609,6 +619,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         TeamsCompleted = 0;
         TeamsFailed = 0;
         TeamsSkipped = 0;
+        ResetErrorSummary();
 
         var totalTeams = Teams.Count;
 
@@ -735,6 +746,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             Progress = (double)processedTeams / totalTeams * 100;
             ProcessingStatus = $"Processed {processedTeams}/{totalTeams} teams (Completed: {TeamsCompleted}, Failed: {TeamsFailed}, Skipped: {TeamsSkipped})";
+            UpdateErrorSummary();
         });
     }
 
@@ -1000,14 +1012,18 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
                 UpdateTeamProperty(team, t => t.PhotosGenerated = generateResult.PortraitsGenerated);
                 UpdateTeamProperty(team, t => t.PhotoPath = teamOutputDir);
-                UpdateTeamStatus(team, BatchTeamStatus.Completed, $"Completed: {generateResult.PortraitsGenerated} photos generated");
+                var unmappedCount = GetUnmappedCount(teamResult.PlayersExtracted, teamResult.PlayersMapped);
+                var completedMessage = unmappedCount > 0
+                    ? $"Completed: {generateResult.PortraitsGenerated} photos generated (Unmapped: {unmappedCount})"
+                    : $"Completed: {generateResult.PortraitsGenerated} photos generated";
+                UpdateTeamStatus(team, BatchTeamStatus.Completed, completedMessage);
                 AppendLog($"[GENERATE] {team.TeamName}: Generated {generateResult.PortraitsGenerated} photos.");
 
                 // Update team result and add to session
                 teamResult.PhotosGenerated = generateResult.PortraitsGenerated;
                 teamResult.PhotoPath = teamOutputDir;
                 teamResult.Status = "Completed";
-                teamResult.StatusMessage = $"Completed: {generateResult.PortraitsGenerated} photos generated";
+                teamResult.StatusMessage = completedMessage;
                 teamResult.CompletedAt = DateTime.UtcNow;
                 _sessionState.TeamResults.Add(teamResult);
             }
@@ -1031,6 +1047,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             team.Status = status;
             team.StatusMessage = message;
+            UpdateErrorSummary();
         });
     }
     
@@ -1045,6 +1062,60 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             LogLines.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
         });
+    }
+
+    private void ResetErrorSummary()
+    {
+        ErrorSummaryItems.Clear();
+        HasErrorSummary = false;
+        ErrorSummaryTitle = "Issues: none";
+    }
+
+    private static int GetUnmappedCount(int playersExtracted, int playersMapped)
+        => Math.Max(0, playersExtracted - playersMapped);
+
+    private void UpdateErrorSummary()
+    {
+        var items = Teams
+            .Select(team =>
+            {
+                var unmappedCount = GetUnmappedCount(team.PlayersExtracted, team.PlayersMapped);
+                var isIssue = team.Status is BatchTeamStatus.Failed or BatchTeamStatus.Skipped ||
+                              (team.Status == BatchTeamStatus.Completed && unmappedCount > 0);
+                if (!isIssue)
+                {
+                    return null;
+                }
+
+                var message = team.Status == BatchTeamStatus.Completed
+                    ? $"Unmapped players: {unmappedCount}"
+                    : team.StatusMessage;
+
+                return new BatchIssueSummaryItem
+                {
+                    TeamName = team.TeamName,
+                    Status = team.Status.ToString(),
+                    Message = message
+                };
+            })
+            .Where(item => item != null)
+            .Select(item => item!)
+            .ToList();
+
+        ErrorSummaryItems.Clear();
+        foreach (var item in items)
+        {
+            ErrorSummaryItems.Add(item);
+        }
+
+        var failedCount = items.Count(item => item.Status == BatchTeamStatus.Failed.ToString());
+        var skippedCount = items.Count(item => item.Status == BatchTeamStatus.Skipped.ToString());
+        var unmappedCount = items.Count(item => item.Status == BatchTeamStatus.Completed.ToString());
+
+        HasErrorSummary = items.Count > 0;
+        ErrorSummaryTitle = HasErrorSummary
+            ? $"Issues: {failedCount} failed, {skippedCount} skipped, {unmappedCount} unmapped"
+            : "Issues: none";
     }
 
     #endregion

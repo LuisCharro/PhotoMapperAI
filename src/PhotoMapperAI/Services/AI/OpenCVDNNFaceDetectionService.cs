@@ -118,8 +118,8 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
                 };
             }
 
-            // Read image
-            using var image = Cv2.ImRead(imagePath);
+            // Read image (ImRead can fail on non-ASCII paths on Windows)
+            using var image = ReadImage(imagePath);
             if (image.Empty())
             {
                 return new FaceLandmarks
@@ -283,5 +283,22 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
         }
 
         return Path.Combine(directoryPath, fileNames[0]);
+    }
+
+    private static Mat ReadImage(string imagePath)
+    {
+        if (!File.Exists(imagePath))
+            return new Mat();
+
+        try
+        {
+            return Cv2.ImRead(imagePath, ImreadModes.Color);
+        }
+        catch (ArgumentException)
+        {
+            // Fallback for Unicode paths that OpenCV cannot marshal.
+            var imageBytes = File.ReadAllBytes(imagePath);
+            return Cv2.ImDecode(imageBytes, ImreadModes.Color);
+        }
     }
 }
