@@ -58,6 +58,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
         _databaseExtractor = new DatabaseExtractor();
         _mapRunner = new ExternalMapCliRunner();
         _generateRunner = new ExternalGenerateCliRunner();
+
+        var defaultProfile = ResolveDefaultSizeProfilePath();
+        if (!string.IsNullOrWhiteSpace(defaultProfile))
+        {
+            SizeProfilePath = defaultProfile;
+        }
         
         SeedNameModelList();
         LoadCropOffsetPresets();
@@ -1090,6 +1096,21 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private void SeedNameModelList()
     {
         RebuildNameModelLists(Array.Empty<string>());
+    }
+
+    private static string? ResolveDefaultSizeProfilePath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "size_profiles.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "size_profiles.json"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "size_profiles.json")),
+            Path.Combine(Directory.GetCurrentDirectory(), "samples", "size_profiles.default.json"),
+            Path.Combine(AppContext.BaseDirectory, "samples", "size_profiles.default.json"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "samples", "size_profiles.default.json")),
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
     }
 
     private void RebuildNameModelLists(IEnumerable<string> discoveredModels)
