@@ -71,6 +71,26 @@ public static class CropOffsetSettingsLoader
         offsetsNode["Presets"] = presetsArray;
         imageNode["CropOffsets"] = offsetsNode;
 
+        var dimensionPresetsNode = new JsonObject
+        {
+            ["ActivePresetName"] = settings.ActivePreviewDimensionPresetName
+        };
+
+        var dimensionPresetsArray = new JsonArray();
+        foreach (var preset in settings.PreviewDimensionPresets)
+        {
+            var presetNode = new JsonObject
+            {
+                ["Name"] = preset.Name,
+                ["Width"] = preset.Width,
+                ["Height"] = preset.Height
+            };
+            dimensionPresetsArray.Add(presetNode);
+        }
+
+        dimensionPresetsNode["Presets"] = dimensionPresetsArray;
+        imageNode["PreviewDimensions"] = dimensionPresetsNode;
+
         // Save PreviewCustomDimensions if present
         if (settings.PreviewCustomDimensions != null)
         {
@@ -162,12 +182,69 @@ public static class CropOffsetSettingsLoader
             }
 
             if (dimensionsRoot.TryGetProperty("UseCustom", out var useCustomElement) &&
-                useCustomElement.ValueKind == JsonValueKind.True || useCustomElement.ValueKind == JsonValueKind.False)
+                (useCustomElement.ValueKind == JsonValueKind.True || useCustomElement.ValueKind == JsonValueKind.False))
             {
                 dimensions.UseCustom = useCustomElement.GetBoolean();
             }
 
             settings.PreviewCustomDimensions = dimensions;
+        }
+
+        if (imageRoot.TryGetProperty("PreviewDimensions", out var dimensionRoot) &&
+            dimensionRoot.ValueKind == JsonValueKind.Object)
+        {
+            if (dimensionRoot.TryGetProperty("ActivePresetName", out var activeDimElement) &&
+                activeDimElement.ValueKind == JsonValueKind.String)
+            {
+                settings.ActivePreviewDimensionPresetName = activeDimElement.GetString() ?? settings.ActivePreviewDimensionPresetName;
+            }
+
+            if (dimensionRoot.TryGetProperty("Presets", out var dimPresetsElement) &&
+                dimPresetsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var presetElement in dimPresetsElement.EnumerateArray())
+                {
+                    if (presetElement.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var preset = new PreviewDimensionPreset();
+
+                    if (presetElement.TryGetProperty("Name", out var nameElement) &&
+                        nameElement.ValueKind == JsonValueKind.String)
+                    {
+                        preset.Name = nameElement.GetString() ?? preset.Name;
+                    }
+
+                    if (presetElement.TryGetProperty("Width", out var widthElement) &&
+                        widthElement.ValueKind == JsonValueKind.Number)
+                    {
+                        preset.Width = widthElement.GetInt32();
+                    }
+
+                    if (presetElement.TryGetProperty("Height", out var heightElement) &&
+                        heightElement.ValueKind == JsonValueKind.Number)
+                    {
+                        preset.Height = heightElement.GetInt32();
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(preset.Name))
+                    {
+                        settings.PreviewDimensionPresets.Add(preset);
+                    }
+                }
+            }
+        }
+
+        if (settings.PreviewDimensionPresets.Count == 0)
+        {
+            var defaultWidth = settings.PreviewCustomDimensions?.Width ?? 200;
+            var defaultHeight = settings.PreviewCustomDimensions?.Height ?? 300;
+            settings.PreviewDimensionPresets.Add(new PreviewDimensionPreset
+            {
+                Name = "default",
+                Width = defaultWidth,
+                Height = defaultHeight
+            });
         }
 
         return settings;

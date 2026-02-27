@@ -5,15 +5,22 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.Services.Diagnostics;
+using PhotoMapperAI.Services.Image;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
 using PhotoMapperAI.UI.Models;
 using PhotoMapperAI.Models;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
@@ -24,6 +31,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private readonly ExternalMapCliRunner _mapRunner;
     private readonly ExternalGenerateCliRunner _generateRunner;
     private CancellationTokenSource? _cancellationTokenSource;
+    private CancellationTokenSource? _autoPreviewCts;
     private BatchSessionState _sessionState = new();
 
     private static readonly string[] DefaultLocalNameModels =
@@ -163,7 +171,43 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private CropOffsetPreset? _selectedCropOffsetPreset;
 
+    [ObservableProperty]
+    private string _cropOffsetStatus = string.Empty;
+
     public ObservableCollection<CropOffsetPreset> CropOffsetPresets { get; } = new();
+
+    // Preview + custom dimensions
+    [ObservableProperty]
+    private Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private string _previewStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _previewTeamLabel = string.Empty;
+
+    [ObservableProperty]
+    private bool _isPreviewing;
+
+    [ObservableProperty]
+    private bool _autoPreviewEnabled;
+
+    [ObservableProperty]
+    private int _previewCustomWidth = 200;
+
+    [ObservableProperty]
+    private int _previewCustomHeight = 300;
+
+    [ObservableProperty]
+    private bool _useCustomPreviewDimensions;
+
+    [ObservableProperty]
+    private PreviewDimensionPreset? _selectedPreviewDimensionPreset;
+
+    [ObservableProperty]
+    private string _previewDimensionStatus = string.Empty;
+
+    public ObservableCollection<PreviewDimensionPreset> PreviewDimensionPresets { get; } = new();
 
     // Output Settings
     [ObservableProperty]
@@ -364,6 +408,310 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             IsCheckingModel = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task GeneratePreview()
+    {
+        if (IsProcessing || IsPreviewing)
+        {
+            return;
+        }
+
+        PreviewImage = null;
+        PreviewStatus = string.Empty;
+        PreviewTeamLabel = string.Empty;
+        IsPreviewing = true;
+
+        try
+        {
+            if (Teams.Count == 0)
+            {
+                PreviewStatus = "Load teams before previewing.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(BaseCsvDirectory) || string.IsNullOrWhiteSpace(BasePhotoDirectory))
+            {
+                PreviewStatus = "Configure CSV and photo directories before previewing.";
+                return;
+            }
+
+            var team = FindPreviewTeamCandidate();
+            if (team == null)
+            {
+                PreviewStatus = "No eligible team found for preview.";
+                return;
+            }
+
+            var teamPhotoDir = ResolveTeamPhotoDirectory(team);
+            if (string.IsNullOrWhiteSpace(teamPhotoDir) || !Directory.Exists(teamPhotoDir))
+            {
+                PreviewStatus = $"Preview skipped: photo folder not found for {team.TeamName}.";
+                return;
+            }
+
+            var teamCsvDir = Path.Combine(BaseCsvDirectory, team.TeamName);
+            Directory.CreateDirectory(teamCsvDir);
+            var teamCsvPath = Path.Combine(teamCsvDir, $"{team.TeamName}.csv");
+
+            if (!File.Exists(teamCsvPath))
+            {
+                if (string.IsNullOrWhiteSpace(ConnectionString) || string.IsNullOrWhiteSpace(PlayersSqlPath))
+                {
+                    PreviewStatus = "Provide connection string and players SQL to extract preview data.";
+                    return;
+                }
+
+                if (!File.Exists(PlayersSqlPath))
+                {
+                    PreviewStatus = $"Players SQL file not found: {PlayersSqlPath}";
+                    return;
+                }
+
+                var playersSql = await File.ReadAllTextAsync(PlayersSqlPath);
+                playersSql = playersSql.Replace("{TeamId}", team.TeamId.ToString());
+
+                var parameters = new Dictionary<string, object>
+                {
+                    { "TeamId", team.TeamId }
+                };
+
+                await _databaseExtractor.ExtractPlayersToCsvAsync(ConnectionString, playersSql, parameters, teamCsvPath);
+            }
+
+            var mappedCsvPath = Path.Combine(teamCsvDir, BuildMappedFileName(teamCsvPath));
+            if (!File.Exists(mappedCsvPath))
+            {
+                var mapResult = await _mapRunner.ExecuteAsync(
+                    Directory.GetCurrentDirectory(),
+                    teamCsvDir,
+                    teamCsvPath,
+                    teamPhotoDir,
+                    string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
+                    UsePhotoManifest ? PhotoManifestPath : null,
+                    NameMatchingModel,
+                    NameMatchingThreshold,
+                    UseAiMapping,
+                    AiSecondPass,
+                    AiOnly,
+                    openAiApiKey: null,
+                    anthropicApiKey: null,
+                    CancellationToken.None,
+                    log: null);
+
+                if (mapResult.ExitCode != 0)
+                {
+                    PreviewStatus = $"Mapping failed with exit code {mapResult.ExitCode}.";
+                    return;
+                }
+
+                mappedCsvPath = mapResult.OutputCsvPath;
+            }
+
+            if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
+            {
+                PreviewStatus = "Mapped CSV not found for preview.";
+                return;
+            }
+
+            var previewPlayer = await ResolvePreviewPlayerAsync(mappedCsvPath);
+            if (previewPlayer == null || string.IsNullOrWhiteSpace(previewPlayer.ExternalId))
+            {
+                PreviewStatus = "No eligible player with ExternalId found for preview.";
+                return;
+            }
+
+            var (previewWidth, previewHeight) = ResolvePreviewDimensions();
+            var photoPath = ResolvePreviewPhotoPath(teamPhotoDir, previewPlayer.ExternalId);
+
+            if (string.IsNullOrWhiteSpace(photoPath))
+            {
+                PreviewStatus = $"No photo found for ExternalId {previewPlayer.ExternalId}.";
+                return;
+            }
+
+            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
+            await faceDetectionService.InitializeAsync();
+
+            FaceLandmarks landmarks;
+            PreviewStatus = "Detecting face for preview...";
+            landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath)
+                ?? new FaceLandmarks { FaceDetected = false };
+
+            var imageProcessor = new ImageProcessor();
+            using var image = await imageProcessor.LoadImageAsync(photoPath);
+
+            var cropOffset = BuildCurrentCropOffsetPreset();
+
+            using var cropped = await imageProcessor.CropPortraitAsync(
+                image,
+                landmarks.FaceDetected ? landmarks : new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
+                previewWidth,
+                previewHeight,
+                cropOffset);
+
+            using var stream = new MemoryStream();
+            cropped.Save(stream, new JpegEncoder { Quality = 92 });
+            stream.Position = 0;
+            PreviewImage = new Bitmap(stream);
+
+            PreviewTeamLabel = $"Preview team: {team.TeamName} | {BuildPreviewPlayerLabel(previewPlayer)}";
+            PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+        }
+        catch (Exception ex)
+        {
+            PreviewStatus = $"Preview failed: {ex.Message}";
+        }
+        finally
+        {
+            IsPreviewing = false;
+        }
+    }
+
+    [RelayCommand]
+    private void SaveCropOffsetPreset()
+    {
+        var presetName = SelectedCropOffsetPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = CropOffsetPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new CropOffsetPreset { Name = presetName };
+            CropOffsetPresets.Add(preset);
+        }
+
+        preset.HorizontalPercent = CropOffsetX;
+        preset.VerticalPercent = CropOffsetY;
+
+        var settings = BuildCropOffsetSettingsSnapshot(presetName);
+        CropOffsetSettingsLoader.SaveToLocal(settings);
+        CropOffsetStatus = $"Saved offset preset '{presetName}'.";
+        SelectedCropOffsetPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewCropOffsetPreset()
+    {
+        var baseName = "new_preset";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (CropOffsetPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new CropOffsetPreset
+        {
+            Name = newName,
+            HorizontalPercent = CropOffsetX,
+            VerticalPercent = CropOffsetY
+        };
+
+        CropOffsetPresets.Add(newPreset);
+        SelectedCropOffsetPreset = newPreset;
+        CropOffsetStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
+    }
+
+    [RelayCommand]
+    private void SavePreviewDimensionPreset()
+    {
+        var presetName = SelectedPreviewDimensionPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = PreviewDimensionPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new PreviewDimensionPreset { Name = presetName };
+            PreviewDimensionPresets.Add(preset);
+        }
+
+        preset.Width = PreviewCustomWidth;
+        preset.Height = PreviewCustomHeight;
+
+        var settings = BuildCropOffsetSettingsSnapshot(SelectedCropOffsetPreset?.Name ?? "default");
+        settings.ActivePreviewDimensionPresetName = presetName;
+        settings.PreviewDimensionPresets = PreviewDimensionPresets
+            .Select(p => new PreviewDimensionPreset
+            {
+                Name = p.Name,
+                Width = p.Width,
+                Height = p.Height
+            })
+            .ToList();
+
+        CropOffsetSettingsLoader.SaveToLocal(settings);
+        PreviewDimensionStatus = $"Saved dimension preset '{presetName}'.";
+        SelectedPreviewDimensionPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewPreviewDimensionPreset()
+    {
+        var baseName = "new_dimensions";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (PreviewDimensionPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new PreviewDimensionPreset
+        {
+            Name = newName,
+            Width = PreviewCustomWidth,
+            Height = PreviewCustomHeight
+        };
+
+        PreviewDimensionPresets.Add(newPreset);
+        SelectedPreviewDimensionPreset = newPreset;
+        UseCustomPreviewDimensions = true;
+        PreviewDimensionStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
+    }
+
+    [RelayCommand]
+    private void DecrementCustomWidth()
+    {
+        if (PreviewCustomWidth > 50)
+        {
+            PreviewCustomWidth -= 10;
+        }
+    }
+
+    [RelayCommand]
+    private void IncrementCustomWidth()
+    {
+        PreviewCustomWidth += 10;
+    }
+
+    [RelayCommand]
+    private void DecrementCustomHeight()
+    {
+        if (PreviewCustomHeight > 50)
+        {
+            PreviewCustomHeight -= 10;
+        }
+    }
+
+    [RelayCommand]
+    private void IncrementCustomHeight()
+    {
+        PreviewCustomHeight += 10;
     }
 
     [RelayCommand]
@@ -985,6 +1333,15 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     VerticalPercent = CropOffsetY
                 };
 
+                var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
+                var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
+                var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+                var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+                var allSizes = wantsAllSizes;
+
+                var effectiveWidth = wantsCustomDimensions ? PreviewCustomWidth : DefaultWidth;
+                var effectiveHeight = wantsCustomDimensions ? PreviewCustomHeight : DefaultHeight;
+
                 var generateResult = await _generateRunner.ExecuteAsync(
                     Directory.GetCurrentDirectory(),
                     teamResult.MappedCsvPath ?? csvPath,  // Use mapped CSV with ExternalId
@@ -993,10 +1350,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     ImageFormat,
                     FaceDetectionModel,
                     false,
-                    DefaultWidth,
-                    DefaultHeight,
-                    !string.IsNullOrWhiteSpace(SizeProfilePath) ? SizeProfilePath : null,
-                    GenerateAllSizes,
+                    effectiveWidth,
+                    effectiveHeight,
+                    sizeProfilePath,
+                    allSizes,
                     false,
                     DownloadOpenCvModels,
                     null,
@@ -1039,6 +1396,194 @@ public partial class BatchAutomationViewModel : ViewModelBase
             AppendLog($"[ERROR] Stack trace: {ex.StackTrace}");
             throw;
         }
+    }
+
+    private BatchTeamItem? FindPreviewTeamCandidate()
+    {
+        foreach (var team in Teams)
+        {
+            if (!team.IsEnabled)
+            {
+                continue;
+            }
+
+            var teamPhotoDir = ResolveTeamPhotoDirectory(team);
+            if (!string.IsNullOrWhiteSpace(teamPhotoDir) && Directory.Exists(teamPhotoDir))
+            {
+                return team;
+            }
+        }
+
+        return null;
+    }
+
+    private string ResolveTeamPhotoDirectory(BatchTeamItem team)
+    {
+        if (string.IsNullOrWhiteSpace(BasePhotoDirectory))
+        {
+            return string.Empty;
+        }
+
+        return UseTeamPhotoSubdirectories
+            ? Path.Combine(BasePhotoDirectory, team.TeamName)
+            : BasePhotoDirectory;
+    }
+
+    private async Task<PlayerRecord?> ResolvePreviewPlayerAsync(string csvPath)
+    {
+        var players = await _databaseExtractor.ReadCsvAsync(csvPath);
+        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ExternalId));
+    }
+
+    private (int width, int height) ResolvePreviewDimensions()
+    {
+        if (UseCustomPreviewDimensions)
+        {
+            return (PreviewCustomWidth, PreviewCustomHeight);
+        }
+
+        if (!string.IsNullOrWhiteSpace(SizeProfilePath))
+        {
+            var profile = LoadSizeProfile(SizeProfilePath);
+            var variant = profile.Variants.FirstOrDefault(v =>
+                              string.Equals(v.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
+                              || (v.Width == 200 && v.Height == 300))
+                          ?? profile.Variants.First();
+            return (variant.Width, variant.Height);
+        }
+
+        return (DefaultWidth, DefaultHeight);
+    }
+
+    private string? ResolvePreviewPhotoPath(string photosDirectory, string externalId)
+    {
+        if (string.IsNullOrWhiteSpace(externalId))
+        {
+            return null;
+        }
+
+        var photoFiles = FindPlayerPhotoFiles(photosDirectory, externalId);
+        return photoFiles.FirstOrDefault();
+    }
+
+    private static List<string> FindPlayerPhotoFiles(string photosDirectory, string externalId)
+    {
+        var photoFiles = Directory.GetFiles(photosDirectory, $"{externalId}.*")
+            .Where(IsSupportedImageFormat)
+            .ToList();
+
+        if (photoFiles.Count == 0)
+        {
+            var pattern = $"*_{externalId}.*";
+            photoFiles = Directory.GetFiles(photosDirectory, pattern, SearchOption.AllDirectories)
+                .Where(IsSupportedImageFormat)
+                .ToList();
+        }
+
+        return photoFiles;
+    }
+
+    private static bool IsSupportedImageFormat(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
+    }
+
+    private static string BuildMappedFileName(string inputCsvPath)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(inputCsvPath);
+        return $"mapped_{baseName}.csv";
+    }
+
+    private CropOffsetPreset BuildCurrentCropOffsetPreset()
+    {
+        var presetName = SelectedCropOffsetPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "custom";
+        }
+
+        return new CropOffsetPreset
+        {
+            Name = presetName,
+            HorizontalPercent = CropOffsetX,
+            VerticalPercent = CropOffsetY
+        };
+    }
+
+    private CropOffsetSettings BuildCropOffsetSettingsSnapshot(string activePresetName)
+    {
+        return new CropOffsetSettings
+        {
+            ActivePresetName = activePresetName,
+            Presets = CropOffsetPresets
+                .Select(p => new CropOffsetPreset
+                {
+                    Name = p.Name,
+                    HorizontalPercent = p.HorizontalPercent,
+                    VerticalPercent = p.VerticalPercent
+                })
+                .ToList(),
+            PreviewCustomDimensions = new PreviewCustomDimensions
+            {
+                Width = PreviewCustomWidth,
+                Height = PreviewCustomHeight,
+                UseCustom = UseCustomPreviewDimensions
+            },
+            ActivePreviewDimensionPresetName = SelectedPreviewDimensionPreset?.Name ?? "default",
+            PreviewDimensionPresets = PreviewDimensionPresets
+                .Select(p => new PreviewDimensionPreset
+                {
+                    Name = p.Name,
+                    Width = p.Width,
+                    Height = p.Height
+                })
+                .ToList()
+        };
+    }
+
+    private static string BuildPreviewPlayerLabel(PlayerRecord player)
+    {
+        var externalId = string.IsNullOrWhiteSpace(player.ExternalId) ? "n/a" : player.ExternalId;
+        return $"{player.FullName} (ID: {externalId})";
+    }
+
+    private void ScheduleAutoPreview()
+    {
+        if (!AutoPreviewEnabled || IsProcessing)
+        {
+            return;
+        }
+
+        _autoPreviewCts?.Cancel();
+        _autoPreviewCts?.Dispose();
+        _autoPreviewCts = new CancellationTokenSource();
+        var token = _autoPreviewCts.Token;
+
+        _ = DebouncedAutoPreviewAsync(token);
+    }
+
+    private async Task DebouncedAutoPreviewAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(250, token);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (GeneratePreviewCommand.CanExecute(null))
+                {
+                    GeneratePreviewCommand.Execute(null);
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void RequestAutoPreviewFromUi()
+    {
+        ScheduleAutoPreview();
     }
     
     private void UpdateTeamStatus(BatchTeamItem team, BatchTeamStatus status, string message)
@@ -1187,6 +1732,52 @@ public partial class BatchAutomationViewModel : ViewModelBase
         return candidates.FirstOrDefault(File.Exists);
     }
 
+    private static UiSizeProfile LoadSizeProfile(string profilePath)
+    {
+        if (string.IsNullOrWhiteSpace(profilePath) || !File.Exists(profilePath))
+        {
+            throw new FileNotFoundException($"Size profile file not found: {profilePath}");
+        }
+
+        var json = File.ReadAllText(profilePath);
+        var profile = JsonSerializer.Deserialize<UiSizeProfile>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        });
+
+        if (profile == null || profile.Variants == null || profile.Variants.Count == 0)
+        {
+            throw new InvalidOperationException("Size profile must contain at least one variant.");
+        }
+
+        foreach (var variant in profile.Variants)
+        {
+            if (string.IsNullOrWhiteSpace(variant.Key) || variant.Width <= 0 || variant.Height <= 0)
+            {
+                throw new InvalidOperationException("Each size profile variant requires key, width > 0, and height > 0.");
+            }
+        }
+
+        return profile;
+    }
+
+    private sealed class UiSizeProfile
+    {
+        public string Name { get; set; } = "default";
+        public List<UiSizeVariant> Variants { get; set; } = new();
+    }
+
+    private sealed class UiSizeVariant
+    {
+        public string Key { get; set; } = string.Empty;
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public string? OutputSubfolder { get; set; }
+        public string? PlaceholderPath { get; set; }
+    }
+
     private void RebuildNameModelLists(IEnumerable<string> discoveredModels)
     {
         var previousSelection = NameMatchingModel;
@@ -1319,6 +1910,45 @@ public partial class BatchAutomationViewModel : ViewModelBase
         if (value == null) return;
         CropOffsetX = value.HorizontalPercent;
         CropOffsetY = value.VerticalPercent;
+        ScheduleAutoPreview();
+    }
+
+    partial void OnCropOffsetXChanged(double value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnCropOffsetYChanged(double value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnSelectedPreviewDimensionPresetChanged(PreviewDimensionPreset? value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        PreviewCustomWidth = value.Width;
+        PreviewCustomHeight = value.Height;
+        UseCustomPreviewDimensions = true;
+        ScheduleAutoPreview();
+    }
+
+    partial void OnPreviewCustomWidthChanged(int value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnPreviewCustomHeightChanged(int value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnUseCustomPreviewDimensionsChanged(bool value)
+    {
+        ScheduleAutoPreview();
     }
 
     partial void OnUseAiMappingChanged(bool value)
@@ -1395,6 +2025,39 @@ public partial class BatchAutomationViewModel : ViewModelBase
         SelectedCropOffsetPreset = CropOffsetPresets.FirstOrDefault(p =>
             string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
             ?? CropOffsetPresets[0];
+
+        if (settings.PreviewCustomDimensions != null)
+        {
+            PreviewCustomWidth = settings.PreviewCustomDimensions.Width;
+            PreviewCustomHeight = settings.PreviewCustomDimensions.Height;
+            UseCustomPreviewDimensions = settings.PreviewCustomDimensions.UseCustom;
+        }
+
+        PreviewDimensionPresets.Clear();
+        foreach (var preset in settings.PreviewDimensionPresets)
+        {
+            PreviewDimensionPresets.Add(new PreviewDimensionPreset
+            {
+                Name = preset.Name,
+                Width = preset.Width,
+                Height = preset.Height
+            });
+        }
+
+        if (PreviewDimensionPresets.Count == 0)
+        {
+            PreviewDimensionPresets.Add(new PreviewDimensionPreset
+            {
+                Name = "default",
+                Width = PreviewCustomWidth,
+                Height = PreviewCustomHeight
+            });
+        }
+
+        var activeDimensions = settings.GetActivePreviewDimensionPreset();
+        SelectedPreviewDimensionPreset = PreviewDimensionPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, activeDimensions.Name, StringComparison.OrdinalIgnoreCase))
+            ?? PreviewDimensionPresets[0];
     }
 
     private void LoadFilenamePatternPresets()

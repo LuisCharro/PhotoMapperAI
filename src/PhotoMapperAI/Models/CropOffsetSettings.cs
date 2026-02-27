@@ -18,11 +18,20 @@ public sealed class PreviewCustomDimensions
     public bool UseCustom { get; set; }
 }
 
+public sealed class PreviewDimensionPreset
+{
+    public string Name { get; set; } = "default";
+    public int Width { get; set; } = 200;
+    public int Height { get; set; } = 300;
+}
+
 public sealed class CropOffsetSettings
 {
     public string ActivePresetName { get; set; } = "default";
     public List<CropOffsetPreset> Presets { get; set; } = new();
     public PreviewCustomDimensions? PreviewCustomDimensions { get; set; }
+    public string ActivePreviewDimensionPresetName { get; set; } = "default";
+    public List<PreviewDimensionPreset> PreviewDimensionPresets { get; set; } = new();
 
     public CropOffsetPreset GetActivePreset()
     {
@@ -37,6 +46,19 @@ public sealed class CropOffsetSettings
         return match ?? Presets[0];
     }
 
+    public PreviewDimensionPreset GetActivePreviewDimensionPreset()
+    {
+        if (PreviewDimensionPresets.Count == 0)
+        {
+            return new PreviewDimensionPreset { Name = "default" };
+        }
+
+        var match = PreviewDimensionPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, ActivePreviewDimensionPresetName, StringComparison.OrdinalIgnoreCase));
+
+        return match ?? PreviewDimensionPresets[0];
+    }
+
     public static CropOffsetSettings CreateDefault()
     {
         return new CropOffsetSettings
@@ -46,7 +68,12 @@ public sealed class CropOffsetSettings
             {
                 new CropOffsetPreset { Name = "default", HorizontalPercent = 0, VerticalPercent = 0 }
             },
-            PreviewCustomDimensions = new PreviewCustomDimensions()
+            PreviewCustomDimensions = new PreviewCustomDimensions(),
+            ActivePreviewDimensionPresetName = "default",
+            PreviewDimensionPresets = new List<PreviewDimensionPreset>
+            {
+                new PreviewDimensionPreset { Name = "default", Width = 200, Height = 300 }
+            }
         };
     }
 }

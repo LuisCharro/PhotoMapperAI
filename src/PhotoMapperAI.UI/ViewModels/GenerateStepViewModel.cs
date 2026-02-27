@@ -235,6 +235,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _cropOffsetStatus = string.Empty;
 
+    [ObservableProperty]
+    private PreviewDimensionPreset? _selectedPreviewDimensionPreset;
+
+    [ObservableProperty]
+    private string _previewDimensionStatus = string.Empty;
+
     // Custom preview dimensions (separate from profile)
     [ObservableProperty]
     private int _previewCustomWidth = 200;
@@ -270,6 +276,8 @@ public partial class GenerateStepViewModel : ViewModelBase
     };
 
     public ObservableCollection<CropOffsetPreset> CropOffsetPresets { get; } = new();
+
+    public ObservableCollection<PreviewDimensionPreset> PreviewDimensionPresets { get; } = new();
 
     public ObservableCollection<string> PaidFaceDetectionModels { get; } = new();
 
@@ -349,6 +357,18 @@ public partial class GenerateStepViewModel : ViewModelBase
         CropOffsetYPercent = value.VerticalPercent;
     }
 
+    partial void OnSelectedPreviewDimensionPresetChanged(PreviewDimensionPreset? value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        PreviewCustomWidth = value.Width;
+        PreviewCustomHeight = value.Height;
+        UseCustomPreviewDimensions = true;
+    }
+
     partial void OnPreviewCustomWidthChanged(int value)
     {
         TriggerAutoPreviewIfNeeded();
@@ -412,27 +432,10 @@ public partial class GenerateStepViewModel : ViewModelBase
         preset.HorizontalPercent = CropOffsetXPercent;
         preset.VerticalPercent = CropOffsetYPercent;
 
-        var settings = new CropOffsetSettings
-        {
-            ActivePresetName = presetName,
-            Presets = CropOffsetPresets
-                .Select(p => new CropOffsetPreset
-                {
-                    Name = p.Name,
-                    HorizontalPercent = p.HorizontalPercent,
-                    VerticalPercent = p.VerticalPercent
-                })
-                .ToList(),
-            PreviewCustomDimensions = new PreviewCustomDimensions
-            {
-                Width = PreviewCustomWidth,
-                Height = PreviewCustomHeight,
-                UseCustom = UseCustomPreviewDimensions
-            }
-        };
+        var settings = BuildCropOffsetSettingsSnapshot(presetName);
 
         CropOffsetSettingsLoader.SaveToLocal(settings);
-        CropOffsetStatus = $"Saved preset '{presetName}' and dimensions to appsettings.local.json";
+        CropOffsetStatus = $"Saved offset preset '{presetName}'.";
         SelectedCropOffsetPreset = preset;
     }
 
@@ -459,7 +462,71 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         CropOffsetPresets.Add(newPreset);
         SelectedCropOffsetPreset = newPreset;
-        CropOffsetStatus = $"Created new preset '{newName}'. Edit name and click 'Save Preset' to persist.";
+        CropOffsetStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
+    }
+
+    [RelayCommand]
+    private void SavePreviewDimensionPreset()
+    {
+        var presetName = SelectedPreviewDimensionPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = PreviewDimensionPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new PreviewDimensionPreset { Name = presetName };
+            PreviewDimensionPresets.Add(preset);
+        }
+
+        preset.Width = PreviewCustomWidth;
+        preset.Height = PreviewCustomHeight;
+
+        var settings = BuildCropOffsetSettingsSnapshot(SelectedCropOffsetPreset?.Name ?? "default");
+        settings.ActivePreviewDimensionPresetName = presetName;
+        settings.PreviewDimensionPresets = PreviewDimensionPresets
+            .Select(p => new PreviewDimensionPreset
+            {
+                Name = p.Name,
+                Width = p.Width,
+                Height = p.Height
+            })
+            .ToList();
+
+        CropOffsetSettingsLoader.SaveToLocal(settings);
+        PreviewDimensionStatus = $"Saved dimension preset '{presetName}'.";
+        SelectedPreviewDimensionPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewPreviewDimensionPreset()
+    {
+        var baseName = "new_dimensions";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (PreviewDimensionPresets.Any(p =>
+                   string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new PreviewDimensionPreset
+        {
+            Name = newName,
+            Width = PreviewCustomWidth,
+            Height = PreviewCustomHeight
+        };
+
+        PreviewDimensionPresets.Add(newPreset);
+        SelectedPreviewDimensionPreset = newPreset;
+        UseCustomPreviewDimensions = true;
+        PreviewDimensionStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
     }
 
     [RelayCommand]
@@ -1235,6 +1302,63 @@ public partial class GenerateStepViewModel : ViewModelBase
             PreviewCustomHeight = settings.PreviewCustomDimensions.Height;
             UseCustomPreviewDimensions = settings.PreviewCustomDimensions.UseCustom;
         }
+
+        PreviewDimensionPresets.Clear();
+        foreach (var preset in settings.PreviewDimensionPresets)
+        {
+            PreviewDimensionPresets.Add(new PreviewDimensionPreset
+            {
+                Name = preset.Name,
+                Width = preset.Width,
+                Height = preset.Height
+            });
+        }
+
+        if (PreviewDimensionPresets.Count == 0)
+        {
+            PreviewDimensionPresets.Add(new PreviewDimensionPreset
+            {
+                Name = "default",
+                Width = PreviewCustomWidth,
+                Height = PreviewCustomHeight
+            });
+        }
+
+        var activeDimensions = settings.GetActivePreviewDimensionPreset();
+        SelectedPreviewDimensionPreset = PreviewDimensionPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, activeDimensions.Name, StringComparison.OrdinalIgnoreCase))
+            ?? PreviewDimensionPresets[0];
+    }
+
+    private CropOffsetSettings BuildCropOffsetSettingsSnapshot(string activePresetName)
+    {
+        return new CropOffsetSettings
+        {
+            ActivePresetName = activePresetName,
+            Presets = CropOffsetPresets
+                .Select(p => new CropOffsetPreset
+                {
+                    Name = p.Name,
+                    HorizontalPercent = p.HorizontalPercent,
+                    VerticalPercent = p.VerticalPercent
+                })
+                .ToList(),
+            PreviewCustomDimensions = new PreviewCustomDimensions
+            {
+                Width = PreviewCustomWidth,
+                Height = PreviewCustomHeight,
+                UseCustom = UseCustomPreviewDimensions
+            },
+            ActivePreviewDimensionPresetName = SelectedPreviewDimensionPreset?.Name ?? "default",
+            PreviewDimensionPresets = PreviewDimensionPresets
+                .Select(p => new PreviewDimensionPreset
+                {
+                    Name = p.Name,
+                    Width = p.Width,
+                    Height = p.Height
+                })
+                .ToList()
+        };
     }
 
     private CropOffsetPreset BuildCurrentCropOffsetPreset()

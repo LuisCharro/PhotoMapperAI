@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Controls.Primitives;
 using Avalonia.Platform.Storage;
 using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.UI.Models;
@@ -265,6 +266,14 @@ public partial class BatchAutomationView : UserControl
             {
                 vm.PhotoManifestPath = path;
             }
+        }
+    }
+
+    private void CropOffsetSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (DataContext is ViewModels.BatchAutomationViewModel vm)
+        {
+            vm.RequestAutoPreviewFromUi();
         }
     }
 }
