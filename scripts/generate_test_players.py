@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate synthetic player CSV from FIFA photos for PhotoMapperAI testing.
+Generate synthetic player CSV from competition photos for PhotoMapperAI testing.
 Matches the SQL schema expected by the extract command.
 """
 
