@@ -30,10 +30,15 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-gui",
-      "program": "${workspaceFolder}/src/PhotoMapperAI.UI/bin/Debug/net10.0/PhotoMapperAI.UI.dll",
+      "program": "${workspaceFolder}/src/PhotoMapperAI.UI/bin/Debug/net10.0/PhotoMapperAI.UI",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "stopAtEntry": false
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_ROOT": "/opt/homebrew/Cellar/dotnet/10.0.102/libexec",
+        "DOTNET_ROOT_ARM64": "/opt/homebrew/Cellar/dotnet/10.0.102/libexec",
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/src/PhotoMapperAI.UI/bin/Debug/net10.0/runtimes/osx-arm64/native:${workspaceFolder}/src/PhotoMapperAI.UI/bin/Debug/libs"
+      }
     }
   ],
   "compounds": [

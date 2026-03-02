@@ -55,6 +55,8 @@ public class HaarCascadeFaceDetectionService : IFaceDetectionService
         {
             try
             {
+                OpenCvMacRuntimeBootstrap.EnsureInitialized();
+
                 var faceCascadePath = GetResourcePath("haarcascade_frontalface_default.xml");
                 var eyeCascadePath = GetResourcePath("haarcascade_eye.xml");
 

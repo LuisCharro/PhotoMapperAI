@@ -322,12 +322,14 @@ public class ImageProcessor : IImageProcessor
             var faceRect = landmarks.FaceRect;
             
             // Calculate crop dimensions based on FACE size
-            cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
-            cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
+            // Use larger multipliers for better portrait composition when eyes are not detected
+            cropWidth = (int)(faceRect.Width * 2.5);   // 2.5x face width (was 2.0)
+            cropHeight = (int)(faceRect.Height * 3.5); // 3.5x face height (was 3.0)
             
             // Eyes are typically in the upper 40% of the face rectangle
+            // Use a slightly lower eye position (35% instead of 40%) for better headroom
             centerX = faceRect.X + faceRect.Width / 2;
-            eyeY = faceRect.Y + (int)(faceRect.Height * 0.40);
+            eyeY = faceRect.Y + (int)(faceRect.Height * 0.35);
         }
         
         // Case 4: No face detected - use upper portion of image (center crop mode)

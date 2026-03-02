@@ -80,6 +80,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
     private CancellationTokenSource? _autoPreviewCts;
+    private readonly SemaphoreSlim _previewSemaphore = new(1, 1);
 
     public GenerateStepViewModel()
     {
@@ -386,20 +387,27 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     private void TriggerAutoPreviewIfNeeded()
     {
-        if (!AutoPreviewEnabled || IsProcessing)
+        if (!AutoPreviewEnabled || IsProcessing || IsPreviewing)
         {
             return;
         }
 
         // Debounce: cancel any pending auto-preview
         _autoPreviewCts?.Cancel();
+        _autoPreviewCts?.Dispose();
         _autoPreviewCts = new CancellationTokenSource();
+        var token = _autoPreviewCts.Token;
 
         _ = Task.Run(async () =>
         {
-            await Task.Delay(300, _autoPreviewCts.Token);
-            if (!_autoPreviewCts.Token.IsCancellationRequested)
+            try
             {
+                await Task.Delay(300, token);
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (GeneratePreviewCommand.CanExecute(null))
@@ -407,6 +415,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                         GeneratePreviewCommand.Execute(null);
                     }
                 });
+            }
+            catch (OperationCanceledException)
+            {
             }
         });
     }
@@ -608,15 +619,16 @@ public partial class GenerateStepViewModel : ViewModelBase
     [RelayCommand]
     private async Task GeneratePreview()
     {
-        if (IsProcessing || IsPreviewing)
+        if (IsProcessing)
         {
             return;
         }
 
-        PreviewImage = null;
-        PreviewStatus = string.Empty;
-        PreviewPlayerLabel = string.Empty;
-        IsPreviewing = true;
+        // Strong reentrancy guard for both manual and auto-preview triggers.
+        if (!await _previewSemaphore.WaitAsync(0))
+        {
+            return;
+        }
 
         var diagnostics = new List<string>();
         void LogDiagnostic(string message)
@@ -627,6 +639,11 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         try
         {
+            PreviewImage = null;
+            PreviewStatus = string.Empty;
+            PreviewPlayerLabel = string.Empty;
+            IsPreviewing = true;
+
             if (string.IsNullOrWhiteSpace(InputCsvPath) || !File.Exists(InputCsvPath))
             {
                 PreviewStatus = "Select a valid CSV file to generate preview.";
@@ -769,6 +786,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         finally
         {
             IsPreviewing = false;
+            _previewSemaphore.Release();
         }
     }
 
@@ -1571,7 +1589,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     private void ScheduleAutoPreview()
     {
-        if (!AutoPreviewEnabled || IsProcessing)
+        if (!AutoPreviewEnabled || IsProcessing || IsPreviewing)
         {
             return;
         }
@@ -1604,6 +1622,11 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     public void RequestAutoPreviewFromUi()
     {
+        if (IsPreviewing)
+        {
+            return;
+        }
+
         ScheduleAutoPreview();
     }
 

@@ -67,6 +67,8 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
         {
             try
             {
+                OpenCvMacRuntimeBootstrap.EnsureInitialized();
+
                 // Initialize DNN face detector
                 if (File.Exists(_modelPath) && File.Exists(_weightsPath))
                 {

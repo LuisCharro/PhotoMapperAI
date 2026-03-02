@@ -8,6 +8,7 @@ namespace PhotoMapperAI.Services.AI;
 /// </summary>
 public class FaceDetectionCache
 {
+    private const string CacheKeyVersion = "v2";
     private readonly string _cacheFilePath;
     private readonly Dictionary<string, CacheEntry> _cache;
     private readonly object _lock = new();
@@ -172,8 +173,8 @@ public class FaceDetectionCache
     /// </summary>
     private string GetCacheKey(string imagePath, string model)
     {
-        // Use absolute path and model name as key
-        return $"{Path.GetFullPath(imagePath).ToLowerInvariant()}|{model.ToLowerInvariant()}";
+        // Include cache key version so detector/crop strategy updates can invalidate stale entries.
+        return $"{CacheKeyVersion}|{Path.GetFullPath(imagePath).ToLowerInvariant()}|{model.ToLowerInvariant()}";
     }
 
     /// <summary>

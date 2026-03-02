@@ -27,8 +27,8 @@ public static class FaceDetectionServiceFactory
         var lowered = normalized.ToLowerInvariant();
         return lowered switch
         {
-            "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
-            "yolov8-face" => new OpenCVDNNFaceDetectionService(),
+            "opencv-dnn" => CreateOpenCvServiceWithPlatformFallback(allowFallbackChain),
+            "yolov8-face" => CreateOpenCvServiceWithPlatformFallback(allowFallbackChain),
             "haar-cascade" or "haar" => new HaarCascadeFaceDetectionService(),
             "center" => new CenterCropFallbackService(),
             var ollamaModel when ollamaModel.Contains("llava") || ollamaModel.Contains("qwen3-vl")
@@ -37,6 +37,16 @@ public static class FaceDetectionServiceFactory
                 => new OllamaFaceDetectionService(modelName: normalized),
             _ => throw new ArgumentException($"Unknown face detection model: {model}")
         };
+    }
+
+    private static IFaceDetectionService CreateOpenCvServiceWithPlatformFallback(bool allowFallbackChain)
+    {
+        // On macOS GUI, OpenCV-DNN can miss detections more frequently than on Windows.
+        // Only apply fallback at top-level service creation to avoid recursive factory calls.
+        if (allowFallbackChain && OperatingSystem.IsMacOS())
+            return new FallbackFaceDetectionService("opencv-dnn,haar-cascade");
+
+        return new OpenCVDNNFaceDetectionService();
     }
 
     private static string NormalizeOllamaAlias(string model)
