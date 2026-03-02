@@ -121,7 +121,7 @@ public class FilenameParser
                 result[kvp.Key] = new PhotoMetadata
                 {
                     FileName = kvp.Key,
-                    ExternalId = kvp.Value.ExternalId,
+                    External_Player_ID = kvp.Value.External_Player_ID,
                     FullName = kvp.Value.FullName,
                     FamilyName = kvp.Value.FamilyName,
                     SurName = kvp.Value.SurName,
@@ -150,7 +150,7 @@ public class FilenameParser
         return new PhotoMetadata
         {
             FileName = filename,
-            ExternalId = match.Groups["id"].Value,
+            External_Player_ID = match.Groups["id"].Value,
             FamilyName = familyName,
             SurName = surName,
             FullName = $"{familyName} {surName}".Trim(),
@@ -171,8 +171,60 @@ public class FilenameParser
 
     private class PhotoData
     {
+        [System.Text.Json.Serialization.JsonPropertyName("External_Player_ID")]
+        public string? External_Player_ID { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("external_player_id")]
+        public string? External_Player_ID_Lower
+        {
+            get => External_Player_ID;
+            set
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    External_Player_ID = value;
+                }
+            }
+        }
+
+        [System.Text.Json.Serialization.JsonPropertyName("externalId")]
+        public string? LegacyExternalId
+        {
+            get => External_Player_ID;
+            set
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    External_Player_ID = value;
+                }
+            }
+        }
+
+        [System.Text.Json.Serialization.JsonPropertyName("ExternalId")]
+        public string? LegacyExternalIdPascal
+        {
+            get => External_Player_ID;
+            set
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    External_Player_ID = value;
+                }
+            }
+        }
+
         [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string? ExternalId { get; set; }
+        public string? LegacyId
+        {
+            get => External_Player_ID;
+            set
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    External_Player_ID = value;
+                }
+            }
+        }
 
         [System.Text.Json.Serialization.JsonPropertyName("fullName")]
         public string? FullName { get; set; }

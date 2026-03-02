@@ -1,5 +1,6 @@
 using PhotoMapperAI.Models;
 using CsvHelper.Configuration;
+using CsvHelper.Configuration.Attributes;
 using CsvHelper;
 using System.Globalization;
 using System.Data.SqlClient;
@@ -159,7 +160,7 @@ public class DatabaseExtractor
                 var teamId = Convert.ToInt32(reader["TeamId"]);
                 var familyName = reader["FamilyName"] as string ?? string.Empty;
                 var surName = reader["SurName"] as string ?? string.Empty;
-                var externalId = reader["ExternalId"] as string;
+                var External_Player_ID = GetOptionalString(reader, "External_Player_ID", "ExternalId");
 
                 var player = new PlayerRecord
                 {
@@ -167,10 +168,10 @@ public class DatabaseExtractor
                     TeamId = teamId,
                     FamilyName = familyName,
                     SurName = surName,
-                    ExternalId = externalId
+                    External_Player_ID = External_Player_ID
                 };
 
-                player.ValidMapping = !string.IsNullOrEmpty(player.ExternalId);
+                player.ValidMapping = !string.IsNullOrEmpty(player.External_Player_ID);
                 player.Confidence = player.ValidMapping ? 1.0 : 0.0;
 
                 players.Add(player);
@@ -228,9 +229,9 @@ public class DatabaseExtractor
                     TeamId = record.TeamId,
                     FamilyName = record.FamilyName ?? string.Empty,
                     SurName = record.SurName ?? string.Empty,
-                    ExternalId = record.ExternalId,
-                    ValidMapping = !string.IsNullOrEmpty(record.ExternalId),
-                    Confidence = !string.IsNullOrEmpty(record.ExternalId) ? 1.0 : 0.0
+                    External_Player_ID = record.External_Player_ID,
+                    ValidMapping = !string.IsNullOrEmpty(record.External_Player_ID),
+                    Confidence = !string.IsNullOrEmpty(record.External_Player_ID) ? 1.0 : 0.0
                 });
             }
 
@@ -342,7 +343,35 @@ public class DatabaseExtractor
         public int TeamId { get; set; }
         public string? FamilyName { get; set; }
         public string? SurName { get; set; }
-        public string? ExternalId { get; set; }
+        [Name("External_Player_ID", "ExternalId")]
+        public string? External_Player_ID { get; set; }
+    }
+
+    private static string? GetOptionalString(System.Data.SqlClient.SqlDataReader reader, params string[] columnNames)
+    {
+        foreach (var columnName in columnNames)
+        {
+            var ordinal = TryGetOrdinal(reader, columnName);
+            if (ordinal >= 0 && !reader.IsDBNull(ordinal))
+            {
+                return reader.GetString(ordinal);
+            }
+        }
+
+        return null;
+    }
+
+    private static int TryGetOrdinal(System.Data.SqlClient.SqlDataReader reader, string columnName)
+    {
+        for (var i = 0; i < reader.FieldCount; i++)
+        {
+            if (string.Equals(reader.GetName(i), columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     #endregion
