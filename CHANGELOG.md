@@ -123,7 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for multiple SQL dialects (MySQL, PostgreSQL, SQL Server, SQLite)
 - Team-based filtering with `-teamId` parameter
 - Custom CSV output naming with `-outputName` parameter
-- Automatic column mapping with FIFA_Player_ID and Valid_Mapping placeholders
+- Automatic column mapping with External_Player_ID and Valid_Mapping placeholders
 
 #### Name Mapping
 - `map` command for mapping photos to player records
@@ -175,7 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Successfully processed 49 players (24 Spain + 25 Switzerland)
 - 100% mapping success rate with confidence scores
 - Validated name matching accuracy with real player data
-- Tested workflow with FIFA photo naming convention
+- Tested workflow with competition photo naming convention
 - Confirmed database-agnostic extraction from multiple sources
 
 ### Phase 3: Portrait Generation

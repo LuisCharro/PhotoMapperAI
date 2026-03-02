@@ -33,7 +33,7 @@ public class FilenameParser
         new Regex(@"^(?<id>\d+)-(?<sur>[^-]+)-(?<family>[^\.]+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 
-        // Pattern 6: {first}_{last}_{id}.jpg (FirstName_LastName_ID) - FIFA/Euro format
+        // Pattern 6: {first}_{last}_{id}.jpg (FirstName_LastName_ID) - competition/Euro format
         new Regex(@"^(?<sur>[^_]+)_(?<family>[^_]+)_(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
 

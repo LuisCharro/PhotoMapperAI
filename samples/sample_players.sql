@@ -6,7 +6,7 @@ SELECT
     p.PlayerId AS [UserId],
     p.FamilyName AS [FamilyName],
     p.SurName AS [SurName],
-    CAST(NULL AS NVARCHAR(50)) AS [Fifa_Player_ID],
+    CAST(NULL AS NVARCHAR(50)) AS [External_Player_ID],
     CAST(NULL AS DECIMAL(5,4)) AS [Valid_Mapping]
 FROM Players p
 INNER JOIN Teams t ON p.TeamId = t.TeamId

@@ -52,7 +52,7 @@ This autonomous testing session verified the status of Phase 3 (Portrait generat
 
 ### Phase 2: Data Workflow ✅ Complete
 **Status:** Production Ready
-- All 49 FIFA photos successfully mapped to players
+- All 49 competition photos successfully mapped to players
 - Name matching working with high accuracy (90%)
 - CSV export/import functioning correctly
 
@@ -134,7 +134,7 @@ This autonomous testing session verified the status of Phase 3 (Portrait generat
 - Models available: qwen3-coder:480b-cloud, qwen3-vl
 
 **Test Data:**
-- Input: 49 FIFA photos (24 Spain + 25 Switzerland)
+- Input: 49 competition photos (24 Spain + 25 Switzerland)
 - Reference: 50 expected portraits (24 Spain + 26 Switzerland)
 - Synthetic database: players_test.csv (49 players)
 
@@ -180,7 +180,7 @@ This autonomous testing session verified the status of Phase 3 (Portrait generat
 
 3. **Untracked Files**
    - `.face-detection-cache-ai.json` - Face detection cache (49 failed entries)
-   - `temp_mapping_photos/` - 49 FIFA photos for testing
+   - `temp_mapping_photos/` - 49 competition photos for testing
 
 ## Commits Made
 

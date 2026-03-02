@@ -1,7 +1,7 @@
 # PhotoMapperAI - Autonomous Test Session
 
 **Date:** 2026-02-11 18:30
-**Goal:** Test full workflow with real FIFA photos (Spain + Switzerland teams)
+**Goal:** Test full workflow with real competition photos (Spain + Switzerland teams)
 **Environment:** MacBook Air M3, .NET 10, Ollama installed
 
 ## Test Data Structure
@@ -16,7 +16,7 @@
 - File: `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/players_test.csv`
 - Players: 49 (24 Spain + 25 Switzerland)
 - Internal IDs: Random 5-7 digits (matches real patterns)
-- External IDs: 9-digit FIFA IDs from filenames
+- External IDs: 9-digit competition IDs from filenames
 
 ### Expected Outputs
 - Generated/Spain/ and Generated/Switzerland/ contain portrait samples
@@ -87,7 +87,7 @@
   - Spain: 24 players
   - Switzerland: 25 players
   - Internal IDs: Random 5-7 digits
-  - External IDs: Preserved from filenames (9-digit FIFA IDs)
+   - External IDs: Preserved from filenames (9-digit competition IDs)
   - Unicode: Accented characters handled correctly
 
 ---
@@ -111,7 +111,7 @@
 - Repository is clean
 
 ✅ **Phase 2: Data Workflow**
-- All 49 FIFA photos successfully mapped to players
+- All 49 competition photos successfully mapped to players
 - Name matching working with high accuracy
 - CSV export/import functioning correctly
 
@@ -147,7 +147,7 @@
 
 3. **Untracked Files:**
    - `.face-detection-cache-ai.json` - Face detection cache (49 entries, all failed)
-   - `temp_mapping_photos/` - 49 FIFA photos for testing
+   - `temp_mapping_photos/` - 49 competition photos for testing
 
 ### Next Steps for Phase 3
 
@@ -196,7 +196,7 @@
 
 **Generated Files:**
 - `players_test.csv` - Synthetic database (49 players)
-- `temp_mapping_photos/` - 49 FIFA photos
+- `temp_mapping_photos/` - 49 competition photos
 - `.face-detection-cache-ai.json` - Face detection cache (all failed)
 - `portraits_final_ai/` - 10 generated portraits (incorrect dimensions)
 - `PHASE3_VALIDATION_REPORT.md` - Detailed validation report

@@ -13,7 +13,7 @@ Phase 3 (Portrait generation with Ollama Vision) was attempted but **incomplete*
 - **Platform:** MacBook Air M3 (macOS 15.2)
 - **.NET:** 10
 - **Ollama:** Installed with qwen3-coder:480b-cloud, qwen3-vl available
-- **Test Data:** 49 FIFA photos (24 Spain + 25 Switzerland)
+- **Test Data:** 49 competition photos (24 Spain + 25 Switzerland)
 
 ## Verification Results
 
@@ -92,7 +92,7 @@ Phase 3 (Portrait generation with Ollama Vision) was attempted but **incomplete*
 | File | Size | Date | Model | Status |
 |------|------|------|-------|--------|
 | `.face-detection-cache.json` | 4,644 bytes | Feb 11 13:11 | center | Test photos only |
-| `.face-detection-cache-ai.json` | 5,341 bytes | Feb 11 18:42 | opencv-dnn | Real FIFA photos |
+| `.face-detection-cache-ai.json` | 5,341 bytes | Feb 11 18:42 | opencv-dnn | Real competition photos |
 
 ### 5. Test Portrait Folders
 
@@ -264,7 +264,7 @@ Add error handling in script to detect 404 responses and suggest alternatives.
 
 3. **Untracked Files:**
    - `.face-detection-cache-ai.json` - Face detection cache
-   - `temp_mapping_photos/` - 49 FIFA photos for testing
+   - `temp_mapping_photos/` - 49 competition photos for testing
 
 **Recommendation:** Commit these changes before proceeding with Phase 3 fixes.
 

@@ -49,7 +49,7 @@ PhotoMapperAI/
 ### 1. DatabaseExtractor Service
 - Reads SQL file from disk
 - Executes SQL query with connection string
-- Outputs CSV with columns: `UserId, FamilyName, SurName, Fifa_Player_ID, Valid_Mapping`
+- Outputs CSV with columns: `UserId, FamilyName, SurName, External_Player_ID, Valid_Mapping`
 
 **Parameters:**
 - `-inputSqlPath`: Path to SQL file
@@ -60,12 +60,12 @@ PhotoMapperAI/
 ### 2. PhotoMatcher Service
 - Scans photo directory for image files
 - **Flexible filename parsing:**
-  - Default: `{ExternalId}_{FamilyName}_{SurName}.png` (FIFA-style)
+  - Default: `{ExternalId}_{FamilyName}_{SurName}.png` (competition-style)
   - Alternative: Use photo manifest file for metadata
 - Creates dictionary: `key=ExternalId, value=PhotoMetadata`
 
 **Mapping Logic:**
-1. **Direct match**: CSV has Fifa_Player_ID already → skip
+1. **Direct match**: CSV has External_Player_ID already → skip
 2. **Fuzzy match**: Use pluggable AI service (Ollama LLM) to compare names
 3. **Confidence threshold**: Accept match only if >= 0.9 (configurable)
 4. **Model-agnostic**: Can test different LLMs
@@ -400,13 +400,13 @@ POST http://localhost:11434/api/generate
 ## CSV Format
 
 ### Input (After Extract)
-| UserId | FamilyName | SurName | Fifa_Player_ID | Valid_Mapping |
+| UserId | FamilyName | SurName | External_Player_ID | Valid_Mapping |
 |--------|------------|---------|----------------|---------------|
 | 1001   | Rodríguez  | Isco    | null           | null          |
 | 1002   | Ramos      | Sergio  | null           | null          |
 
 ### Output (After Map)
-| UserId | FamilyName | SurName | Fifa_Player_ID | Valid_Mapping |
+| UserId | FamilyName | SurName | External_Player_ID | Valid_Mapping |
 |--------|------------|---------|----------------|---------------|
 | 1001   | Rodríguez  | Isco    | 25891          | 0.95          |
 | 1002   | Ramos      | Sergio  | 26401          | 1.0           |
