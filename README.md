@@ -42,7 +42,7 @@ For local inference stability on laptops, the tool enforces a local-model policy
 ```bash
 PhotoMapperAI extract -inputSqlPath path/to/playersByTeam.sql -teamId 10 -outputName SpainTeam.csv
 ```
-Runs a user-provided SQL query to export player data from the internal database to CSV format. Includes placeholder columns for `Fifa_Player_ID` and `Valid_Mapping`.
+Runs a user-provided SQL query to export player data from the internal database to CSV format. Includes placeholder columns for `External_Player_ID` and `Valid_Mapping`.
 
 ### Step 2: Map Photos to Players
 ```bash
@@ -64,7 +64,7 @@ PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/
 - Runs deterministic global name matching for unresolved players
 - Uses AI fallback only for unresolved/ambiguous cases
 - Validates matches with confidence threshold (default: 0.8)
-- Updates CSV with `Fifa_Player_ID` and `Valid_Mapping` columns
+- Updates CSV with `External_Player_ID` and `Valid_Mapping` columns
 - See [`docs/guides/NAME_MAPPING_PIPELINE.md`](docs/guides/NAME_MAPPING_PIPELINE.md) for the full mapping algorithm and tuning knobs
 
 ### Step 3: Generate Portraits (with Face Detection)

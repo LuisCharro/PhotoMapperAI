@@ -73,7 +73,7 @@ Extract player data from your database to CSV format.
 6. View progress in status area
 
 **Output:**
-- CSV file with columns: `UserId, FamilyName, SurName, Fifa_Player_ID, Valid_Mapping`
+- CSV file with columns: `UserId, FamilyName, SurName, External_Player_ID, Valid_Mapping`
 - Player count displayed after extraction
 
 ### Step 2: Map Photos to Players
@@ -136,7 +136,7 @@ The GUI includes a preset system for saving and reusing patterns:
 8. View progress: "Processing: player 5/49"
 
 **Output:**
-- Updated CSV with `Fifa_Player_ID` and `Valid_Mapping` columns filled
+- Updated CSV with `External_Player_ID` and `Valid_Mapping` columns filled
 - Statistics: players processed, players matched, match rate
 
 ### Step 3: Generate Portraits
