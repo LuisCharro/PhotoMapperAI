@@ -38,9 +38,9 @@ public partial class MapStepViewModel : ViewModelBase
     };
     private static readonly string[] DefaultPaidNameModels =
     {
-        "openai:gpt-4.1",
-        "openai:gpt-4o",
-        "openai:o3-mini",
+        "openai:gpt-5-mini",
+        "openai:gpt-5.2",
+        "openai:gpt-5.2-pro",
         "anthropic:claude-3-5-sonnet"
     };
 

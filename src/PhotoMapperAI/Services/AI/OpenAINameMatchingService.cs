@@ -15,7 +15,7 @@ public class OpenAINameMatchingService : INameMatchingService
     private readonly JsonSerializerOptions _jsonOptions;
 
     public OpenAINameMatchingService(
-        string modelName = "gpt-4o-mini",
+        string modelName = "gpt-5-mini",
         double confidenceThreshold = 0.9,
         string? apiKey = null,
         string? baseUrl = null)

@@ -26,10 +26,18 @@ public static class UiModelConfigLoader
             if (!doc.RootElement.TryGetProperty("UiModelLists", out var root))
                 return new UiModelConfig();
 
+            var mapPaidModels = ReadStringList(root, "MapPaidModels");
+            var generatePaidModels = ReadStringList(root, "GeneratePaidModels");
+
+            if (generatePaidModels.Count == 0 && mapPaidModels.Count > 0)
+            {
+                generatePaidModels = new List<string>(mapPaidModels);
+            }
+
             return new UiModelConfig
             {
-                MapPaidModels = ReadStringList(root, "MapPaidModels"),
-                GeneratePaidModels = ReadStringList(root, "GeneratePaidModels")
+                MapPaidModels = mapPaidModels,
+                GeneratePaidModels = generatePaidModels
             };
         }
         catch

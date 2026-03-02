@@ -10,7 +10,7 @@ public static class NameMatchingServiceFactory
     /// Supported formats:
     /// - "qwen2.5:7b" (defaults to Ollama provider)
     /// - "ollama:qwen2.5:7b"
-    /// - "openai:gpt-4o-mini"
+    /// - "openai:gpt-5-mini"
     /// - "anthropic:claude-3-5-sonnet"
     /// </summary>
     public static INameMatchingService Create(
