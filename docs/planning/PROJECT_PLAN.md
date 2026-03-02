@@ -60,9 +60,9 @@ PhotoMapperAI/
 ### 2. PhotoMatcher Service
 - Scans photo directory for image files
 - **Flexible filename parsing:**
-  - Default: `{ExternalId}_{FamilyName}_{SurName}.png` (competition-style)
+  - Default: `{External_Player_ID}_{FamilyName}_{SurName}.png` (competition-style)
   - Alternative: Use photo manifest file for metadata
-- Creates dictionary: `key=ExternalId, value=PhotoMetadata`
+- Creates dictionary: `key=External_Player_ID, value=PhotoMetadata`
 
 **Mapping Logic:**
 1. **Direct match**: CSV has External_Player_ID already → skip
@@ -415,12 +415,12 @@ POST http://localhost:11434/api/generate
 ```json
 {
   "Player1_FullName.png": {
-    "externalId": "12345",
+    "External_Player_ID": "12345",
     "fullName": "Messi Lionel",
     "teamId": "10"
   },
   "Player2_FullName.png": {
-    "externalId": "67890",
+    "External_Player_ID": "67890",
     "fullName": "Ramos Sergio",
     "teamId": "10"
   }

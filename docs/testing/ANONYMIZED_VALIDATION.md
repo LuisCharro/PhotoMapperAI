@@ -9,7 +9,7 @@ This project includes a small anonymized validation pack to test core CLI flows 
   - Verifies synthetic fallback output (no real database required).
 - `map` command:
   - Uses anonymized player CSV + anonymized photo filenames.
-  - Runs deterministic mapping (no AI required) and validates expected `ExternalId` assignments.
+  - Runs deterministic mapping (no AI required) and validates expected `External_Player_ID` assignments.
   - Optional AI-required fixture validates that MAP command actually enters AI fallback (`AI evaluated > 0`).
 
 ## Files

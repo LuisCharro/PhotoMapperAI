@@ -501,7 +501,7 @@
                       FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
 
             <TextBlock Text="Single Player Filter" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,0"/>
-            <TextBlock Text="Process only a specific player by ID (PlayerId or ExternalId from CSV)"
+            <TextBlock Text="Process only a specific player by ID (PlayerId or External_Player_ID from CSV)"
                        FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
             <TextBox Text="{Binding OnlyPlayerId}"
                      Watermark="Enter Player ID to process only that player..."

@@ -18,7 +18,7 @@ public class PhotoMetadata
     /// <summary>
     /// External ID extracted from filename or manifest
     /// </summary>
-    public string? ExternalId { get; set; }
+    public string? External_Player_ID { get; set; }
 
     /// <summary>
     /// Full name extracted from filename or manifest

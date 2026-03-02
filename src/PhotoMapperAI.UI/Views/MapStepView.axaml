@@ -83,7 +83,7 @@
           <Border Background="{DynamicResource CardBrush}" CornerRadius="6" Padding="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
             <StackPanel Spacing="2">
               <TextBlock Text="How matching works:" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
-              <TextBlock Text="1. Direct ID match (if player has ExternalId matching photo filename)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Text="1. Direct ID match (if player has External_Player_ID matching photo filename)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
               <TextBlock Text="2. Deterministic name comparison (string similarity above threshold)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
               <TextBlock Text="3. AI model pass (if enabled and still unmatched)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
             </StackPanel>

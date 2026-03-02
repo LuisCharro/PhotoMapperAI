@@ -4,7 +4,7 @@ This document explains the current name-to-photo mapping strategy at a problem-s
 
 ## Goal
 
-Map each player row from an input CSV to at most one photo candidate and write the resolved `ExternalId` back to the output CSV.
+Map each player row from an input CSV to at most one photo candidate and write the resolved `External_Player_ID` back to the output CSV.
 
 Core constraints:
 - One player maps to one photo.
@@ -16,7 +16,7 @@ Core constraints:
 ## Data Inputs
 
 Required:
-- Unmapped player CSV (`PlayerId`, `FamilyName`, `SurName`, `FullName`, optional `ExternalId`)
+- Unmapped player CSV (`PlayerId`, `FamilyName`, `SurName`, `FullName`, optional `External_Player_ID`)
 - Photo directory with filenames containing person-name tokens and external ID tokens
 
 Reference test case used during redesign:
@@ -32,8 +32,8 @@ Optional:
 The implementation in `/Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI/Commands/MapCommand.cs` follows this sequence:
 
 1. Build photo candidates in memory.
-2. Extract `DisplayName` and `ExternalId` for each candidate.
-3. Run direct-ID matches for players that already have an `ExternalId`.
+2. Extract `DisplayName` and `External_Player_ID` for each candidate.
+3. Run direct-ID matches for players that already have an `External_Player_ID`.
 4. Run deterministic global matching for unresolved players.
 5. Run AI fallback pass 1 for still unresolved players.
 6. Run AI fallback pass 2 (optional) with wider candidate recall.
@@ -45,7 +45,7 @@ The implementation in `/Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI/Command
 Each photo file is parsed into a candidate record with:
 - File path
 - File name
-- Parsed metadata (`ExternalId`, optional parsed full name)
+- Parsed metadata (`External_Player_ID`, optional parsed full name)
 - `DisplayName` used for matching
 
 Metadata precedence:

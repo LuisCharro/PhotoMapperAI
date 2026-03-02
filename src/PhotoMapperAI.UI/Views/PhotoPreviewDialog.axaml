@@ -82,7 +82,7 @@
                 <!-- External ID -->
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="External ID:" 
                            Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2"/>
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ExternalId}" 
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding External_Player_ID}" 
                            Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,2"/>
 
                 <!-- Player ID -->

@@ -67,7 +67,7 @@ This document describes common edge cases encountered when using PhotoMapperAI a
 
 **Symptoms:**
 - Console warning: `⚠ No photo found for player 123`
-- CSV has `ExternalId` empty for that player
+- CSV has `External_Player_ID` empty for that player
 - Portrait generation skips that player
 
 **Solutions:**

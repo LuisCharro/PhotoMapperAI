@@ -37,7 +37,7 @@ public class PhotoPreviewItem : ObservableObject
 
     public string FilePath { get; init; } = string.Empty;
     public string FileName { get; init; } = string.Empty;
-    public string? ExternalId { get; init; }
+    public string? External_Player_ID { get; init; }
     public int? PlayerId { get; init; }
     public string FullName { get; init; } = string.Empty;
     public string FamilyName { get; init; } = string.Empty;
@@ -50,11 +50,11 @@ public class PhotoPreviewItem : ObservableObject
     public enum MappingStatusType
     {
         ValidMapping,       // Photo found in CSV with ValidMapping=true
-        ExternalIdNotInCsv, // ExternalId extracted but not in CSV
-        NoExternalId        // Could not extract ExternalId from filename
+        External_Player_IDNotInCsv, // External_Player_ID extracted but not in CSV
+        NoExternal_Player_ID        // Could not extract External_Player_ID from filename
     }
 
-    public MappingStatusType StatusType { get; init; } = MappingStatusType.NoExternalId;
+    public MappingStatusType StatusType { get; init; } = MappingStatusType.NoExternal_Player_ID;
 
     public Bitmap? Thumbnail
     {
@@ -646,9 +646,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(player.ExternalId))
+            if (string.IsNullOrWhiteSpace(player.External_Player_ID))
             {
-                PreviewStatus = "Selected player does not have an ExternalId.";
+                PreviewStatus = "Selected player does not have an External_Player_ID.";
                 return;
             }
 
@@ -671,7 +671,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                 LogDiagnostic($"Using profile variant dimensions: {previewWidth}x{previewHeight}");
             }
 
-            var photoPath = ResolvePreviewPhotoPath(player.ExternalId);
+            var photoPath = ResolvePreviewPhotoPath(player.External_Player_ID);
 
             if (string.IsNullOrWhiteSpace(photoPath))
             {
@@ -684,7 +684,7 @@ public partial class GenerateStepViewModel : ViewModelBase
                     return;
                 }
 
-                PreviewStatus = $"No photo found for ExternalId {player.ExternalId}.";
+                PreviewStatus = $"No photo found for External_Player_ID {player.External_Player_ID}.";
                 return;
             }
 
@@ -790,7 +790,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         try
         {
             // Load CSV data if available
-            Dictionary<string, PlayerRecord> csvDataByExternalId = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, PlayerRecord> csvDataByExternal_Player_ID = new(StringComparer.OrdinalIgnoreCase);
             List<PlayerRecord> csvPlayersWithoutPhoto = new();
             int totalCsvPlayers = 0;
 
@@ -802,14 +802,14 @@ public partial class GenerateStepViewModel : ViewModelBase
 
                 foreach (var player in players)
                 {
-                    // Only add players with ExternalId to the lookup dictionary
-                    if (!string.IsNullOrEmpty(player.ExternalId))
+                    // Only add players with External_Player_ID to the lookup dictionary
+                    if (!string.IsNullOrEmpty(player.External_Player_ID))
                     {
-                        csvDataByExternalId[player.ExternalId] = player;
+                        csvDataByExternal_Player_ID[player.External_Player_ID] = player;
                     }
                     else
                     {
-                        // Track players without ExternalId
+                        // Track players without External_Player_ID
                         csvPlayersWithoutPhoto.Add(player);
                     }
                 }
@@ -830,31 +830,31 @@ public partial class GenerateStepViewModel : ViewModelBase
             // Parse each photo and match with CSV data
             var items = new List<PhotoPreviewItem>();
 
-            // Track which ExternalIds from CSV were found in photos
-            var foundExternalIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Track which External_Player_IDs from CSV were found in photos
+            var foundExternal_Player_IDs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var imagePath in imageFiles)
             {
                 var fileName = Path.GetFileName(imagePath);
                 
-                // Try to extract ExternalId from filename
+                // Try to extract External_Player_ID from filename
                 var metadata = FilenameParser.ParseAutoDetect(fileName);
                 
-                string? externalId = metadata?.ExternalId;
+                string? External_Player_ID = metadata?.External_Player_ID;
                 PlayerRecord? matchedPlayer = null;
 
                 // Try to match with CSV data
-                if (!string.IsNullOrEmpty(externalId) && csvDataByExternalId.TryGetValue(externalId, out var player))
+                if (!string.IsNullOrEmpty(External_Player_ID) && csvDataByExternal_Player_ID.TryGetValue(External_Player_ID, out var player))
                 {
                     matchedPlayer = player;
-                    foundExternalIds.Add(externalId);
+                    foundExternal_Player_IDs.Add(External_Player_ID);
                 }
 
                 var item = new PhotoPreviewItem
                 {
                     FilePath = imagePath,
                     FileName = fileName,
-                    ExternalId = externalId,
+                    External_Player_ID = External_Player_ID,
                     PlayerId = matchedPlayer?.PlayerId,
                     FullName = matchedPlayer?.FullName ?? metadata?.FullName ?? string.Empty,
                     FamilyName = matchedPlayer?.FamilyName ?? metadata?.FamilyName ?? string.Empty,
@@ -869,14 +869,14 @@ public partial class GenerateStepViewModel : ViewModelBase
                     // Photo found in CSV with valid mapping
                     item.StatusText = $"✓ {matchedPlayer.FullName} (ID: {matchedPlayer.PlayerId})";
                 }
-                else if (!string.IsNullOrEmpty(externalId))
+                else if (!string.IsNullOrEmpty(External_Player_ID))
                 {
-                    // ExternalId extracted but not found in CSV
-                    item.StatusText = $"⚠ External ID: {externalId} (not in CSV)";
+                    // External_Player_ID extracted but not found in CSV
+                    item.StatusText = $"⚠ External ID: {External_Player_ID} (not in CSV)";
                 }
                 else
                 {
-                    // No ExternalId could be extracted from filename
+                    // No External_Player_ID could be extracted from filename
                     item.StatusText = "? No ID in filename";
                 }
 
@@ -886,17 +886,17 @@ public partial class GenerateStepViewModel : ViewModelBase
             // Calculate statistics
             var totalPhotos = items.Count;
             var mappedCount = items.Count(i => i.HasValidMapping);
-            var externalIdNotInCsvCount = items.Count(i => !i.HasValidMapping && !string.IsNullOrEmpty(i.ExternalId));
-            var noIdInFilenameCount = items.Count(i => string.IsNullOrEmpty(i.ExternalId));
+            var External_Player_IDNotInCsvCount = items.Count(i => !i.HasValidMapping && !string.IsNullOrEmpty(i.External_Player_ID));
+            var noIdInFilenameCount = items.Count(i => string.IsNullOrEmpty(i.External_Player_ID));
 
             // Find CSV players that don't have photos
             var unmatchedCsvPlayers = csvPlayersWithoutPhoto.Count;
             if (totalCsvPlayers > 0)
             {
-                // Also count players in CSV who have ExternalId but no matching photo
-                foreach (var kvp in csvDataByExternalId)
+                // Also count players in CSV who have External_Player_ID but no matching photo
+                foreach (var kvp in csvDataByExternal_Player_ID)
                 {
-                    if (!foundExternalIds.Contains(kvp.Key))
+                    if (!foundExternal_Player_IDs.Contains(kvp.Key))
                     {
                         unmatchedCsvPlayers++;
                     }
@@ -960,8 +960,8 @@ public partial class GenerateStepViewModel : ViewModelBase
             if (mappedCount > 0)
                 statusParts.Add($"{mappedCount} mapped");
 
-            if (externalIdNotInCsvCount > 0)
-                statusParts.Add($"{externalIdNotInCsvCount} not in CSV");
+            if (External_Player_IDNotInCsvCount > 0)
+                statusParts.Add($"{External_Player_IDNotInCsvCount} not in CSV");
 
             if (noIdInFilenameCount > 0)
                 statusParts.Add($"{noIdInFilenameCount} no ID");
@@ -981,7 +981,7 @@ public partial class GenerateStepViewModel : ViewModelBase
             }
 
             UpdateGenerateIssues(new GenerateIssueCounts(
-                externalIdNotInCsvCount,
+                External_Player_IDNotInCsvCount,
                 noIdInFilenameCount,
                 unmatchedCsvPlayers));
         }
@@ -1386,11 +1386,11 @@ public partial class GenerateStepViewModel : ViewModelBase
         {
             var match = players.FirstOrDefault(p =>
                 string.Equals(p.PlayerId.ToString(), OnlyPlayerId, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(p.ExternalId, OnlyPlayerId, StringComparison.OrdinalIgnoreCase));
+                string.Equals(p.External_Player_ID, OnlyPlayerId, StringComparison.OrdinalIgnoreCase));
             return match;
         }
 
-        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ExternalId));
+        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.External_Player_ID));
     }
 
     private (int width, int height, string? placeholderPath) ResolvePreviewVariant()
@@ -1410,26 +1410,26 @@ public partial class GenerateStepViewModel : ViewModelBase
         return (PortraitWidth, PortraitHeight, manualPlaceholder);
     }
 
-    private string? ResolvePreviewPhotoPath(string externalId)
+    private string? ResolvePreviewPhotoPath(string External_Player_ID)
     {
-        if (string.IsNullOrWhiteSpace(externalId))
+        if (string.IsNullOrWhiteSpace(External_Player_ID))
         {
             return null;
         }
 
-        var photoFiles = FindPlayerPhotoFiles(externalId);
+        var photoFiles = FindPlayerPhotoFiles(External_Player_ID);
         return photoFiles.FirstOrDefault();
     }
 
-    private List<string> FindPlayerPhotoFiles(string externalId)
+    private List<string> FindPlayerPhotoFiles(string External_Player_ID)
     {
-        var photoFiles = Directory.GetFiles(PhotosDirectory, $"{externalId}.*")
+        var photoFiles = Directory.GetFiles(PhotosDirectory, $"{External_Player_ID}.*")
             .Where(IsSupportedImageFormat)
             .ToList();
 
         if (photoFiles.Count == 0)
         {
-            var pattern = $"*_{externalId}.*";
+            var pattern = $"*_{External_Player_ID}.*";
             photoFiles = Directory.GetFiles(PhotosDirectory, pattern, SearchOption.AllDirectories)
                 .Where(IsSupportedImageFormat)
                 .ToList();
@@ -1457,7 +1457,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     }
 
     private sealed record GenerateIssueCounts(
-        int ExternalIdNotInCsv,
+        int External_Player_IDNotInCsv,
         int NoIdInFilename,
         int CsvPlayersWithoutPhoto);
 
@@ -1473,8 +1473,8 @@ public partial class GenerateStepViewModel : ViewModelBase
         GenerateIssueItems.Clear();
 
         AddGenerateIssue("CSV players without photo", counts.CsvPlayersWithoutPhoto);
-        AddGenerateIssue("Photos with ExternalId not in CSV", counts.ExternalIdNotInCsv);
-        AddGenerateIssue("Photos missing ExternalId", counts.NoIdInFilename);
+        AddGenerateIssue("Photos with External_Player_ID not in CSV", counts.External_Player_IDNotInCsv);
+        AddGenerateIssue("Photos missing External_Player_ID", counts.NoIdInFilename);
 
         HasGenerateIssues = GenerateIssueItems.Count > 0;
         var totalIssues = GenerateIssueItems.Sum(item => item.Count);
@@ -1514,12 +1514,12 @@ public partial class GenerateStepViewModel : ViewModelBase
         var extractor = new DatabaseExtractor();
         var players = await extractor.ReadCsvAsync(InputCsvPath);
 
-        var csvByExternalId = players
-            .Where(player => !string.IsNullOrWhiteSpace(player.ExternalId))
-            .ToDictionary(player => player.ExternalId!, StringComparer.OrdinalIgnoreCase);
+        var csvByExternal_Player_ID = players
+            .Where(player => !string.IsNullOrWhiteSpace(player.External_Player_ID))
+            .ToDictionary(player => player.External_Player_ID!, StringComparer.OrdinalIgnoreCase);
 
-        var foundExternalIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var externalIdNotInCsvCount = 0;
+        var foundExternal_Player_IDs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var External_Player_IDNotInCsvCount = 0;
         var noIdInFilenameCount = 0;
 
         var imageFiles = BuildImageFileList(PhotosDirectory);
@@ -1527,36 +1527,36 @@ public partial class GenerateStepViewModel : ViewModelBase
         {
             var fileName = Path.GetFileName(imagePath);
             var metadata = FilenameParser.ParseAutoDetect(fileName);
-            var externalId = metadata?.ExternalId;
+            var External_Player_ID = metadata?.External_Player_ID;
 
-            if (string.IsNullOrWhiteSpace(externalId))
+            if (string.IsNullOrWhiteSpace(External_Player_ID))
             {
                 noIdInFilenameCount++;
                 continue;
             }
 
-            if (csvByExternalId.ContainsKey(externalId))
+            if (csvByExternal_Player_ID.ContainsKey(External_Player_ID))
             {
-                foundExternalIds.Add(externalId);
+                foundExternal_Player_IDs.Add(External_Player_ID);
             }
             else
             {
-                externalIdNotInCsvCount++;
+                External_Player_IDNotInCsvCount++;
             }
         }
 
-        var csvPlayersWithoutPhoto = Math.Max(0, csvByExternalId.Count - foundExternalIds.Count);
+        var csvPlayersWithoutPhoto = Math.Max(0, csvByExternal_Player_ID.Count - foundExternal_Player_IDs.Count);
 
         return new GenerateIssueCounts(
-            externalIdNotInCsvCount,
+            External_Player_IDNotInCsvCount,
             noIdInFilenameCount,
             csvPlayersWithoutPhoto);
     }
 
     private static string BuildPreviewPlayerLabel(PlayerRecord player)
     {
-        var externalId = string.IsNullOrWhiteSpace(player.ExternalId) ? "n/a" : player.ExternalId;
-        return $"Preview player: {player.FullName} (ID: {externalId})";
+        var External_Player_ID = string.IsNullOrWhiteSpace(player.External_Player_ID) ? "n/a" : player.External_Player_ID;
+        return $"Preview player: {player.FullName} (ID: {External_Player_ID})";
     }
 
     private void AppendLog(string message)

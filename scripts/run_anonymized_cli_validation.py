@@ -107,10 +107,10 @@ def validate_map(repo_root: Path) -> None:
     assert_ok(output_csv.exists(), "map output CSV not found")
 
     with expected_csv.open("r", encoding="utf-8", newline="") as f:
-        expected = {row["PlayerId"]: (row.get("ExpectedExternalId", "") or "").strip() for row in csv.DictReader(f)}
+        expected = {row["PlayerId"]: (row.get("ExpectedExternal_Player_ID", "") or "").strip() for row in csv.DictReader(f)}
 
     with output_csv.open("r", encoding="utf-8", newline="") as f:
-        actual = {row["PlayerId"]: (row.get("ExternalId", "") or "").strip() for row in csv.DictReader(f)}
+        actual = {row["PlayerId"]: (row.get("External_Player_ID", "") or "").strip() for row in csv.DictReader(f)}
 
     missing_ids = sorted(pid for pid in expected if pid not in actual)
     assert_ok(not missing_ids, f"map output missing PlayerId rows: {missing_ids}")
@@ -121,7 +121,7 @@ def validate_map(repo_root: Path) -> None:
         if actual_ext != expected_ext:
             mismatches.append(f"{pid}: expected='{expected_ext}' actual='{actual_ext}'")
 
-    assert_ok(not mismatches, "map ExternalId mismatches:\n" + "\n".join(mismatches))
+    assert_ok(not mismatches, "map External_Player_ID mismatches:\n" + "\n".join(mismatches))
     print("[map] ok")
 
 

@@ -39,7 +39,7 @@ cropY = Math.Max(0, cropY); // Ensure we don't go negative
 
 2. **`README.md`**
    - Added note about portrait crop behavior
-   - Clarified output file naming (PlayerId, not ExternalId)
+   - Clarified output file naming (PlayerId, not External_Player_ID)
 
 3. **`docs/FACE_DETECTION_GUIDE.md`**
    - Added detailed section explaining center vs. AI crop modes
@@ -78,10 +78,10 @@ dotnet run -- generatePhotos \
 
 ## Output File Naming Clarification
 
-**Important:** Portrait files are named by **PlayerId** (internal system ID), not ExternalId (competition photo ID).
+**Important:** Portrait files are named by **PlayerId** (internal system ID), not External_Player_ID (competition photo ID).
 
 Example:
-- CSV: `PlayerId: 9741690, ExternalId: 250005992`
+- CSV: `PlayerId: 9741690, External_Player_ID: 250005992`
 - Photo filename: `Esther_Gonzalez Rodriguez_250005992.jpg`
 - Output portrait: `9741690.jpg` (PlayerId)
 

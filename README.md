@@ -103,7 +103,7 @@ PhotoMapperAI generatePhotos \
 - **Automatic fallback:** Use comma-separated models (e.g., `llava:7b,qwen3-vl`) for reliability
 - Detects faces and eyes in full-body photos
 - Calculates portrait crop area based on eye position (or face center as fallback)
-- Outputs portrait photos named with **PlayerId** (internal system ID, not ExternalId)
+- Outputs portrait photos named with **PlayerId** (internal system ID, not External_Player_ID)
 
 > **Note:** Portrait crop behavior:
 > - **With AI face detection:** Crops around eyes/face for optimal framing (head + neck + bit of chest)
@@ -597,7 +597,7 @@ Use these placeholders in filename patterns:
 
 | Placeholder | Meaning |
 |-------------|---------|
-| `{id}` | Player ID (ExternalId) |
+| `{id}` | Player ID (External_Player_ID) |
 | `{first}` | First name |
 | `{last}` | Last name |
 

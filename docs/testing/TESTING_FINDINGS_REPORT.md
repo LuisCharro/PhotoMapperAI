@@ -281,7 +281,7 @@ where ccd.contestId in (select c.contId from cesim.dbo.Contest c...)
 
 #### Face Detection Pipeline (GeneratePhotosCommand):
 - **Multi-format Support**: PNG, JPG, JPEG, BMP
-- **Flexible Photo Search**: Searches by ExternalId and ExternalId_* patterns
+- **Flexible Photo Search**: Searches by External_Player_ID and External_Player_ID_* patterns
 - **Portrait-only Mode**: Skip face detection, use existing landmarks
 - **Fallback Cropping**: Center crop when face detection fails
 - **Configurable Output**: Custom portrait dimensions and formats
@@ -576,7 +576,7 @@ dotnet run -- benchmark \
 
 #### Step 1: Database Extraction
 - Executes parameterized SQL queries with team filtering
-- Exports to CSV with placeholder columns: `ExternalId`, `ValidMapping`, `Confidence`
+- Exports to CSV with placeholder columns: `External_Player_ID`, `ValidMapping`, `Confidence`
 - Supports any SQL Server database via connection string
 
 #### Step 2: Photo Mapping (Three-Tier Approach)
@@ -590,7 +590,7 @@ dotnet run -- benchmark \
 - **Photo Manifests**: JSON file mapping for complex/irregular naming
 
 #### Step 3: Portrait Generation
-- **File Discovery**: Searches for `ExternalId.*` and `ExternalId_*` patterns
+- **File Discovery**: Searches for `External_Player_ID.*` and `External_Player_ID_*` patterns
 - **Face Detection**: Multiple models (OpenCV DNN, YOLOv8, Ollama Vision)
 - **Smart Cropping**: Eye-based positioning with face center fallback
 - **Output**: Files renamed to internal `PlayerId.jpg` format

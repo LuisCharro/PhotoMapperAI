@@ -29,7 +29,7 @@ public class PlayerRecord
     /// External player ID (e.g., competition player ID)
     /// Null if not mapped yet
     /// </summary>
-    public string? ExternalId { get; set; }
+    public string? External_Player_ID { get; set; }
 
     /// <summary>
     /// Valid mapping flag (true if confident match found)

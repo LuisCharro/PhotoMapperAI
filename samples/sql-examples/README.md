@@ -16,7 +16,7 @@ All queries must return columns in this exact order:
 | TeamId | int/number | Team identifier for filtering |
 | FamilyName | string | Player's last name / family name |
 | SurName | string | Player's first name / given name |
-| ExternalId | string | Photo mapping ID (leave empty: '' or NULL) |
+| External_Player_ID | string | Photo mapping ID (leave empty: '' or NULL) |
 | ValidMapping | int/boolean | Mapping status (use 0 or false) |
 | Confidence | number | Match confidence (use 0.0) |
 | FullName | string | Full name for display (can concatenate columns) |
@@ -106,7 +106,7 @@ Map your existing columns to the required output format:
 | team_id | TeamId | Foreign key to teams |
 | last_name, surname | FamilyName | Family name |
 | first_name, given_name | SurName | First name |
-| (leave empty) | ExternalId | Will be filled by mapping |
+| (leave empty) | External_Player_ID | Will be filled by mapping |
 | (use 0/false) | ValidMapping | Will be updated by mapping |
 | (use 0.0) | Confidence | Will be updated by mapping |
 | (construct) | FullName | Can be SELECT expression |
@@ -199,7 +199,7 @@ SELECT
     p.TeamId,
     p.FamilyName,
     p.SurName,
-    '' AS ExternalId,
+    '' AS External_Player_ID,
     0 AS ValidMapping,
     0.0 AS Confidence,
     CONCAT(p.SurName, ' ', p.FamilyName) AS FullName,
@@ -236,7 +236,7 @@ cat test-team-10.csv
 The output CSV should look like:
 
 ```csv
-PlayerId,TeamId,FamilyName,SurName,ExternalId,ValidMapping,Confidence,FullName
+PlayerId,TeamId,FamilyName,SurName,External_Player_ID,ValidMapping,Confidence,FullName
 1,10,Martínez,Rodriguez,,0,0,Rodríguez Martínez
 2,10,Sánchez,Andrés,,0,0,Andrés Sánchez
 3,10,Ramos,Sergio,,0,0,Sergio Ramos
@@ -282,7 +282,7 @@ PlayerId,TeamId,FamilyName,SurName,ExternalId,ValidMapping,Confidence,FullName
 2. TeamId
 3. FamilyName
 4. SurName
-5. ExternalId
+5. External_Player_ID
 6. ValidMapping
 7. Confidence
 8. FullName
@@ -300,7 +300,7 @@ SELECT
     p.TeamId,
     p.FamilyName,
     p.SurName,
-    '' AS ExternalId,
+    '' AS External_Player_ID,
     0 AS ValidMapping,
     0.0 AS Confidence,
     CONCAT(p.SurName, ' ', p.FamilyName) AS FullName
@@ -319,7 +319,7 @@ SELECT
     p.TeamId,
     p.FamilyName,
     p.SurName,
-    '' AS ExternalId,
+    '' AS External_Player_ID,
     0 AS ValidMapping,
     0.0 AS Confidence,
     CONCAT(p.SurName, ' ', p.FamilyName) AS FullName,

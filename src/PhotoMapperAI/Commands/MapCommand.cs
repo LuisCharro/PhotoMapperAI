@@ -138,9 +138,9 @@ public class MapCommandLogic
 
             var photoCandidates = BuildPhotoCandidates(photos, photosDir, filenamePattern, manifest);
             var remainingCandidates = new List<PhotoCandidate>(photoCandidates);
-            var remainingByExternalId = remainingCandidates
-                .Where(c => !string.IsNullOrWhiteSpace(c.Metadata.ExternalId))
-                .GroupBy(c => c.Metadata.ExternalId!, StringComparer.OrdinalIgnoreCase)
+            var remainingByExternal_Player_ID = remainingCandidates
+                .Where(c => !string.IsNullOrWhiteSpace(c.Metadata.External_Player_ID))
+                .GroupBy(c => c.Metadata.External_Player_ID!, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             var progress = new ProgressIndicator("Progress", totalPlayers, useBar: true);
@@ -154,20 +154,20 @@ public class MapCommandLogic
                 processedCount++;
                 uiProgress?.Report((processedCount, totalPlayers, player.FullName));
 
-                if (!string.IsNullOrWhiteSpace(player.ExternalId))
+                if (!string.IsNullOrWhiteSpace(player.External_Player_ID))
                 {
-                    if (remainingByExternalId.TryGetValue(player.ExternalId, out var directCandidate))
+                    if (remainingByExternal_Player_ID.TryGetValue(player.External_Player_ID, out var directCandidate))
                     {
                         ApplyMatch(player, directCandidate, confidenceThreshold, 1.0, out var result);
                         result.Method = MatchMethod.DirectIdMatch;
                         result.ModelUsed = "DirectIdMatch";
                         results.Add(result);
-                        RemoveCandidate(directCandidate, remainingCandidates, remainingByExternalId);
+                        RemoveCandidate(directCandidate, remainingCandidates, remainingByExternal_Player_ID);
                         directIdMatches++;
                     }
                     else
                     {
-                        results.Add(BuildNoMatchResult(player, confidenceThreshold, "ExternalId not found in photos"));
+                        results.Add(BuildNoMatchResult(player, confidenceThreshold, "External_Player_ID not found in photos"));
                     }
 
                     continue;
@@ -184,7 +184,7 @@ public class MapCommandLogic
                 stringMatches = ApplyDeterministicGlobalMatches(
                     unmatchedPlayers,
                     remainingCandidates,
-                    remainingByExternalId,
+                    remainingByExternal_Player_ID,
                     confidenceThreshold,
                     results);
             }
@@ -197,7 +197,7 @@ public class MapCommandLogic
                 var aiFirstPass = await ApplyAiGlobalMatchesAsync(
                     unmatchedPlayers,
                     remainingCandidates,
-                    remainingByExternalId,
+                    remainingByExternal_Player_ID,
                     confidenceThreshold,
                     nameModel,
                     results,
@@ -225,7 +225,7 @@ public class MapCommandLogic
                     var aiSecondPassResult = await ApplyAiGlobalMatchesAsync(
                         unmatchedPlayers,
                         remainingCandidates,
-                        remainingByExternalId,
+                        remainingByExternal_Player_ID,
                         confidenceThreshold,
                         nameModel,
                         results,
@@ -375,12 +375,12 @@ public class MapCommandLogic
         int PromptTokens = 0,
         int CompletionTokens = 0,
         int TotalTokens = 0,
-        string? BestExternalId = null,
+        string? BestExternal_Player_ID = null,
         string? BestName = null,
         double? BestConfidence = null,
         double? SecondBestConfidence = null,
         double? Margin = null,
-        string? SelectedExternalId = null,
+        string? SelectedExternal_Player_ID = null,
         string? SelectedName = null,
         double? SelectedConfidence = null);
 
@@ -421,12 +421,12 @@ public class MapCommandLogic
     private static void RemoveCandidate(
         PhotoCandidate candidate,
         List<PhotoCandidate> remainingCandidates,
-        Dictionary<string, PhotoCandidate> remainingByExternalId)
+        Dictionary<string, PhotoCandidate> remainingByExternal_Player_ID)
     {
         remainingCandidates.Remove(candidate);
-        if (!string.IsNullOrWhiteSpace(candidate.Metadata.ExternalId))
+        if (!string.IsNullOrWhiteSpace(candidate.Metadata.External_Player_ID))
         {
-            remainingByExternalId.Remove(candidate.Metadata.ExternalId);
+            remainingByExternal_Player_ID.Remove(candidate.Metadata.External_Player_ID);
         }
     }
 
@@ -438,14 +438,14 @@ public class MapCommandLogic
         out MappingResult result)
     {
         var startTime = DateTime.UtcNow;
-        player.ExternalId = candidate.Metadata.ExternalId;
+        player.External_Player_ID = candidate.Metadata.External_Player_ID;
         player.ValidMapping = true;
         player.Confidence = confidence;
 
         result = new MappingResult
         {
             PlayerId = player.PlayerId,
-            ExternalId = candidate.Metadata.ExternalId,
+            External_Player_ID = candidate.Metadata.External_Player_ID,
             PhotoFileName = candidate.FileName,
             Confidence = confidence,
             ConfidenceThreshold = confidenceThreshold,
@@ -462,7 +462,7 @@ public class MapCommandLogic
         return new MappingResult
         {
             PlayerId = player.PlayerId,
-            ExternalId = player.ExternalId,
+            External_Player_ID = player.External_Player_ID,
             PhotoFileName = string.Empty,
             Confidence = 0.0,
             ConfidenceThreshold = confidenceThreshold,
@@ -475,7 +475,7 @@ public class MapCommandLogic
     private int ApplyDeterministicGlobalMatches(
         List<PlayerRecord> unmatchedPlayers,
         List<PhotoCandidate> remainingCandidates,
-        Dictionary<string, PhotoCandidate> remainingByExternalId,
+        Dictionary<string, PhotoCandidate> remainingByExternal_Player_ID,
         double confidenceThreshold,
         List<MappingResult> results)
     {
@@ -507,7 +507,7 @@ public class MapCommandLogic
                 result.Metadata["reason"] = proposal.Reason ?? "deterministic_global";
                 results.Add(result);
 
-                RemoveCandidate(proposal.Candidate, remainingCandidates, remainingByExternalId);
+                RemoveCandidate(proposal.Candidate, remainingCandidates, remainingByExternal_Player_ID);
                 unmatchedPlayers.Remove(proposal.Player);
                 applied++;
                 madeProgress = true;
@@ -520,7 +520,7 @@ public class MapCommandLogic
     private async Task<AiPassResult> ApplyAiGlobalMatchesAsync(
         List<PlayerRecord> unmatchedPlayers,
         List<PhotoCandidate> remainingCandidates,
-        Dictionary<string, PhotoCandidate> remainingByExternalId,
+        Dictionary<string, PhotoCandidate> remainingByExternal_Player_ID,
         double confidenceThreshold,
         string nameModel,
         List<MappingResult> results,
@@ -597,7 +597,7 @@ public class MapCommandLogic
             }
 
             results.Add(result);
-            RemoveCandidate(proposal.Candidate, remainingCandidates, remainingByExternalId);
+            RemoveCandidate(proposal.Candidate, remainingCandidates, remainingByExternal_Player_ID);
             unmatchedPlayers.Remove(proposal.Player);
             applied++;
         }
@@ -715,7 +715,7 @@ public class MapCommandLogic
                 PromptTokens: promptTokens,
                 CompletionTokens: completionTokens,
                 TotalTokens: totalTokens,
-                BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+                BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
@@ -734,7 +734,7 @@ public class MapCommandLogic
                 PromptTokens: promptTokens,
                 CompletionTokens: completionTokens,
                 TotalTokens: totalTokens,
-                BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+                BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
@@ -756,12 +756,12 @@ public class MapCommandLogic
             PromptTokens: promptTokens,
             CompletionTokens: completionTokens,
             TotalTokens: totalTokens,
-            BestExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+            BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
             BestName: bestCandidate.Candidate.DisplayName,
             BestConfidence: bestMatch.Confidence,
             SecondBestConfidence: secondBestConfidence,
             Margin: margin,
-            SelectedExternalId: bestCandidate.Candidate.Metadata.ExternalId,
+            SelectedExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
             SelectedName: bestCandidate.Candidate.DisplayName,
             SelectedConfidence: bestMatch.Confidence);
     }
@@ -776,12 +776,12 @@ public class MapCommandLogic
             $"|outcome={FormatTraceValue(attempt.Outcome)}" +
             $"|reason={FormatTraceValue(attempt.Reason)}" +
             $"|compared={attempt.Comparisons}" +
-            $"|best_external_id={FormatTraceValue(attempt.BestExternalId)}" +
+            $"|best_external_id={FormatTraceValue(attempt.BestExternal_Player_ID)}" +
             $"|best_name={FormatTraceValue(attempt.BestName)}" +
             $"|best_conf={FormatTraceDouble(attempt.BestConfidence)}" +
             $"|second_conf={FormatTraceDouble(attempt.SecondBestConfidence)}" +
             $"|margin={FormatTraceDouble(attempt.Margin)}" +
-            $"|selected_external_id={FormatTraceValue(attempt.SelectedExternalId)}" +
+            $"|selected_external_id={FormatTraceValue(attempt.SelectedExternal_Player_ID)}" +
             $"|selected_name={FormatTraceValue(attempt.SelectedName)}" +
             $"|selected_conf={FormatTraceDouble(attempt.SelectedConfidence)}");
     }
@@ -850,7 +850,7 @@ public class MapCommandLogic
 
         foreach (var candidate in candidates)
         {
-            if (string.IsNullOrWhiteSpace(candidate.Metadata.ExternalId) || string.IsNullOrWhiteSpace(candidate.DisplayName))
+            if (string.IsNullOrWhiteSpace(candidate.Metadata.External_Player_ID) || string.IsNullOrWhiteSpace(candidate.DisplayName))
                 continue;
 
             var candidateSignature = GetNameSignature(candidate.DisplayName);

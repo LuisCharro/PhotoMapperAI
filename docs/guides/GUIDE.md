@@ -118,7 +118,7 @@ The GUI includes a preset system for saving and reusing patterns:
 ```json
 {
   "photo.png": {
-    "externalId": "12345",
+    "External_Player_ID": "12345",
     "fullName": "Messi Lionel",
     "teamId": "10"
   }

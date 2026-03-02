@@ -173,14 +173,14 @@ public class GeneratePhotosCommandLogic
             Directory.CreateDirectory(processedPhotosOutputPath);
 
             // Step 3: Process each player
-            var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.ExternalId)).ToList();
+            var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.External_Player_ID)).ToList();
             
             // Filter by specific player ID if provided
             if (!string.IsNullOrWhiteSpace(onlyPlayerId))
             {
                 playersToProcess = playersToProcess
                     .Where(p => string.Equals(p.PlayerId.ToString(), onlyPlayerId, StringComparison.OrdinalIgnoreCase) ||
-                                string.Equals(p.ExternalId, onlyPlayerId, StringComparison.OrdinalIgnoreCase))
+                                string.Equals(p.External_Player_ID, onlyPlayerId, StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 
                 if (playersToProcess.Count == 0)
@@ -207,9 +207,9 @@ public class GeneratePhotosCommandLogic
             if (totalPlayers == 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("⚠ No players with ExternalId found to process");
+                Console.WriteLine("⚠ No players with External_Player_ID found to process");
                 Console.ResetColor();
-                log?.Report("⚠ No players with ExternalId found to process");
+                log?.Report("⚠ No players with External_Player_ID found to process");
                 return new GeneratePhotosResult
                 {
                     ExitCode = 0,
@@ -234,7 +234,7 @@ public class GeneratePhotosCommandLogic
                 await Parallel.ForEachAsync(playersToProcess, options, async (player, cancellationToken) =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
+                    progressIndicator.Update($"{player.FullName} (ID: {player.External_Player_ID})");
 
                     var result = await ProcessPlayerAsync(
                         player,
@@ -274,7 +274,7 @@ public class GeneratePhotosCommandLogic
                 foreach (var player in playersToProcess)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
+                    progressIndicator.Update($"{player.FullName} (ID: {player.External_Player_ID})");
 
                     var result = await ProcessPlayerAsync(
                         player,
@@ -406,15 +406,15 @@ public class GeneratePhotosCommandLogic
     );
 
 
-    private static List<string> FindPlayerPhotoFiles(string photosDir, string? externalId)
+    private static List<string> FindPlayerPhotoFiles(string photosDir, string? External_Player_ID)
     {
-        if (string.IsNullOrWhiteSpace(externalId))
+        if (string.IsNullOrWhiteSpace(External_Player_ID))
         {
             return new List<string>();
         }
 
-        var safeExternalId = externalId.Trim();
-        var photoFiles = Directory.GetFiles(photosDir, $"{safeExternalId}.*")
+        var safeExternal_Player_ID = External_Player_ID.Trim();
+        var photoFiles = Directory.GetFiles(photosDir, $"{safeExternal_Player_ID}.*")
             .Where(f => IsSupportedImageFormat(f))
             .ToList();
 
@@ -422,7 +422,7 @@ public class GeneratePhotosCommandLogic
         {
             // Try searching with underscore pattern (ID at end of filename)
             // Filename pattern: FirstName_LastName_PlayerID.jpg
-            var pattern = $"*_{safeExternalId}.*";
+            var pattern = $"*_{safeExternal_Player_ID}.*";
             photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
                 .Where(f => IsSupportedImageFormat(f))
                 .ToList();
@@ -495,13 +495,13 @@ public class GeneratePhotosCommandLogic
                 Directory.CreateDirectory(variant.OutputDir);
             }
 
-            var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.ExternalId)).ToList();
+            var playersToProcess = players.Where(p => !string.IsNullOrEmpty(p.External_Player_ID)).ToList();
 
             if (!string.IsNullOrWhiteSpace(onlyPlayerId))
             {
                 playersToProcess = playersToProcess
                     .Where(p => string.Equals(p.PlayerId.ToString(), onlyPlayerId, StringComparison.OrdinalIgnoreCase) ||
-                                string.Equals(p.ExternalId, onlyPlayerId, StringComparison.OrdinalIgnoreCase))
+                                string.Equals(p.External_Player_ID, onlyPlayerId, StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
                 if (playersToProcess.Count == 0)
@@ -528,9 +528,9 @@ public class GeneratePhotosCommandLogic
             if (totalPlayers == 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("⚠ No players with ExternalId found to process");
+                Console.WriteLine("⚠ No players with External_Player_ID found to process");
                 Console.ResetColor();
-                log?.Report("⚠ No players with ExternalId found to process");
+                log?.Report("⚠ No players with External_Player_ID found to process");
                 return new GeneratePhotosResult
                 {
                     ExitCode = 0,
@@ -554,7 +554,7 @@ public class GeneratePhotosCommandLogic
                 await Parallel.ForEachAsync(playersToProcess, options, async (player, cancellationToken) =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
+                    progressIndicator.Update($"{player.FullName} (ID: {player.External_Player_ID})");
 
                     var result = await ProcessPlayerMultiVariantAsync(
                         player,
@@ -591,7 +591,7 @@ public class GeneratePhotosCommandLogic
                 foreach (var player in playersToProcess)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    progressIndicator.Update($"{player.FullName} (ID: {player.ExternalId})");
+                    progressIndicator.Update($"{player.FullName} (ID: {player.External_Player_ID})");
 
                     var result = await ProcessPlayerMultiVariantAsync(
                         player,
@@ -715,13 +715,13 @@ public class GeneratePhotosCommandLogic
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string? externalId = player.ExternalId;
-        if (string.IsNullOrEmpty(externalId))
+        string? External_Player_ID = player.External_Player_ID;
+        if (string.IsNullOrEmpty(External_Player_ID))
         {
-            return new ProcessPlayerResult(false, true, "Player has no ExternalId");
+            return new ProcessPlayerResult(false, true, "Player has no External_Player_ID");
         }
 
-        var photoFiles = FindPlayerPhotoFiles(photosDir, externalId ?? string.Empty);
+        var photoFiles = FindPlayerPhotoFiles(photosDir, External_Player_ID ?? string.Empty);
 
         if (photoFiles.Count == 0)
         {
@@ -748,7 +748,7 @@ public class GeneratePhotosCommandLogic
                 }
             }
             
-            return new ProcessPlayerResult(false, true, $"No photo found for player {player.ExternalId}");
+            return new ProcessPlayerResult(false, true, $"No photo found for player {player.External_Player_ID}");
         }
 
         var photoPath = photoFiles[0];
@@ -827,13 +827,13 @@ public class GeneratePhotosCommandLogic
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string? externalId = player.ExternalId;
-        if (string.IsNullOrEmpty(externalId))
+        string? External_Player_ID = player.External_Player_ID;
+        if (string.IsNullOrEmpty(External_Player_ID))
         {
-            return new ProcessPlayerResult(false, true, "Player has no ExternalId");
+            return new ProcessPlayerResult(false, true, "Player has no External_Player_ID");
         }
 
-        var photoFiles = FindPlayerPhotoFiles(photosDir, externalId ?? string.Empty);
+        var photoFiles = FindPlayerPhotoFiles(photosDir, External_Player_ID ?? string.Empty);
 
         if (photoFiles.Count == 0)
         {
@@ -861,7 +861,7 @@ public class GeneratePhotosCommandLogic
             if (missingVariants.Count > 0)
             {
                 return new ProcessPlayerResult(false, true,
-                    $"No photo found for player {player.ExternalId} (missing placeholders for: {string.Join(", ", missingVariants)})");
+                    $"No photo found for player {player.External_Player_ID} (missing placeholders for: {string.Join(", ", missingVariants)})");
             }
 
             return new ProcessPlayerResult(true, false, string.Empty);
@@ -1008,7 +1008,7 @@ public class GeneratePhotosCommand
     [Option(ShortName = "dl", LongName = "downloadOpenCvModels", Description = "Download missing OpenCV DNN model files if needed")]
     public bool DownloadOpenCvModels { get; set; } = false;
 
-    [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or ExternalId)")]
+    [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or External_Player_ID)")]
     public string? OnlyPlayer { get; set; }
 
     [Option(ShortName = "ph", LongName = "placeholderImage", Description = "Path to a placeholder image to use when no source photo is available")]
