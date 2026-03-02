@@ -64,7 +64,7 @@ HARD RULES (STRICT):
 3) If all tokens from the shorter side are contained in the longer side
    (subset relation) AND overlap count >= 2, then:
    - isMatch MUST be true
-   - confidence MUST be in 0.92..0.97
+   - confidence MUST be in 0.80..0.97
 4) If overlap is ""all but one token"" for the shorter side (e.g. 2-of-3 or 1-of-2)
    and the non-overlapping token pair has strong string similarity (minor variant/diminutive)
    with same first letter, then:
