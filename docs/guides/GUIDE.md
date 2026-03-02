@@ -99,7 +99,7 @@ Map external photos to internal player records using AI-powered name matching.
 
 **Filename Pattern Syntax:**
 ```
-{first}_{last}_{id}.jpg    - FirstName_LastName_ID (FIFA/Euro format)
+{first}_{last}_{id}.jpg    - FirstName_LastName_ID (competition/Euro format)
 {id}_{first}_{last}.png    - ID_FirstName_LastName
 {first}-{last}-{id}.jpg    - FirstName-LastName-ID (dash separated)
 {id}.jpg                   - ID only

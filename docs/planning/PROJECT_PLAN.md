@@ -60,7 +60,7 @@ PhotoMapperAI/
 ### 2. PhotoMatcher Service
 - Scans photo directory for image files
 - **Flexible filename parsing:**
-  - Default: `{ExternalId}_{FamilyName}_{SurName}.png` (FIFA-style)
+  - Default: `{ExternalId}_{FamilyName}_{SurName}.png` (competition-style)
   - Alternative: Use photo manifest file for metadata
 - Creates dictionary: `key=ExternalId, value=PhotoMetadata`
 

@@ -78,7 +78,7 @@ dotnet run -- generatePhotos \
 
 ## Output File Naming Clarification
 
-**Important:** Portrait files are named by **PlayerId** (internal system ID), not ExternalId (FIFA photo ID).
+**Important:** Portrait files are named by **PlayerId** (internal system ID), not ExternalId (competition photo ID).
 
 Example:
 - CSV: `PlayerId: 9741690, ExternalId: 250005992`

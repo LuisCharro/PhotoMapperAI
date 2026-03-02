@@ -175,7 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Successfully processed 49 players (24 Spain + 25 Switzerland)
 - 100% mapping success rate with confidence scores
 - Validated name matching accuracy with real player data
-- Tested workflow with FIFA photo naming convention
+- Tested workflow with competition photo naming convention
 - Confirmed database-agnostic extraction from multiple sources
 
 ### Phase 3: Portrait Generation

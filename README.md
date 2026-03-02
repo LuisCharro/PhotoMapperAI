@@ -8,7 +8,7 @@ AI-powered tool for mapping sports player photos to database systems. Available 
 
 ## Problem Solved
 
-Sports organizations receive photo sets from external sources (e.g., FIFA) with limited metadata (typically just `PlayerID_FamilyName_Surname.png`). Integrating these into internal database systems requires:
+Sports organizations receive photo sets from external sources (e.g., competition) with limited metadata (typically just `PlayerID_FamilyName_Surname.png`). Integrating these into internal database systems requires:
 
 1. **Data Extraction:** Export player data from internal database to CSV format
 2. **Name Matching:** Map external photos to internal player records using AI
@@ -579,7 +579,7 @@ Test Data (local, not in repo):
 |---------|--------|-------|
 | Database extraction (CSV) | ✅ Production Ready | Works with any SQL database |
 | Name matching (AI) | ✅ Production Ready | 90% accuracy with Ollama LLMs |
-| Photo mapping | ✅ Production Ready | 49/49 FIFA photos successfully mapped |
+| Photo mapping | ✅ Production Ready | 49/49 competition photos successfully mapped |
 | Face detection (OpenCV) | ✅ Fixed | Model files added, fallback working |
 | Face detection (Ollama Vision) | ✅ Working | qwen3-vl and llava:7b supported |
 | Portrait generation | ✅ Fixed | Correct 200x300 dimensions |
