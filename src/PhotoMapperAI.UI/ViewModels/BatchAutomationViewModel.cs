@@ -76,6 +76,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         SeedNameModelList();
         LoadCropOffsetPresets();
         LoadFilenamePatternPresets();
+        UpdateProviderKeyInputVisibility();
         _ = RefreshNameModelsAsync(showStatus: false);
     }
 
@@ -120,6 +121,18 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _aiSecondPass = true;
+
+    [ObservableProperty]
+    private string _openAiApiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _anthropicApiKey = string.Empty;
+
+    [ObservableProperty]
+    private bool _showOpenAiApiKeyInput;
+
+    [ObservableProperty]
+    private bool _showAnthropicApiKeyInput;
 
     [ObservableProperty]
     private int _selectedModelTierIndex;
@@ -331,19 +344,21 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             if (IsOpenAiModel(NameMatchingModel))
             {
-                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+                var keyPresent = !string.IsNullOrWhiteSpace(OpenAiApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
                 ModelDiagnosticStatus = keyPresent
-                    ? "✓ OpenAI API key available (environment variable)."
-                    : "✗ OpenAI API key is missing (OPENAI_API_KEY).";
+                    ? "✓ OpenAI API key available (GUI field or OPENAI_API_KEY)."
+                    : "✗ OpenAI API key is missing (GUI field or OPENAI_API_KEY).";
                 return;
             }
 
             if (IsAnthropicModel(NameMatchingModel))
             {
-                var keyPresent = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
+                var keyPresent = !string.IsNullOrWhiteSpace(AnthropicApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
                 ModelDiagnosticStatus = keyPresent
-                    ? "✓ Anthropic API key available (environment variable)."
-                    : "✗ Anthropic API key is missing (ANTHROPIC_API_KEY).";
+                    ? "✓ Anthropic API key available (GUI field or ANTHROPIC_API_KEY)."
+                    : "✗ Anthropic API key is missing (GUI field or ANTHROPIC_API_KEY).";
                 return;
             }
 
@@ -495,8 +510,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     UseAiMapping,
                     AiSecondPass,
                     AiOnly,
-                    openAiApiKey: null,
-                    anthropicApiKey: null,
+                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                     CancellationToken.None,
                     log: null);
 
@@ -516,18 +531,18 @@ public partial class BatchAutomationViewModel : ViewModelBase
             }
 
             var previewPlayer = await ResolvePreviewPlayerAsync(mappedCsvPath);
-            if (previewPlayer == null || string.IsNullOrWhiteSpace(previewPlayer.ExternalId))
+            if (previewPlayer == null || string.IsNullOrWhiteSpace(previewPlayer.External_Player_ID))
             {
-                PreviewStatus = "No eligible player with ExternalId found for preview.";
+                PreviewStatus = "No eligible player with External_Player_ID found for preview.";
                 return;
             }
 
             var (previewWidth, previewHeight) = ResolvePreviewDimensions();
-            var photoPath = ResolvePreviewPhotoPath(teamPhotoDir, previewPlayer.ExternalId);
+            var photoPath = ResolvePreviewPhotoPath(teamPhotoDir, previewPlayer.External_Player_ID);
 
             if (string.IsNullOrWhiteSpace(photoPath))
             {
-                PreviewStatus = $"No photo found for ExternalId {previewPlayer.ExternalId}.";
+                PreviewStatus = $"No photo found for External_Player_ID {previewPlayer.External_Player_ID}.";
                 return;
             }
 
@@ -1280,6 +1295,40 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
             try
             {
+                var effectiveNameModel = string.IsNullOrWhiteSpace(NameMatchingModel)
+                    ? "qwen2.5:7b"
+                    : NameMatchingModel;
+
+                if (!string.Equals(effectiveNameModel, NameMatchingModel, StringComparison.OrdinalIgnoreCase))
+                {
+                    NameMatchingModel = effectiveNameModel;
+                    AppendLog($"[MAP] {team.TeamName}: Name matching model was empty; defaulted to '{effectiveNameModel}'.");
+                }
+
+                if (NameMatchingThreshold < MinConfidenceThreshold)
+                {
+                    NameMatchingThreshold = MinConfidenceThreshold;
+                }
+
+                var preflight = await PreflightChecker.CheckMapAsync(
+                    UseAiMapping,
+                    effectiveNameModel,
+                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
+                if (!preflight.IsOk)
+                {
+                    throw new InvalidOperationException(preflight.BuildMessage());
+                }
+
+                var warningMessage = preflight.BuildWarningMessage();
+                if (!string.IsNullOrWhiteSpace(warningMessage))
+                {
+                    AppendLog($"[MAP] {team.TeamName}: {warningMessage}");
+                }
+
+                var effectiveAiSecondPass = UseAiMapping && AiSecondPass;
+                var effectiveAiOnly = UseAiMapping && AiOnly;
+
                 var mapResult = await _mapRunner.ExecuteAsync(
                     Directory.GetCurrentDirectory(),
                     teamCsvDir,
@@ -1287,13 +1336,13 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     teamPhotoDir,
                     filenamePattern: string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
                     photoManifest: UsePhotoManifest ? PhotoManifestPath : null,
-                    nameModel: NameMatchingModel,
+                    nameModel: effectiveNameModel,
                     confidenceThreshold: NameMatchingThreshold,
                     useAi: UseAiMapping,
-                    aiSecondPass: AiSecondPass,
-                    aiOnly: AiOnly,
-                    openAiApiKey: null,
-                    anthropicApiKey: null,
+                    aiSecondPass: effectiveAiSecondPass,
+                    aiOnly: effectiveAiOnly,
+                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                     cancellationToken,
                     new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
 
@@ -1306,7 +1355,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 teamResult.PlayersMapped = mapResult.PlayersMatched;
                 AppendLog($"[MAP] {team.TeamName}: Mapped {mapResult.PlayersMatched} players.");
 
-                // Use the mapped CSV for generation (contains ExternalId)
+                // Use the mapped CSV for generation (contains External_Player_ID)
                 var mappedCsvPath = mapResult.OutputCsvPath;
                 if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
                 {
@@ -1344,7 +1393,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
                 var generateResult = await _generateRunner.ExecuteAsync(
                     Directory.GetCurrentDirectory(),
-                    teamResult.MappedCsvPath ?? csvPath,  // Use mapped CSV with ExternalId
+                    teamResult.MappedCsvPath ?? csvPath,  // Use mapped CSV with External_Player_ID
                     teamPhotoDir,
                     teamOutputDir,
                     ImageFormat,
@@ -1432,7 +1481,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private async Task<PlayerRecord?> ResolvePreviewPlayerAsync(string csvPath)
     {
         var players = await _databaseExtractor.ReadCsvAsync(csvPath);
-        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.ExternalId));
+        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.External_Player_ID));
     }
 
     private (int width, int height) ResolvePreviewDimensions()
@@ -1455,26 +1504,26 @@ public partial class BatchAutomationViewModel : ViewModelBase
         return (DefaultWidth, DefaultHeight);
     }
 
-    private string? ResolvePreviewPhotoPath(string photosDirectory, string externalId)
+    private string? ResolvePreviewPhotoPath(string photosDirectory, string External_Player_ID)
     {
-        if (string.IsNullOrWhiteSpace(externalId))
+        if (string.IsNullOrWhiteSpace(External_Player_ID))
         {
             return null;
         }
 
-        var photoFiles = FindPlayerPhotoFiles(photosDirectory, externalId);
+        var photoFiles = FindPlayerPhotoFiles(photosDirectory, External_Player_ID);
         return photoFiles.FirstOrDefault();
     }
 
-    private static List<string> FindPlayerPhotoFiles(string photosDirectory, string externalId)
+    private static List<string> FindPlayerPhotoFiles(string photosDirectory, string External_Player_ID)
     {
-        var photoFiles = Directory.GetFiles(photosDirectory, $"{externalId}.*")
+        var photoFiles = Directory.GetFiles(photosDirectory, $"{External_Player_ID}.*")
             .Where(IsSupportedImageFormat)
             .ToList();
 
         if (photoFiles.Count == 0)
         {
-            var pattern = $"*_{externalId}.*";
+            var pattern = $"*_{External_Player_ID}.*";
             photoFiles = Directory.GetFiles(photosDirectory, pattern, SearchOption.AllDirectories)
                 .Where(IsSupportedImageFormat)
                 .ToList();
@@ -1544,8 +1593,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     private static string BuildPreviewPlayerLabel(PlayerRecord player)
     {
-        var externalId = string.IsNullOrWhiteSpace(player.ExternalId) ? "n/a" : player.ExternalId;
-        return $"{player.FullName} (ID: {externalId})";
+        var External_Player_ID = string.IsNullOrWhiteSpace(player.External_Player_ID) ? "n/a" : player.External_Player_ID;
+        return $"{player.FullName} (ID: {External_Player_ID})";
     }
 
     private void ScheduleAutoPreview()
@@ -1607,6 +1656,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             LogLines.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
         });
+    }
+
+    private void UpdateProviderKeyInputVisibility()
+    {
+        ShowOpenAiApiKeyInput = IsOpenAiModel(NameMatchingModel);
+        ShowAnthropicApiKeyInput = IsAnthropicModel(NameMatchingModel);
     }
 
     private void ResetErrorSummary()
@@ -1897,7 +1952,25 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     partial void OnNameMatchingModelChanged(string value)
     {
+        UpdateProviderKeyInputVisibility();
         SelectedModelTierIndex = GetTierIndexForModel(value);
+    }
+
+    partial void OnSelectedModelTierIndexChanged(int value)
+    {
+        string? candidate = value switch
+        {
+            0 => FreeTierNameModels.FirstOrDefault(),
+            1 => LocalNameModels.FirstOrDefault(),
+            2 => PaidNameModels.FirstOrDefault(),
+            _ => null
+        };
+
+        if (!string.IsNullOrWhiteSpace(candidate) &&
+            !string.Equals(NameMatchingModel, candidate, StringComparison.OrdinalIgnoreCase))
+        {
+            NameMatchingModel = candidate;
+        }
     }
 
     partial void OnFaceDetectionModelChanged(string value)

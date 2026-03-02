@@ -173,7 +173,7 @@
                   </TabItem>
                   <TabItem Header="Paid (API)">
                     <StackPanel Spacing="4" Margin="0,6,0,0">
-                      <TextBlock Text="Requires API key in environment variable" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Text="Requires API key (GUI field or environment variable)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
                       <ComboBox ItemsSource="{Binding PaidNameModels}"
                                 SelectedItem="{Binding NameMatchingModel, Mode=TwoWay}"
                                 HorizontalAlignment="Stretch" Height="28"/>
@@ -191,6 +191,22 @@
 
                 <TextBlock Text="{Binding ModelDiagnosticStatus}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
                            TextWrapping="Wrap" IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                <!-- API Keys (visible for paid models) -->
+                <TextBox Text="{Binding OpenAiApiKey}"
+                         Watermark="OpenAI API key (not saved to disk)"
+                         PasswordChar="•"
+                         IsVisible="{Binding ShowOpenAiApiKeyInput}"
+                         Height="32"
+                         Background="{DynamicResource InputBackgroundBrush}"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+                <TextBox Text="{Binding AnthropicApiKey}"
+                         Watermark="Anthropic API key (not saved to disk)"
+                         PasswordChar="•"
+                         IsVisible="{Binding ShowAnthropicApiKeyInput}"
+                         Height="32"
+                         Background="{DynamicResource InputBackgroundBrush}"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
               </StackPanel>
             </Border>
 
