@@ -207,6 +207,7 @@ public class MapCommandLogic
                     ambiguityMargin: 0.08,
                     progressLabel: "AI Pass 1",
                     uiProgress: uiProgress,
+                    log: log,
                     aiTrace: aiTrace,
                     passNumber: 1,
                     cancellationToken: cancellationToken);
@@ -235,6 +236,7 @@ public class MapCommandLogic
                         ambiguityMargin: 0.05,
                         progressLabel: "AI Pass 2",
                         uiProgress: uiProgress,
+                        log: log,
                         aiTrace: aiTrace,
                         passNumber: 2,
                         cancellationToken: cancellationToken);
@@ -415,7 +417,10 @@ public class MapCommandLogic
             .Replace('_', ' ')
             .Replace('-', ' ');
 
-        return raw.Trim();
+        // Clean up leading/trailing underscores (now spaces) and collapse multiple spaces
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @"\s+", " ").Trim();
+
+        return raw;
     }
 
     private static void RemoveCandidate(
@@ -530,6 +535,7 @@ public class MapCommandLogic
         double ambiguityMargin,
         string progressLabel,
         IProgress<(int processed, int total, string current)>? uiProgress,
+        IProgress<string>? log,
         bool aiTrace,
         int passNumber,
         CancellationToken cancellationToken)
@@ -577,6 +583,14 @@ public class MapCommandLogic
             if (attempt.Proposal != null)
             {
                 proposals.Add(attempt.Proposal);
+            }
+            else if (attempt.Reason == "below_threshold" && attempt.BestConfidence.HasValue)
+            {
+                log?.Report($"  ⚠ {player.FullName}: Best AI match '{attempt.BestName}' rejected (confidence {attempt.BestConfidence.Value:F2} < threshold {confidenceThreshold:F2})");
+            }
+            else if (attempt.Reason == "ambiguous" && attempt.BestConfidence.HasValue)
+            {
+                log?.Report($"  ⚠ {player.FullName}: Best AI match '{attempt.BestName}' rejected (confidence {attempt.BestConfidence.Value:F2}, margin {attempt.Margin:F2} too small, ambiguous)");
             }
         }
 

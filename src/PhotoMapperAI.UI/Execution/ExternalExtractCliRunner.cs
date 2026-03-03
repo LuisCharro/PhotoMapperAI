@@ -1,15 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using PhotoMapperAI.Services.Database;
 
 namespace PhotoMapperAI.UI.Execution;
 
 public sealed class ExternalExtractCliRunner
 {
+    private readonly DatabaseExtractor _databaseExtractor = new();
+
     public sealed class ExtractCliResult
     {
         public int ExitCode { get; set; }
@@ -27,16 +28,62 @@ public sealed class ExternalExtractCliRunner
         CancellationToken cancellationToken,
         IProgress<string>? log)
     {
-        var args = new List<string>
-        {
-            "run", "--project", "src/PhotoMapperAI", "--", "extract",
-            "--inputSqlPath", inputSqlPath,
-            "--connectionStringPath", connectionStringPath,
-            "--teamId", teamId.ToString(),
-            "--outputName", outputCsvPath
-        };
+        _ = workingDirectory;
+        _ = cancellationToken;
 
-        return await RunExtractProcessAsync(workingDirectory, args, outputCsvPath, cancellationToken, log);
+        try
+        {
+            log?.Report("Extract Command");
+            log?.Report("================");
+            log?.Report($"SQL File: {inputSqlPath}");
+            log?.Report($"Connection String: {connectionStringPath}");
+            log?.Report($"Team ID: {teamId}");
+            log?.Report($"Output: {outputCsvPath}");
+            log?.Report("");
+
+            // Read SQL query
+            var sqlQuery = await File.ReadAllTextAsync(inputSqlPath);
+
+            // Read connection string
+            var connectionString = await File.ReadAllTextAsync(connectionStringPath);
+
+            // Build parameters for players extraction
+            var parameters = new Dictionary<string, object>
+            {
+                { "TeamId", teamId }
+            };
+
+            // Extract players data
+            log?.Report("Extracting player data...");
+            var playerCount = await _databaseExtractor.ExtractPlayersToCsvAsync(
+                connectionString,
+                sqlQuery,
+                parameters,
+                outputCsvPath
+            );
+
+            log?.Report("");
+            log?.Report($"✓ Extracted {playerCount} players to {Path.GetFileName(outputCsvPath)}");
+
+            return new ExtractCliResult
+            {
+                ExitCode = 0,
+                PlayersExtracted = playerCount,
+                TeamsExtracted = 0,
+                OutputCsvPath = outputCsvPath
+            };
+        }
+        catch (Exception ex)
+        {
+            log?.Report($"✗ Error: {ex.Message}");
+            return new ExtractCliResult
+            {
+                ExitCode = 1,
+                PlayersExtracted = 0,
+                TeamsExtracted = 0,
+                OutputCsvPath = outputCsvPath
+            };
+        }
     }
 
     public async Task<ExtractCliResult> ExecuteTeamsAsync(
@@ -47,81 +94,54 @@ public sealed class ExternalExtractCliRunner
         CancellationToken cancellationToken,
         IProgress<string>? log)
     {
-        var args = new List<string>
+        _ = workingDirectory;
+        _ = cancellationToken;
+
+        try
         {
-            "run", "--project", "src/PhotoMapperAI", "--", "extract",
-            "--inputSqlPath", inputSqlPath,
-            "--connectionStringPath", connectionStringPath,
-            "--outputName", outputCsvPath,
-            "--extractTeams"
-        };
+            log?.Report("Extract Command");
+            log?.Report("================");
+            log?.Report($"SQL File: {inputSqlPath}");
+            log?.Report($"Connection String: {connectionStringPath}");
+            log?.Report($"Output: {outputCsvPath}");
+            log?.Report($"Extract Teams: True");
+            log?.Report("");
 
-        return await RunExtractProcessAsync(workingDirectory, args, outputCsvPath, cancellationToken, log, isTeams: true);
-    }
+            // Read SQL query
+            var sqlQuery = await File.ReadAllTextAsync(inputSqlPath);
 
-    private async Task<ExtractCliResult> RunExtractProcessAsync(
-        string workingDirectory,
-        List<string> args,
-        string outputCsvPath,
-        CancellationToken cancellationToken,
-        IProgress<string>? log,
-        bool isTeams = false)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            WorkingDirectory = workingDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+            // Read connection string
+            var connectionString = await File.ReadAllTextAsync(connectionStringPath);
 
-        foreach (var a in args)
-            psi.ArgumentList.Add(a);
+            // Extract teams data
+            log?.Report("Extracting team data...");
+            var teamCount = await _databaseExtractor.ExtractTeamsToCsvAsync(
+                connectionString,
+                sqlQuery,
+                outputCsvPath
+            );
 
-        using var process = new Process { StartInfo = psi };
-        process.Start();
+            log?.Report("");
+            log?.Report($"✓ Extracted {teamCount} teams to {Path.GetFileName(outputCsvPath)}");
 
-        var extracted = 0;
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var line = await process.StandardOutput.ReadLineAsync();
-            if (line == null)
-                break;
-
-            log?.Report(line);
-
-            if (isTeams)
+            return new ExtractCliResult
             {
-                var m = Regex.Match(line, @"Extracted\s+(\d+)\s+teams", RegexOptions.IgnoreCase);
-                if (m.Success)
-                    extracted = int.Parse(m.Groups[1].Value);
-            }
-            else
+                ExitCode = 0,
+                PlayersExtracted = 0,
+                TeamsExtracted = teamCount,
+                OutputCsvPath = outputCsvPath
+            };
+        }
+        catch (Exception ex)
+        {
+            log?.Report($"✗ Error: {ex.Message}");
+            return new ExtractCliResult
             {
-                var m = Regex.Match(line, @"Extracted\s+(\d+)\s+players", RegexOptions.IgnoreCase);
-                if (m.Success)
-                    extracted = int.Parse(m.Groups[1].Value);
-            }
+                ExitCode = 1,
+                PlayersExtracted = 0,
+                TeamsExtracted = 0,
+                OutputCsvPath = outputCsvPath
+            };
         }
-
-        var err = await process.StandardError.ReadToEndAsync();
-        if (!string.IsNullOrWhiteSpace(err))
-        {
-            foreach (var line in err.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                log?.Report(line.TrimEnd('\r'));
-        }
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        return new ExtractCliResult
-        {
-            ExitCode = process.ExitCode,
-            PlayersExtracted = isTeams ? 0 : extracted,
-            TeamsExtracted = isTeams ? extracted : 0,
-            OutputCsvPath = outputCsvPath
-        };
     }
 }

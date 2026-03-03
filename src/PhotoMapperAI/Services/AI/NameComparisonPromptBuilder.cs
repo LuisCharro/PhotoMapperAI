@@ -28,7 +28,104 @@ public static class NameComparisonPromptBuilder
 
         // Common surname variants
         ["lope"] = "lopez",
-        ["martine"] = "martinez"
+        ["martine"] = "martinez",
+
+        // Ukrainian/Cyrillic transliteration variants - Given names
+        ["heorhiy"] = "georgiy",
+        ["heorhii"] = "georgiy",
+        ["georgi"] = "georgiy",
+        ["andrej"] = "andriy",
+        ["andrei"] = "andriy",
+        ["andrew"] = "andriy",
+        ["sergej"] = "serhiy",
+        ["sergei"] = "serhiy",
+        ["sergii"] = "serhiy",
+        ["serge"] = "serhiy",
+        ["alexander"] = "oleksandr",
+        ["aleksandr"] = "oleksandr",
+        ["alexandar"] = "oleksandr",
+        ["mykola"] = "nicholas",
+        ["nikolai"] = "nicholas",
+        ["nikolay"] = "nicholas",
+        ["nikolaj"] = "nicholas",
+        ["nicola"] = "nicholas",
+        ["mykhaylo"] = "mykhailo",
+        ["mikhail"] = "mykhailo",
+        ["michael"] = "mykhailo",
+        ["vitaliy"] = "vitalii",
+        ["vitaly"] = "vitalii",
+        ["vitalij"] = "vitalii",
+        ["vladyslav"] = "vladislav",
+        ["wladyslaw"] = "vladislav",
+
+        // Ukrainian/Cyrillic transliteration variants - Surnames
+        ["jarmolenko"] = "yarmolenko",
+        ["iarmolenko"] = "yarmolenko",
+        ["zinchenko"] = "zinchenko",
+        ["sintschenko"] = "zinchenko",
+        ["sinchenko"] = "zinchenko",
+        ["zincenko"] = "zinchenko",
+        ["sydorchuk"] = "sydorchuk",
+        ["sidorchuk"] = "sydorchuk",
+        ["sidortschuk"] = "sydorchuk",
+        ["sidorchuck"] = "sydorchuk",
+        ["bushchan"] = "bushchan",
+        ["buschchan"] = "bushchan",
+        ["buschan"] = "bushchan",
+        ["rebrov"] = "rebrov",
+        ["rebrow"] = "rebrov",
+        ["rebroff"] = "rebrov",
+        ["shaparenko"] = "shaparenko",
+        ["schaparenko"] = "shaparenko",
+        ["yaremchuk"] = "yaremchuk",
+        ["jaremchuk"] = "yaremchuk",
+        ["mudryk"] = "mudryk",
+        ["mudruk"] = "mudryk",
+        ["mudryk"] = "mudryk",
+        ["tsygankov"] = "tsyhankov",
+        ["tsyhankov"] = "tsyhankov",
+        ["tsihankow"] = "tsyhankov",
+        ["tsigankov"] = "tsyhankov",
+        ["cigankov"] = "tsyhankov",
+
+        // Common nickname/full name equivalents
+        ["zander"] = "alexander",
+        ["alex"] = "alexander",
+        ["sasha"] = "alexander",
+        ["joey"] = "johannes",
+        ["joe"] = "joseph",
+        ["jimmy"] = "james",
+        ["jim"] = "james",
+        ["chris"] = "christopher",
+        ["cristiano"] = "ronaldo",
+        ["cristian"] = "christian",
+        ["lotte"] = "carlotte",
+        ["charlie"] = "charlotte",
+        ["maggie"] = "margaret",
+        ["beth"] = "elizabeth",
+        ["betsy"] = "elizabeth",
+        ["lizzy"] = "elizabeth",
+
+        // Brazilian/Portuguese mononymous players (map nickname to full name components)
+        ["jorginho"] = "jorge",
+        ["pepe"] = "kepler",
+        ["danilo"] = "danilo",
+        ["ronaldo"] = "ronaldo",
+        ["joselu"] = "jose",
+        ["sylvinho"] = "sylvio",
+        ["sylvio"] = "sylvio",
+        ["costa"] = "carole",
+
+        // Icelandic letter normalizations
+        ["thorsteinn"] = "þorsteinn",
+        ["þorsteinn"] = "thorsteinn",
+        ["þ"] = "th",
+
+        // Common surname prefixes/particles (normalized for matching)
+        ["dos"] = "",
+        ["das"] = "",
+        ["aveiro"] = "aveiro",
+        ["ferreira"] = "ferreira"
     };
 
     public static string Build(string name1, string name2)
@@ -57,7 +154,8 @@ IMPORTANT:
 - Assume accents/diacritics and punctuation are already handled in the tokens.
 - Token order is NOT reliable. One source may be ""family given"", another may be ""given family"".
 - Extra middle/second-surname tokens may appear on one side only.
-- Single-character differences (s/z, ç/c, ñ/n, accent marks) should be treated as MATCHES if other tokens align.
+- Transliteration variations are PRE-NORMALIZED (Ukrainian/Cyrillic j→y, w→v, sch→sh, etc.).
+- After normalization, single-character differences (s/z, ñ/n, accent marks) should be treated as MATCHES if other tokens align.
 - Output MUST be valid JSON ONLY (no markdown, no extra text).
 
 INPUT (JSON):
@@ -86,7 +184,8 @@ HARD RULES (STRICT):
 
 4) If overlap is ""all but one token"" for the shorter side (e.g. 2-of-3 or 1-of-2)
    and the non-overlapping token pair has strong string similarity (minor variant/diminutive)
-   OR single-character difference (s/z, accent marks, ñ/n, ç/c), then:
+   OR single-character difference (s/z, c/k, i/y, accent marks, ñ/n, ç/c)
+   OR are known transliteration equivalents (already pre-normalized), then:
    - isMatch MUST be true
    - confidence MUST be in 0.82..0.93
 
@@ -110,7 +209,7 @@ OUTPUT SCHEMA (JSON only):
   ""matchedSurnameTokens"": []
 }}
 
-Remember: Minor character variations (s/z, accent marks, single-letter differences) should NOT prevent a match when tokens otherwise align.";
+Remember: Transliteration variations are pre-normalized. After normalization, minor remaining character variations (s/z, c/k, i/y, single-letter differences) should NOT prevent a match when tokens otherwise align.";
     }
 
     /// <summary>
@@ -150,6 +249,12 @@ Remember: Minor character variations (s/z, accent marks, single-letter differenc
             'Ø' => "Oe",
             'å' => "aa",
             'Å' => "Aa",
+
+            // Icelandic
+            'þ' => "th",
+            'Þ' => "Th",
+            'ð' => "d",
+            'Ð' => "D",
 
             // French
             'œ' => "oe",

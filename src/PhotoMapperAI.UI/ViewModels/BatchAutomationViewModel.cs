@@ -1310,6 +1310,26 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     NameMatchingThreshold = MinConfidenceThreshold;
                 }
 
+                // Log AI configuration
+                AppendLog($"[MAP] {team.TeamName}: AI Configuration:");
+                AppendLog($"[MAP] {team.TeamName}:   - Use AI Mapping: {UseAiMapping}");
+                AppendLog($"[MAP] {team.TeamName}:   - AI Only Mode: {AiOnly}");
+                AppendLog($"[MAP] {team.TeamName}:   - AI Second Pass: {AiSecondPass}");
+                AppendLog($"[MAP] {team.TeamName}:   - Name Model: {effectiveNameModel}");
+                AppendLog($"[MAP] {team.TeamName}:   - Confidence Threshold: {NameMatchingThreshold:F2}");
+                
+                var hasOpenAiKey = !string.IsNullOrWhiteSpace(OpenAiApiKey);
+                var hasAnthropicKey = !string.IsNullOrWhiteSpace(AnthropicApiKey);
+                if (effectiveNameModel.StartsWith("openai:", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendLog($"[MAP] {team.TeamName}:   - OpenAI API Key: {(hasOpenAiKey ? "✓ Provided" : "✗ Missing")}");
+                }
+                else if (effectiveNameModel.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
+                         effectiveNameModel.StartsWith("claude:", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendLog($"[MAP] {team.TeamName}:   - Anthropic API Key: {(hasAnthropicKey ? "✓ Provided" : "✗ Missing")}");
+                }
+
                 var preflight = await PreflightChecker.CheckMapAsync(
                     UseAiMapping,
                     effectiveNameModel,

@@ -286,6 +286,27 @@ public partial class MapStepViewModel : ViewModelBase
 
             var effectiveNameModel = NameModel;
 
+            // Log AI configuration
+            AppendLog("AI Configuration:");
+            AppendLog($"  - Use AI Mapping: {UseAiMapping}");
+            AppendLog($"  - AI Only Mode: {AiOnly}");
+            AppendLog($"  - AI Second Pass: {AiSecondPass}");
+            AppendLog($"  - Name Model: {effectiveNameModel}");
+            AppendLog($"  - Confidence Threshold: {ConfidenceThreshold:F2}");
+            
+            var hasOpenAiKey = !string.IsNullOrWhiteSpace(OpenAiApiKey);
+            var hasAnthropicKey = !string.IsNullOrWhiteSpace(AnthropicApiKey);
+            if (effectiveNameModel.StartsWith("openai:", StringComparison.OrdinalIgnoreCase))
+            {
+                AppendLog($"  - OpenAI API Key: {(hasOpenAiKey ? "✓ Provided" : "✗ Missing")}");
+            }
+            else if (effectiveNameModel.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
+                     effectiveNameModel.StartsWith("claude:", StringComparison.OrdinalIgnoreCase))
+            {
+                AppendLog($"  - Anthropic API Key: {(hasAnthropicKey ? "✓ Provided" : "✗ Missing")}");
+            }
+            AppendLog("");
+
             var preflight = await PreflightChecker.CheckMapAsync(
                 UseAiMapping,
                 effectiveNameModel,
