@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace PhotoMapperAI.Utils;
 
@@ -8,6 +9,12 @@ namespace PhotoMapperAI.Utils;
 /// </summary>
 public static class StringMatching
 {
+    /// <summary>
+    /// Regular expression to collapse consecutive identical vowels (e.g., "aa" -> "a", "oo" -> "o").
+    /// This allows matching between transliterated forms (å -> aa) and direct ASCII (a).
+    /// </summary>
+    private static readonly Regex CollapseVowelsRegex = new(@"(a|e|i|o|u)\1+", RegexOptions.Compiled);
+
     /// <summary>
     /// Calculates Levenshtein distance between two strings (case-insensitive).
     /// </summary>
@@ -76,6 +83,9 @@ public static class StringMatching
         // Treat common separators as spaces before normalization.
         name = name.Replace('-', ' ').Replace('_', ' ');
 
+        // Apply European character transliteration first (before accent removal)
+        name = NormalizeEuropeanCharacters(name);
+
         // Remove accents
         var normalized = name.Normalize(NormalizationForm.FormKD);
         var stringBuilder = new StringBuilder();
@@ -103,10 +113,87 @@ public static class StringMatching
                 result.Append(c);
             }
         }
-        
-        normalized = System.Text.RegularExpressions.Regex.Replace(result.ToString(), @"\s+", " ");
+
+        normalized = Regex.Replace(result.ToString(), @"\s+", " ");
+
+        // Collapse consecutive identical vowels to allow matching between
+        // transliterated forms (å -> aa) and direct ASCII (a).
+        // This is a generic normalization that helps with Scandinavian names.
+        normalized = CollapseVowelsRegex.Replace(normalized, "$1");
 
         return normalized;
+    }
+
+    /// <summary>
+    /// Normalizes European character variants to ASCII equivalents.
+    /// Handles German umlauts, Scandinavian characters, and French special characters.
+    /// </summary>
+    private static string NormalizeEuropeanCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = new StringBuilder(input.Length);
+        foreach (char c in input)
+        {
+            result.Append(NormalizeEuropeanChar(c));
+        }
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Normalizes a single European character to its ASCII equivalent.
+    /// This provides generic transliteration for common European character variants
+    /// without hardcoding specific dataset examples.
+    /// </summary>
+    private static string NormalizeEuropeanChar(char c)
+    {
+        return c switch
+        {
+            // German umlauts: ü -> ue, ö -> oe, ä -> ae, ß -> ss
+            'ä' => "ae",
+            'ö' => "oe",
+            'ü' => "ue",
+            'Ä' => "Ae",
+            'Ö' => "Oe",
+            'Ü' => "Ue",
+            'ß' => "ss",
+
+            // Scandinavian: å -> aa, æ -> ae, ø -> oe
+            // Note: These map to multi-character sequences to preserve sound similarity
+            'æ' => "ae",
+            'Æ' => "Ae",
+            'ø' => "oe",
+            'Ø' => "Oe",
+            'å' => "aa",
+            'Å' => "Aa",
+
+            // French special characters
+            'œ' => "oe",
+            'Œ' => "Oe",
+            'ç' => "c",
+            'Ç' => "C",
+
+            // Spanish special characters
+            'ñ' => "n",
+            'Ñ' => "N",
+
+            // Portuguese
+            'ã' => "a",
+            'õ' => "o",
+            'Ã' => "A",
+            'Õ' => "O",
+
+            // Italian
+            'ì' => "i",
+            'í' => "i",
+            'Í' => "I",
+
+            // Catalan - l with middle dot (handled as single char in pattern matching)
+            // Using string to handle multi-codepoint sequences if needed
+
+            _ => c.ToString()
+        };
     }
 
     /// <summary>
@@ -153,4 +240,74 @@ public static class StringMatching
         
         return Math.Max(similarity, jaccard);
     }
+
+    /// <summary>
+    /// Compares two names and returns detailed comparison result including ambiguity info.
+    /// This is useful for candidate selection when we need to know if the match is ambiguous.
+    /// </summary>
+    public static NameComparisonResult CompareNamesWithDetails(string name1, string name2)
+    {
+        var norm1 = NormalizeName(name1);
+        var norm2 = NormalizeName(name2);
+
+        var score = CompareNames(name1, name2);
+        
+        // Calculate a secondary similarity using a more lenient approach
+        // This helps detect cases where the main score might be affected by
+        // minor character differences
+        var lenientScore = CalculateLenientSimilarity(norm1, norm2);
+
+        return new NameComparisonResult
+        {
+            PrimaryScore = score,
+            LenientScore = lenientScore,
+            NormalizedName1 = norm1,
+            NormalizedName2 = norm2,
+            IsAmbiguous = false // Caller should determine ambiguity based on margin between top candidates
+        };
+    }
+
+    /// <summary>
+    /// Calculates a more lenient similarity that handles edge cases better.
+    /// This uses token-based comparison with fuzzy matching.
+    /// </summary>
+    private static double CalculateLenientSimilarity(string norm1, string norm2)
+    {
+        if (string.IsNullOrEmpty(norm1) || string.IsNullOrEmpty(norm2))
+            return 0;
+
+        var tokens1 = norm1.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var tokens2 = norm2.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (tokens1.Length == 0 || tokens2.Length == 0)
+            return 0;
+
+        // Calculate best match for each token
+        var totalScore = 0.0;
+        foreach (var t1 in tokens1)
+        {
+            var bestMatch = 0.0;
+            foreach (var t2 in tokens2)
+            {
+                var sim = CalculateSimilarity(t1, t2);
+                if (sim > bestMatch)
+                    bestMatch = sim;
+            }
+            totalScore += bestMatch;
+        }
+
+        return totalScore / Math.Max(tokens1.Length, tokens2.Length);
+    }
+}
+
+/// <summary>
+/// Result of a name comparison with detailed information.
+/// </summary>
+public class NameComparisonResult
+{
+    public double PrimaryScore { get; set; }
+    public double LenientScore { get; set; }
+    public string NormalizedName1 { get; set; } = string.Empty;
+    public string NormalizedName2 { get; set; } = string.Empty;
+    public bool IsAmbiguous { get; set; }
 }

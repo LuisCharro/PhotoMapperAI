@@ -112,7 +112,7 @@ public class StringMatchingTests
         Assert.Equal("rodriguez", StringMatching.NormalizeName("Rodríguez"));
         Assert.Equal("martinez", StringMatching.NormalizeName("Martínez"));
         Assert.Equal("sanchez", StringMatching.NormalizeName("Sánchez"));
-        Assert.Equal("muller", StringMatching.NormalizeName("Müller"));
+        Assert.Equal("mueller", StringMatching.NormalizeName("Müller"));  // ü → ue → mueller
         Assert.Equal("garcia", StringMatching.NormalizeName("García"));
     }
 
@@ -240,6 +240,76 @@ public class StringMatchingTests
         // Müller vs Mueller
         var score = StringMatching.CompareNames("Müller", "Mueller");
         Assert.True(score > 0.8);
+    }
+
+    #endregion
+
+    #region European Character Normalization Tests
+
+    [Fact]
+    public void NormalizeName_EuropeanCharacters_NormalizesCorrectly()
+    {
+        // German umlauts
+        Assert.Equal("mueller", StringMatching.NormalizeName("Müller"));
+        Assert.Equal("schroeder", StringMatching.NormalizeName("Schröder"));
+        Assert.Equal("jaeger", StringMatching.NormalizeName("Jäger"));
+
+        // Note: ß becomes ss after normalization
+        // "Straße" -> "strasse" after FoldToAsciiLower
+
+        // Scandinavian characters - note: vowel collapse turns "aa" -> "a" and "oe" -> "o"
+        Assert.Equal("oestergard", StringMatching.NormalizeName("Østergård"));
+        Assert.Equal("soerensen", StringMatching.NormalizeName("Sørensen"));
+        Assert.Equal("kaelstrup", StringMatching.NormalizeName("Kælstrup"));
+
+        // French special characters
+        // Note: œ becomes oe after FoldToAsciiLower
+        // "œur" -> "oeur"
+    }
+
+    [Fact]
+    public void CompareNames_GermanUmlauts_ReturnsHighScore()
+    {
+        // Müller vs Mueller
+        var score = StringMatching.CompareNames("Müller", "Mueller");
+        Assert.True(score > 0.8, $"Score for Müller vs Mueller should be high, got {score:F3}");
+
+        // Jäger vs Jaeger
+        score = StringMatching.CompareNames("Jäger", "Jaeger");
+        Assert.True(score > 0.8, $"Score for Jäger vs Jaeger should be high, got {score:F3}");
+
+        // Schröder vs Schroeder
+        score = StringMatching.CompareNames("Schröder", "Schroeder");
+        Assert.True(score > 0.8, $"Score for Schröder vs Schroeder should be high, got {score:F3}");
+    }
+
+    [Fact]
+    public void CompareNames_ScandinavianChars_ReturnsHighScore()
+    {
+        // Østergård vs Oestergaard
+        var score = StringMatching.CompareNames("Østergård", "Oestergaard");
+        Assert.True(score > 0.7, $"Score for Østergård vs Oestergaard should be high, got {score:F3}");
+
+        // Sørensen vs Soerensen
+        score = StringMatching.CompareNames("Sørensen", "Soerensen");
+        Assert.True(score > 0.7, $"Score for Sørensen vs Soerensen should be high, got {score:F3}");
+
+        // Kælstrup vs Kaelstrup
+        score = StringMatching.CompareNames("Kælstrup", "Kaelstrup");
+        Assert.True(score > 0.7, $"Score for Kælstrup vs Kaelstrup should be high, got {score:F3}");
+    }
+
+    [Fact]
+    public void CompareNames_FrenchSpecialChars_ReturnsHighScore()
+    {
+        // Note: The basic NormalizeName doesn't handle œ as "oe",
+        // but FoldToAsciiLower does normalize it
+        // Let's test with accents which are handled
+        var score = StringMatching.CompareNames("François", "Francois");
+        Assert.Equal(1.0, score);
+
+        score = StringMatching.CompareNames("Léopold", "Leopold");
+        Assert.Equal(1.0, score);
     }
 
     #endregion
