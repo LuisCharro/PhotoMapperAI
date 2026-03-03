@@ -17,11 +17,11 @@ on:
       - development
       - feature/**
       - planning/**
-  workflow_dispatch:
     paths:
       - 'scripts/ops/**'
       - 'docs/PARITY_*.md'
       - '.github/workflows/ops-scripts-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
