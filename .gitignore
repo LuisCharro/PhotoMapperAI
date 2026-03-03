@@ -122,3 +122,8 @@ benchmark-results/*.json
 
 # Published distributables
 publish/
+
+# Local dev scratch artifacts
+scripts/dev/*.log
+scripts/dev/*.tmp
+scripts/dev/*.bak
