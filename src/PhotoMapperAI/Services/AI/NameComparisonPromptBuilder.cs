@@ -81,7 +81,6 @@ public static class NameComparisonPromptBuilder
         ["jaremchuk"] = "yaremchuk",
         ["mudryk"] = "mudryk",
         ["mudruk"] = "mudryk",
-        ["mudryk"] = "mudryk",
         ["tsygankov"] = "tsyhankov",
         ["tsyhankov"] = "tsyhankov",
         ["tsihankow"] = "tsyhankov",
@@ -97,6 +96,8 @@ public static class NameComparisonPromptBuilder
         ["jimmy"] = "james",
         ["jim"] = "james",
         ["chris"] = "christopher",
+        // Cristiano Ronaldo (mononymous player) - maps "cristiano" token to "ronaldo" for matching
+        // WARNING: May cause false positives for players named "Cristiano [Surname]"
         ["cristiano"] = "ronaldo",
         ["cristian"] = "christian",
         ["lotte"] = "carlotte",
@@ -116,14 +117,8 @@ public static class NameComparisonPromptBuilder
         ["sylvio"] = "sylvio",
         ["costa"] = "carole",
 
-        // Icelandic letter normalizations
-        ["thorsteinn"] = "þorsteinn",
-        ["þorsteinn"] = "thorsteinn",
-        ["þ"] = "th",
-
-        // Common surname prefixes/particles (normalized for matching)
-        ["dos"] = "",
-        ["das"] = "",
+        // Icelandic letter normalizations - removed: þ is already converted to th by NormalizeEuropeanCharacters before tokenization
+        // Common surname prefixes/particles - removed: "dos" and "das" already in IgnoredTokens
         ["aveiro"] = "aveiro",
         ["ferreira"] = "ferreira"
     };

@@ -29,7 +29,6 @@ public sealed class ExternalExtractCliRunner
         IProgress<string>? log)
     {
         _ = workingDirectory;
-        _ = cancellationToken;
 
         try
         {
@@ -42,10 +41,10 @@ public sealed class ExternalExtractCliRunner
             log?.Report("");
 
             // Read SQL query
-            var sqlQuery = await File.ReadAllTextAsync(inputSqlPath);
+            var sqlQuery = await File.ReadAllTextAsync(inputSqlPath, cancellationToken);
 
             // Read connection string
-            var connectionString = await File.ReadAllTextAsync(connectionStringPath);
+            var connectionString = await File.ReadAllTextAsync(connectionStringPath, cancellationToken);
 
             // Build parameters for players extraction
             var parameters = new Dictionary<string, object>
