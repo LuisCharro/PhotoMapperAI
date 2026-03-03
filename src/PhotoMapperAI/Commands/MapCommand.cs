@@ -201,10 +201,10 @@ public class MapCommandLogic
                     confidenceThreshold,
                     nameModel,
                     results,
-                    maxCandidates: 6,
-                    minPreselectScore: 0.45,
-                    maxGapFromTop: 0.25,
-                    ambiguityMargin: 0.06,
+                    maxCandidates: 8,
+                    minPreselectScore: 0.40,
+                    maxGapFromTop: 0.30,
+                    ambiguityMargin: 0.08,
                     progressLabel: "AI Pass 1",
                     uiProgress: uiProgress,
                     aiTrace: aiTrace,
@@ -229,10 +229,10 @@ public class MapCommandLogic
                         confidenceThreshold,
                         nameModel,
                         results,
-                        maxCandidates: 10,
-                        minPreselectScore: 0.30,
-                        maxGapFromTop: 0.35,
-                        ambiguityMargin: 0.03,
+                        maxCandidates: 12,
+                        minPreselectScore: 0.25,
+                        maxGapFromTop: 0.40,
+                        ambiguityMargin: 0.05,
                         progressLabel: "AI Pass 2",
                         uiProgress: uiProgress,
                         aiTrace: aiTrace,
@@ -908,6 +908,10 @@ public class MapCommandLogic
         if (string.Equals(left.Normalized, right.Normalized, StringComparison.Ordinal))
             return 1.0;
 
+        // Check for near-identity with minor character differences
+        if (IsNearIdentical(left.Normalized, right.Normalized))
+            return 0.95;
+
         var intersectionCount = left.TokenSet.Intersect(right.TokenSet).Count();
         var unionCount = left.TokenSet.Count + right.TokenSet.Count - intersectionCount;
         var minTokenCount = Math.Min(left.TokenSet.Count, right.TokenSet.Count);
@@ -955,7 +959,8 @@ public class MapCommandLogic
                 var sameInitial = missing.Length > 0 && bestOther.Length > 0 && missing[0] == bestOther[0];
                 var sharedPrefix = GetCommonPrefixLength(missing, bestOther);
 
-                if (sameInitial && (similarity >= 0.55 || sharedPrefix >= 3))
+                // More permissive threshold for s/z, accent variations
+                if (sameInitial && (similarity >= 0.50 || sharedPrefix >= 2))
                 {
                     score = Math.Max(score, 0.84);
                     nearVariantBoosted = true;
@@ -974,6 +979,40 @@ public class MapCommandLogic
         }
 
         return Math.Clamp(score, 0.0, 1.0);
+    }
+
+    /// <summary>
+    /// Check if two normalized names are nearly identical with only minor character differences.
+    /// </summary>
+    private static bool IsNearIdentical(string normalized1, string normalized2)
+    {
+        if (string.Equals(normalized1, normalized2, StringComparison.Ordinal))
+            return true;
+
+        // If lengths differ by more than 2, not near-identical
+        if (Math.Abs(normalized1.Length - normalized2.Length) > 2)
+            return false;
+
+        // Check if they differ by only 1-2 characters
+        var differences = 0;
+        var maxLen = Math.Max(normalized1.Length, normalized2.Length);
+
+        for (int i = 0; i < maxLen; i++)
+        {
+            var c1 = i < normalized1.Length ? normalized1[i] : '\0';
+            var c2 = i < normalized2.Length ? normalized2[i] : '\0';
+
+            if (c1 != c2)
+            {
+                differences++;
+                if (differences > 2)
+                    return false;
+            }
+        }
+
+        // Allow 1-2 character differences if strings are short (<=10 chars) or 2 if longer
+        var maxDifferences = maxLen <= 10 ? 1 : 2;
+        return differences <= maxDifferences;
     }
 
     private static double AverageBestTokenSimilarity(string[] smaller, string[] larger)

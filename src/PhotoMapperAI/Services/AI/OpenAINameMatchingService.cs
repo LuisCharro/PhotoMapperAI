@@ -40,6 +40,26 @@ public class OpenAINameMatchingService : INameMatchingService
     {
         var prompt = NameComparisonPromptBuilder.Build(name1, name2);
 
+        // Pre-check: Compare tokens directly for identical case
+        var tokens1 = GetTokensFromPrompt(prompt, "name1_core_tokens");
+        var tokens2 = GetTokensFromPrompt(prompt, "name2_core_tokens");
+
+        if (TokensAreIdentical(tokens1, tokens2))
+        {
+            return new MatchResult
+            {
+                IsMatch = true,
+                Confidence = 0.99,
+                Metadata = new Dictionary<string, string>
+                {
+                    { "provider", "openai" },
+                    { "model", _modelName },
+                    { "precheck_applied", "true" },
+                    { "reason", "Identical token sets (pre-check)" }
+                }
+            };
+        }
+
         var requestBody = new
         {
             model = _modelName,
@@ -93,6 +113,41 @@ public class OpenAINameMatchingService : INameMatchingService
 
         return results;
     }
+
+    #region Pre-check helpers
+
+    private static List<string> GetTokensFromPrompt(string prompt, string fieldName)
+    {
+        // Extract tokens from JSON in prompt
+        var match = System.Text.RegularExpressions.Regex.Match(prompt, $"\"{fieldName}\":\\s*\\[(.*?)\\]");
+        if (!match.Success)
+            return new List<string>();
+
+        var tokensJson = match.Groups[1].Value;
+        var tokens = new List<string>();
+
+        foreach (var token in tokensJson.Split('"', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = token.Trim();
+            if (trimmed != "," && !string.IsNullOrWhiteSpace(trimmed))
+                tokens.Add(trimmed);
+        }
+
+        return tokens;
+    }
+
+    private static bool TokensAreIdentical(List<string> tokens1, List<string> tokens2)
+    {
+        if (tokens1.Count != tokens2.Count)
+            return false;
+
+        var sorted1 = tokens1.OrderBy(t => t).ToList();
+        var sorted2 = tokens2.OrderBy(t => t).ToList();
+
+        return sorted1.SequenceEqual(sorted2);
+    }
+
+    #endregion
 
     private Dictionary<string, string> BuildMetadata() => new()
     {
