@@ -334,4 +334,31 @@ public partial class ExtractStepViewModel : ViewModelBase
 
         LogLines.Add(message);
     }
+
+    [RelayCommand]
+    private void ClearLog()
+    {
+        LogLines.Clear();
+        ProcessingStatus = "Log cleared";
+    }
+
+    [RelayCommand]
+    private async Task SaveLog()
+    {
+        try
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var filename = $"extract_log_{timestamp}.txt";
+            var defaultPath = Path.Combine(OutputDirectory ?? Directory.GetCurrentDirectory(), filename);
+
+            var savePath = defaultPath;
+            var lines = LogLines.ToList();
+            await File.WriteAllLinesAsync(savePath, lines);
+            ProcessingStatus = $"✓ Log saved to {Path.GetFileName(savePath)}";
+        }
+        catch (Exception ex)
+        {
+            ProcessingStatus = $"✗ Error saving log: {ex.Message}";
+        }
+    }
 }

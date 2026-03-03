@@ -1678,6 +1678,35 @@ public partial class BatchAutomationViewModel : ViewModelBase
         });
     }
 
+    [RelayCommand]
+    private void ClearLog()
+    {
+        LogLines.Clear();
+        ProcessingStatus = "Log cleared";
+    }
+
+    [RelayCommand]
+    private async Task SaveLog()
+    {
+        try
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var filename = $"batch_log_{timestamp}.txt";
+            var defaultPath = Path.Combine(BaseOutputDirectory ?? Directory.GetCurrentDirectory(), filename);
+
+            var savePath = defaultPath;
+            var lines = LogLines.ToList();
+            await File.WriteAllLinesAsync(savePath, lines);
+            ProcessingStatus = $"✓ Log saved to {Path.GetFileName(savePath)}";
+            AppendLog($"Log saved to: {savePath}");
+        }
+        catch (Exception ex)
+        {
+            ProcessingStatus = $"✗ Error saving log: {ex.Message}";
+            AppendLog($"Error saving log: {ex.Message}");
+        }
+    }
+
     private void UpdateProviderKeyInputVisibility()
     {
         ShowOpenAiApiKeyInput = IsOpenAiModel(NameMatchingModel);
