@@ -736,8 +736,9 @@ public class MapCommandLogic
                 Margin: bestMatch.Confidence - secondBestConfidence);
         }
 
+        // If only one candidate was evaluated, no ambiguity is possible - skip ambiguity check
         var margin = bestMatch.Confidence - secondBestConfidence;
-        if (margin < ambiguityMargin && bestMatch.Confidence < 0.95)
+        if (ranked.Count > 1 && margin < ambiguityMargin && bestMatch.Confidence < 0.90)
         {
             return new AiProposalAttempt(
                 Proposal: null,

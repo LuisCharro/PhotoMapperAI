@@ -17,7 +17,7 @@ namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class MapStepViewModel : ViewModelBase
 {
-    private const double MinConfidenceThreshold = 0.8;
+    private const double MinConfidenceThreshold = 0.65;
     private readonly ExternalMapCliRunner _mapRunner = new();
     private CancellationTokenSource? _cancellationTokenSource;
     private static readonly string[] DefaultLocalNameModels =

@@ -26,7 +26,7 @@ namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class BatchAutomationViewModel : ViewModelBase
 {
-    private const double MinConfidenceThreshold = 0.8;
+    private const double MinConfidenceThreshold = 0.65;
     private readonly DatabaseExtractor _databaseExtractor;
     private readonly ExternalMapCliRunner _mapRunner;
     private readonly ExternalGenerateCliRunner _generateRunner;

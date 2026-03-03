@@ -31,7 +31,7 @@ public class SessionState
     public bool UsePhotoManifest { get; set; }
     public string? PhotoManifestPath { get; set; }
     public string? NameModel { get; set; } = "qwen2.5:7b";
-    public double ConfidenceThreshold { get; set; } = 0.9;
+    public double ConfidenceThreshold { get; set; } = 0.75;
     public bool UseAiMapping { get; set; }
     public bool AiSecondPass { get; set; } = true;
     public bool AiOnly { get; set; }

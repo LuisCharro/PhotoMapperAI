@@ -144,72 +144,70 @@ public static class NameComparisonPromptBuilder
         var inputJson = JsonSerializer.Serialize(input);
 
         return
-$@"SYSTEM:
-You are a name-matching engine for football player records.
-Your goal is to correctly identify when two names refer to the same person.
-Be permissive for minor character variations (s/z, accent marks, diacritics) but strict on clear mismatches.
+$@"You are an expert in international football player name matching across different data sources (databases, photo filenames, official rosters). Your task is to determine if two name representations refer to the same person.
 
-IMPORTANT:
-- Use ONLY the provided tokens. Do NOT use world knowledge about real players.
-- Assume accents/diacritics and punctuation are already handled in the tokens.
-- Token order is NOT reliable. One source may be ""family given"", another may be ""given family"".
-- Extra middle/second-surname tokens may appear on one side only.
-- Transliteration variations are PRE-NORMALIZED (Ukrainian/Cyrillic j→y, w→v, sch→sh, etc.).
-- After normalization, single-character differences (s/z, ñ/n, accent marks) should be treated as MATCHES if other tokens align.
-- Output MUST be valid JSON ONLY (no markdown, no extra text).
+CONTEXT:
+These names come from European football competitions (UEFA Euro tournaments). Players are from diverse backgrounds: Ukrainian, Portuguese, Brazilian, Icelandic, Turkish, Albanian, etc. You will encounter:
+- Cyrillic transliterations (Ukrainian/Russian names spelled different ways in Latin script)
+- Mononymous Brazilian/Portuguese players (e.g., ""Pepe"", ""Jorginho"" vs full legal names)
+- Name order variations (""Given Family"" vs ""Family Given"")
+- Nicknames and diminutives (""Lotte"" for ""Carlotte"", ""Zander"" for ""Alexander"")
+- Multiple surnames (Spanish/Portuguese tradition: maternal + paternal)
+- Icelandic patronymics and special characters (þ/th, ð/d)
+- Abbreviated middle names (""Marit B. Lund"" vs ""Marit Bratberg Lund"")
 
-INPUT (JSON):
+INPUT:
 {inputJson}
 
+APPROACH:
+1. **Phonetic similarity**: Do the names sound similar when pronounced? Consider transliteration equivalents (e.g., Ukrainian ""Yarmolenko"" = ""Jarmolenko"")
+2. **Token matching**: Are key name components (surnames, given names) present in both? Token order may vary.
+3. **Cultural awareness**: 
+   - Brazilian players often use single names or nicknames professionally
+   - Spanish/Portuguese players may have 3-4 names (given + maternal + paternal)
+   - Eastern European names have multiple valid transliterations
+   - Scandinavian/Icelandic characters have Latin equivalents
+4. **Partial matches**: One name being a subset of another is common (photo filename vs full database name)
+5. **Deal-breakers**: Completely different surnames with no phonetic relationship = different people
+
+CONFIDENCE CALIBRATION:
+- **0.95-1.00**: Identical or near-identical (all tokens match, trivial spelling difference)
+- **0.85-0.94**: Very strong match (key tokens match, clear transliteration/nickname pattern)
+- **0.75-0.84**: Strong match (most tokens match, some ambiguity in middle names or order)
+- **0.65-0.74**: Moderate match (partial overlap, could be same person but requires verification)
+- **0.50-0.64**: Weak match (some similarity but significant differences)
+- **0.00-0.49**: Not a match (clear evidence these are different people)
+
+EXAMPLES:
+✓ MATCH (0.92): ""Zinchenko Oleksandr"" ↔ ""Sintschenko Alexander"" 
+   → Ukrainian transliteration + given name variant
+
+✓ MATCH (0.96): ""Pepe"" ↔ ""Kepler Laveran Lima Ferreira"" 
+   → Known Brazilian mononymous player
+
+✓ MATCH (0.89): ""Wubben-Moy Lotte"" ↔ ""Wubben-Moy Carlotte"" 
+   → Nickname/full name for same person
+
+✓ MATCH (0.94): ""Þorsteinn Halldorsson"" ↔ ""Thorsteinn Halldorsson"" 
+   → Icelandic character þ = th
+
+✗ NO MATCH (0.15): ""Silva João"" ↔ ""Silva Pedro"" 
+   → Same surname but clearly different given names
+
+✗ NO MATCH (0.25): ""Martinez"" ↔ ""Rodriguez Martinez"" 
+   → Insufficient overlap, different family names
+
 TASK:
-Decide if the two names refer to the same person.
+Analyze the two names provided. Use your knowledge of international naming conventions, phonetics, and cultural patterns to determine if they refer to the same person. Explain your reasoning briefly.
 
-DEFINITIONS:
-- core tokens: the provided token lists.
-- matched tokens: exact string equality only (no semantic guessing).
-
-HARD RULES (STRICT):
-1) If there is NO overlap between core token sets, then:
-   - isMatch MUST be false
-   - confidence MUST be <= 0.10
-
-2) If core-token MULTISET is identical ignoring order, then:
-   - isMatch MUST be true
-   - confidence MUST be 0.99
-
-3) If all tokens from the shorter side are contained in the longer side
-   (subset relation) AND overlap count >= 2, then:
-   - isMatch MUST be true
-   - confidence MUST be in 0.85..0.97
-
-4) If overlap is ""all but one token"" for the shorter side (e.g. 2-of-3 or 1-of-2)
-   and the non-overlapping token pair has strong string similarity (minor variant/diminutive)
-   OR single-character difference (s/z, c/k, i/y, accent marks, ñ/n, ç/c)
-   OR are known transliteration equivalents (already pre-normalized), then:
-   - isMatch MUST be true
-   - confidence MUST be in 0.82..0.93
-
-5) If overlap count is exactly 1 and neither side is single-token-only AND rule 4 does NOT apply, then:
-   - isMatch MUST be false
-   - confidence MUST be <= 0.60
-
-6) For other partial-overlap cases with overlap >= 2:
-   - if evidence suggests likely match (multiple tokens align), set isMatch=true with confidence 0.75..0.88
-   - otherwise be conservative: isMatch=false and confidence <= 0.89
-
-7) If any clear contradiction exists (large token disagreement with weak overlap),
-   set confidence <= 0.20 and isMatch false.
-
-OUTPUT SCHEMA (JSON only):
+OUTPUT FORMAT (valid JSON only, no markdown):
 {{
   ""confidence"": 0.0,
   ""isMatch"": false,
-  ""reason"": ""short explanation"",
-  ""matchedCoreTokens"": [],
-  ""matchedSurnameTokens"": []
-}}
-
-Remember: Transliteration variations are pre-normalized. After normalization, minor remaining character variations (s/z, c/k, i/y, single-letter differences) should NOT prevent a match when tokens otherwise align.";
+  ""reason"": ""brief explanation of why match/no-match with key evidence"",
+  ""matchedCoreTokens"": [""list"", ""of"", ""matching"", ""tokens""],
+  ""matchedSurnameTokens"": [""list"", ""of"", ""matching"", ""surname"", ""tokens""]
+}}";
     }
 
     /// <summary>
