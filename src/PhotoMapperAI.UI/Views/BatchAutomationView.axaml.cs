@@ -147,6 +147,31 @@ public partial class BatchAutomationView : UserControl
         }
     }
 
+    private async void SaveLog_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not ViewModels.BatchAutomationViewModel vm) return;
+
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage == null) return;
+
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Batch Log",
+            SuggestedFileName = $"batch_log_{timestamp}.txt",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("Text Files") { Patterns = new[] { "*.txt" } },
+                new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (file != null)
+        {
+            await vm.SaveLogToFileAsync(file.Path.LocalPath);
+        }
+    }
+
     private async void LoadTeamsCsv_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
