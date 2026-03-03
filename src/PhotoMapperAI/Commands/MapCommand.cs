@@ -207,6 +207,7 @@ public class MapCommandLogic
                     ambiguityMargin: 0.08,
                     progressLabel: "AI Pass 1",
                     uiProgress: uiProgress,
+                    log: log,
                     aiTrace: aiTrace,
                     passNumber: 1,
                     cancellationToken: cancellationToken);
@@ -235,6 +236,7 @@ public class MapCommandLogic
                         ambiguityMargin: 0.05,
                         progressLabel: "AI Pass 2",
                         uiProgress: uiProgress,
+                        log: log,
                         aiTrace: aiTrace,
                         passNumber: 2,
                         cancellationToken: cancellationToken);
@@ -415,7 +417,10 @@ public class MapCommandLogic
             .Replace('_', ' ')
             .Replace('-', ' ');
 
-        return raw.Trim();
+        // Clean up leading/trailing underscores (now spaces) and collapse multiple spaces
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @"\s+", " ").Trim();
+
+        return raw;
     }
 
     private static void RemoveCandidate(
@@ -530,6 +535,7 @@ public class MapCommandLogic
         double ambiguityMargin,
         string progressLabel,
         IProgress<(int processed, int total, string current)>? uiProgress,
+        IProgress<string>? log,
         bool aiTrace,
         int passNumber,
         CancellationToken cancellationToken)
@@ -577,6 +583,14 @@ public class MapCommandLogic
             if (attempt.Proposal != null)
             {
                 proposals.Add(attempt.Proposal);
+            }
+            else if (attempt.Reason == "below_threshold" && attempt.BestConfidence.HasValue)
+            {
+                log?.Report($"  ⚠ {player.FullName}: Best AI match '{attempt.BestName}' rejected (confidence {attempt.BestConfidence.Value:F2} < threshold {confidenceThreshold:F2})");
+            }
+            else if (attempt.Reason == "ambiguous" && attempt.BestConfidence.HasValue)
+            {
+                log?.Report($"  ⚠ {player.FullName}: Best AI match '{attempt.BestName}' rejected (confidence {attempt.BestConfidence.Value:F2}, margin {attempt.Margin:F2} too small, ambiguous)");
             }
         }
 
@@ -658,6 +672,14 @@ public class MapCommandLogic
             minPreselectScore,
             maxGapFromTop);
 
+        // Deduplicate candidates by DisplayName to avoid artificial ambiguity
+        // when multiple photos exist for the same player (e.g., Netherlands has 56 photos for 27 players).
+        // Keep the highest-scoring entry for each unique DisplayName.
+        ranked = ranked
+            .GroupBy(r => r.Candidate.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(r => r.Score).First())
+            .ToList();
+
         if (ranked.Count == 0)
             return new AiProposalAttempt(
                 Proposal: null,
@@ -722,8 +744,9 @@ public class MapCommandLogic
                 Margin: bestMatch.Confidence - secondBestConfidence);
         }
 
+        // If only one candidate was evaluated, no ambiguity is possible - skip ambiguity check
         var margin = bestMatch.Confidence - secondBestConfidence;
-        if (margin < ambiguityMargin && bestMatch.Confidence < 0.95)
+        if (ranked.Count > 1 && margin < ambiguityMargin && bestMatch.Confidence < 0.90)
         {
             return new AiProposalAttempt(
                 Proposal: null,

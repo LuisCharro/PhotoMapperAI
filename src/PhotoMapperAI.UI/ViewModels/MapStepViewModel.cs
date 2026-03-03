@@ -17,7 +17,7 @@ namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class MapStepViewModel : ViewModelBase
 {
-    private const double MinConfidenceThreshold = 0.8;
+    private const double MinConfidenceThreshold = 0.65;
     private readonly ExternalMapCliRunner _mapRunner = new();
     private CancellationTokenSource? _cancellationTokenSource;
     private static readonly string[] DefaultLocalNameModels =
@@ -285,6 +285,27 @@ public partial class MapStepViewModel : ViewModelBase
             }
 
             var effectiveNameModel = NameModel;
+
+            // Log AI configuration
+            AppendLog("AI Configuration:");
+            AppendLog($"  - Use AI Mapping: {UseAiMapping}");
+            AppendLog($"  - AI Only Mode: {AiOnly}");
+            AppendLog($"  - AI Second Pass: {AiSecondPass}");
+            AppendLog($"  - Name Model: {effectiveNameModel}");
+            AppendLog($"  - Confidence Threshold: {ConfidenceThreshold:F2}");
+            
+            var hasOpenAiKey = !string.IsNullOrWhiteSpace(OpenAiApiKey);
+            var hasAnthropicKey = !string.IsNullOrWhiteSpace(AnthropicApiKey);
+            if (effectiveNameModel.StartsWith("openai:", StringComparison.OrdinalIgnoreCase))
+            {
+                AppendLog($"  - OpenAI API Key: {(hasOpenAiKey ? "✓ Provided" : "✗ Missing")}");
+            }
+            else if (effectiveNameModel.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
+                     effectiveNameModel.StartsWith("claude:", StringComparison.OrdinalIgnoreCase))
+            {
+                AppendLog($"  - Anthropic API Key: {(hasAnthropicKey ? "✓ Provided" : "✗ Missing")}");
+            }
+            AppendLog("");
 
             var preflight = await PreflightChecker.CheckMapAsync(
                 UseAiMapping,
@@ -593,6 +614,36 @@ public partial class MapStepViewModel : ViewModelBase
         }
 
         LogLines.Add(message);
+    }
+
+    [RelayCommand]
+    private void ClearLog()
+    {
+        LogLines.Clear();
+        ProcessingStatus = "Log cleared";
+    }
+
+    [RelayCommand]
+    private async Task SaveLog()
+    {
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var filename = $"map_log_{timestamp}.txt";
+        var defaultPath = Path.Combine(OutputDirectory ?? Directory.GetCurrentDirectory(), filename);
+        await SaveLogToFileAsync(defaultPath);
+    }
+
+    public async Task SaveLogToFileAsync(string savePath)
+    {
+        try
+        {
+            var lines = LogLines.ToList();
+            await File.WriteAllLinesAsync(savePath, lines);
+            ProcessingStatus = $"\u2713 Log saved to {savePath}";
+        }
+        catch (Exception ex)
+        {
+            ProcessingStatus = $"✗ Error saving log: {ex.Message}";
+        }
     }
 
     private void UpdateProviderKeyInputVisibility()

@@ -103,4 +103,9 @@ public class BatchTeamResult
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Names of players that could not be mapped (empty when all mapped).
+    /// </summary>
+    public List<string> UnmappedPlayerNames { get; set; } = new();
 }

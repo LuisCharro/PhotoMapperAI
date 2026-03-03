@@ -175,6 +175,31 @@ public partial class MapStepView : UserControl
         vm.ProcessingStatus = "Run log copied to clipboard.";
     }
 
+    private async void SaveLog_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MapStepViewModel vm) return;
+
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage == null) return;
+
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Map Log",
+            SuggestedFileName = $"map_log_{timestamp}.txt",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("Text Files") { Patterns = new[] { "*.txt" } },
+                new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (file != null)
+        {
+            await vm.SaveLogToFileAsync(file.Path.LocalPath);
+        }
+    }
+
     private async Task ShowInfoDialogAsync(string title, string message)
     {
         var owner = TopLevel.GetTopLevel(this) as Window;

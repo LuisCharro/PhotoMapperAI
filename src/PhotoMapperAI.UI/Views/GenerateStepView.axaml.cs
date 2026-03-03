@@ -168,6 +168,31 @@ public partial class GenerateStepView : UserControl
         vm.ProcessingStatus = "Run log copied to clipboard.";
     }
 
+    private async void SaveLog_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not GenerateStepViewModel vm) return;
+
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage == null) return;
+
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Generate Log",
+            SuggestedFileName = $"generate_log_{timestamp}.txt",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("Text Files") { Patterns = new[] { "*.txt" } },
+                new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (file != null)
+        {
+            await vm.SaveLogToFileAsync(file.Path.LocalPath);
+        }
+    }
+
     private void CropOffsetSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is GenerateStepViewModel vm)

@@ -345,7 +345,11 @@
                 Background="{DynamicResource SurfaceBrush}">
         <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="10" Margin="0,6,0,0" HorizontalAlignment="Stretch">
           <StackPanel Spacing="6" HorizontalAlignment="Stretch">
-            <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="10,5"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Content="Copy Log" Click="CopyRunLog_Click" Padding="10,5"/>
+              <Button Content="Clear Log" Command="{Binding ClearLogCommand}" Padding="10,5"/>
+              <Button Content="Save Log" Click="SaveLog_Click" Padding="10,5"/>
+            </StackPanel>
             <ScrollViewer Height="120" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
               <ItemsControl ItemsSource="{Binding LogLines}" HorizontalAlignment="Stretch">
                 <ItemsControl.ItemTemplate>
