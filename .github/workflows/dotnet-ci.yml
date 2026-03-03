@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - main
+      - development
       - feature/**
   pull_request:
     branches:
       - main
+      - development
       - feature/**
+  workflow_dispatch:
 
 permissions:
   contents: read
