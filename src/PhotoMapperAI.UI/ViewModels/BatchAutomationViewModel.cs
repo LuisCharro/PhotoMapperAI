@@ -1382,6 +1382,26 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     mappedCsvPath = csvPath; // Fallback to original if mapped not found
                 }
                 teamResult.MappedCsvPath = mappedCsvPath;
+
+                // Collect unmapped player names for issue summary
+                try
+                {
+                    var mappedPlayers = await _databaseExtractor.ReadCsvAsync(mappedCsvPath);
+                    var unmappedNames = mappedPlayers
+                        .Where(p => !p.ValidMapping)
+                        .Select(p => string.IsNullOrWhiteSpace(p.FullName) ? $"ID:{p.PlayerId}" : p.FullName)
+                        .ToList();
+                    UpdateTeamProperty(team, t => t.UnmappedPlayerNames = unmappedNames);
+                    teamResult.UnmappedPlayerNames = unmappedNames;
+                    if (unmappedNames.Count > 0)
+                    {
+                        AppendLog($"[MAP] {team.TeamName}: Unmapped players: {string.Join(", ", unmappedNames)}");
+                    }
+                }
+                catch (Exception readEx)
+                {
+                    AppendLog($"[MAP] {team.TeamName}: Could not read mapped CSV for details: {readEx.Message}");
+                }
             }
             catch (Exception ex)
             {
@@ -1688,16 +1708,19 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveLog()
     {
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var filename = $"batch_log_{timestamp}.txt";
+        var defaultPath = Path.Combine(BaseOutputDirectory ?? Directory.GetCurrentDirectory(), filename);
+        await SaveLogToFileAsync(defaultPath);
+    }
+
+    public async Task SaveLogToFileAsync(string savePath)
+    {
         try
         {
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var filename = $"batch_log_{timestamp}.txt";
-            var defaultPath = Path.Combine(BaseOutputDirectory ?? Directory.GetCurrentDirectory(), filename);
-
-            var savePath = defaultPath;
             var lines = LogLines.ToList();
             await File.WriteAllLinesAsync(savePath, lines);
-            ProcessingStatus = $"✓ Log saved to {Path.GetFileName(savePath)}";
+            ProcessingStatus = $"✓ Log saved to {savePath}";
             AppendLog($"Log saved to: {savePath}");
         }
         catch (Exception ex)
@@ -1742,12 +1765,20 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
                 var isCritical = team.Status == BatchTeamStatus.Failed || hasUnmapped;
 
+                // Build per-player details for unmapped teams
+                var details = string.Empty;
+                if (hasUnmapped && team.UnmappedPlayerNames.Count > 0)
+                {
+                    details = string.Join(", ", team.UnmappedPlayerNames);
+                }
+
                 return new BatchIssueSummaryItem
                 {
                     TeamName = team.TeamName,
                     Status = team.Status.ToString(),
                     Message = message,
-                    IsCritical = isCritical
+                    IsCritical = isCritical,
+                    Details = details
                 };
             })
             .Where(item => item != null)
@@ -1762,12 +1793,28 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
         var failedCount = items.Count(item => item.Status == BatchTeamStatus.Failed.ToString());
         var skippedCount = items.Count(item => item.Status == BatchTeamStatus.Skipped.ToString());
-        var unmappedCount = items.Count(item => item.Status == BatchTeamStatus.Completed.ToString());
+        var unmappedTeamCount = items.Count(item => item.Status == BatchTeamStatus.Completed.ToString());
+
+        // Sum total unmapped players across all teams
+        var totalUnmappedPlayers = Teams
+            .Where(t => t.Status == BatchTeamStatus.Completed)
+            .Sum(t => GetUnmappedCount(t.PlayersExtracted, t.PlayersMapped));
+        var totalPlayers = Teams.Sum(t => t.PlayersExtracted);
+        var totalMapped = Teams.Sum(t => t.PlayersMapped);
 
         HasErrorSummary = items.Count > 0;
-        ErrorSummaryTitle = HasErrorSummary
-            ? $"Issues: {failedCount} failed, {skippedCount} skipped, {unmappedCount} unmapped"
-            : "Issues: none";
+        if (!HasErrorSummary)
+        {
+            ErrorSummaryTitle = "Issues: none";
+        }
+        else
+        {
+            var parts = new List<string>();
+            if (failedCount > 0) parts.Add($"{failedCount} failed");
+            if (skippedCount > 0) parts.Add($"{skippedCount} skipped");
+            if (totalUnmappedPlayers > 0) parts.Add($"{totalUnmappedPlayers} unmapped players ({unmappedTeamCount} teams)");
+            ErrorSummaryTitle = $"Issues: {string.Join(", ", parts)}  —  Mapped {totalMapped}/{totalPlayers}";
+        }
     }
 
     #endregion

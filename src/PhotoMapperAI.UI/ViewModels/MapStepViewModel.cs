@@ -626,16 +626,19 @@ public partial class MapStepViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveLog()
     {
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var filename = $"map_log_{timestamp}.txt";
+        var defaultPath = Path.Combine(OutputDirectory ?? Directory.GetCurrentDirectory(), filename);
+        await SaveLogToFileAsync(defaultPath);
+    }
+
+    public async Task SaveLogToFileAsync(string savePath)
+    {
         try
         {
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var filename = $"map_log_{timestamp}.txt";
-            var defaultPath = Path.Combine(OutputDirectory ?? Directory.GetCurrentDirectory(), filename);
-
-            var savePath = defaultPath;
             var lines = LogLines.ToList();
             await File.WriteAllLinesAsync(savePath, lines);
-            ProcessingStatus = $"✓ Log saved to {Path.GetFileName(savePath)}";
+            ProcessingStatus = $"\u2713 Log saved to {savePath}";
         }
         catch (Exception ex)
         {

@@ -39,6 +39,11 @@ public partial class BatchTeamItem : ObservableObject
     
     [ObservableProperty]
     private bool _hasPhotoDirectory;
+
+    /// <summary>
+    /// Names of players that could not be mapped (populated after mapping step).
+    /// </summary>
+    public System.Collections.Generic.List<string> UnmappedPlayerNames { get; set; } = new();
     
     /// <summary>
     /// Gets the status as a display string for the DataGrid.

@@ -889,8 +889,21 @@ public partial class GenerateStepViewModel : ViewModelBase
             var External_Player_IDNotInCsvCount = items.Count(i => !i.HasValidMapping && !string.IsNullOrEmpty(i.External_Player_ID));
             var noIdInFilenameCount = items.Count(i => string.IsNullOrEmpty(i.External_Player_ID));
 
+            // Collect file names for issue details
+            var External_Player_IDNotInCsvFiles = items
+                .Where(i => !i.HasValidMapping && !string.IsNullOrEmpty(i.External_Player_ID))
+                .Select(i => i.FileName)
+                .ToList();
+            var noIdInFilenameFiles = items
+                .Where(i => string.IsNullOrEmpty(i.External_Player_ID))
+                .Select(i => i.FileName)
+                .ToList();
+
             // Find CSV players that don't have photos
             var unmatchedCsvPlayers = csvPlayersWithoutPhoto.Count;
+            var unmatchedCsvPlayerNames = csvPlayersWithoutPhoto
+                .Select(p => string.IsNullOrWhiteSpace(p.FullName) ? $"ID:{p.PlayerId}" : p.FullName)
+                .ToList();
             if (totalCsvPlayers > 0)
             {
                 // Also count players in CSV who have External_Player_ID but no matching photo
@@ -899,6 +912,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                     if (!foundExternal_Player_IDs.Contains(kvp.Key))
                     {
                         unmatchedCsvPlayers++;
+                        var p = kvp.Value;
+                        unmatchedCsvPlayerNames.Add(
+                            string.IsNullOrWhiteSpace(p.FullName) ? $"ID:{p.External_Player_ID}" : p.FullName);
                     }
                 }
             }
@@ -983,7 +999,10 @@ public partial class GenerateStepViewModel : ViewModelBase
             UpdateGenerateIssues(new GenerateIssueCounts(
                 External_Player_IDNotInCsvCount,
                 noIdInFilenameCount,
-                unmatchedCsvPlayers));
+                unmatchedCsvPlayers,
+                unmatchedCsvPlayerNames,
+                External_Player_IDNotInCsvFiles,
+                noIdInFilenameFiles));
         }
         catch (Exception ex)
         {
@@ -1459,7 +1478,10 @@ public partial class GenerateStepViewModel : ViewModelBase
     private sealed record GenerateIssueCounts(
         int External_Player_IDNotInCsv,
         int NoIdInFilename,
-        int CsvPlayersWithoutPhoto);
+        int CsvPlayersWithoutPhoto,
+        List<string> CsvPlayersWithoutPhotoNames,
+        List<string> External_Player_IDNotInCsvFiles,
+        List<string> NoIdInFilenameFiles);
 
     private void ResetGenerateIssues()
     {
@@ -1472,9 +1494,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         GenerateIssueItems.Clear();
 
-        AddGenerateIssue("CSV players without photo", counts.CsvPlayersWithoutPhoto);
-        AddGenerateIssue("Photos with External_Player_ID not in CSV", counts.External_Player_IDNotInCsv);
-        AddGenerateIssue("Photos missing External_Player_ID", counts.NoIdInFilename);
+        AddGenerateIssue("CSV players without photo", counts.CsvPlayersWithoutPhoto,
+            counts.CsvPlayersWithoutPhotoNames);
+        AddGenerateIssue("Photos with External_Player_ID not in CSV", counts.External_Player_IDNotInCsv,
+            counts.External_Player_IDNotInCsvFiles);
+        AddGenerateIssue("Photos missing External_Player_ID", counts.NoIdInFilename,
+            counts.NoIdInFilenameFiles);
 
         HasGenerateIssues = GenerateIssueItems.Count > 0;
         var totalIssues = GenerateIssueItems.Sum(item => item.Count);
@@ -1483,19 +1508,24 @@ public partial class GenerateStepViewModel : ViewModelBase
             : "Mapping issues: none";
     }
 
-    private void AddGenerateIssue(string label, int count)
+    private void AddGenerateIssue(string label, int count, List<string>? detailNames = null)
     {
         if (count <= 0)
         {
             return;
         }
 
+        var details = detailNames != null && detailNames.Count > 0
+            ? string.Join(", ", detailNames)
+            : string.Empty;
+
         GenerateIssueItems.Add(new GenerateIssueSummaryItem
         {
             Label = label,
             Count = count,
             Message = $"{count}",
-            IsCritical = true
+            IsCritical = true,
+            Details = details
         });
     }
 
@@ -1503,12 +1533,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(InputCsvPath) || !File.Exists(InputCsvPath))
         {
-            return new GenerateIssueCounts(0, 0, 0);
+            return new GenerateIssueCounts(0, 0, 0, new(), new(), new());
         }
 
         if (string.IsNullOrWhiteSpace(PhotosDirectory) || !Directory.Exists(PhotosDirectory))
         {
-            return new GenerateIssueCounts(0, 0, 0);
+            return new GenerateIssueCounts(0, 0, 0, new(), new(), new());
         }
 
         var extractor = new DatabaseExtractor();
@@ -1521,6 +1551,8 @@ public partial class GenerateStepViewModel : ViewModelBase
         var foundExternal_Player_IDs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var External_Player_IDNotInCsvCount = 0;
         var noIdInFilenameCount = 0;
+        var External_Player_IDNotInCsvFiles = new List<string>();
+        var noIdInFilenameFiles = new List<string>();
 
         var imageFiles = BuildImageFileList(PhotosDirectory);
         foreach (var imagePath in imageFiles)
@@ -1532,6 +1564,7 @@ public partial class GenerateStepViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(External_Player_ID))
             {
                 noIdInFilenameCount++;
+                noIdInFilenameFiles.Add(fileName);
                 continue;
             }
 
@@ -1542,15 +1575,26 @@ public partial class GenerateStepViewModel : ViewModelBase
             else
             {
                 External_Player_IDNotInCsvCount++;
+                External_Player_IDNotInCsvFiles.Add(fileName);
             }
         }
 
         var csvPlayersWithoutPhoto = Math.Max(0, csvByExternal_Player_ID.Count - foundExternal_Player_IDs.Count);
 
+        // Collect names of CSV players who have no matching photo
+        var csvPlayersWithoutPhotoNames = players
+            .Where(p => !string.IsNullOrWhiteSpace(p.External_Player_ID) &&
+                        !foundExternal_Player_IDs.Contains(p.External_Player_ID!))
+            .Select(p => string.IsNullOrWhiteSpace(p.FullName) ? $"ID:{p.External_Player_ID}" : p.FullName)
+            .ToList();
+
         return new GenerateIssueCounts(
             External_Player_IDNotInCsvCount,
             noIdInFilenameCount,
-            csvPlayersWithoutPhoto);
+            csvPlayersWithoutPhoto,
+            csvPlayersWithoutPhotoNames,
+            External_Player_IDNotInCsvFiles,
+            noIdInFilenameFiles);
     }
 
     private static string BuildPreviewPlayerLabel(PlayerRecord player)
@@ -1579,16 +1623,19 @@ public partial class GenerateStepViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveLog()
     {
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var filename = $"generate_log_{timestamp}.txt";
+        var defaultPath = Path.Combine(OutputDirectory ?? Directory.GetCurrentDirectory(), filename);
+        await SaveLogToFileAsync(defaultPath);
+    }
+
+    public async Task SaveLogToFileAsync(string savePath)
+    {
         try
         {
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var filename = $"generate_log_{timestamp}.txt";
-            var defaultPath = Path.Combine(OutputDirectory ?? Directory.GetCurrentDirectory(), filename);
-
-            var savePath = defaultPath;
             var lines = LogLines.ToList();
             await File.WriteAllLinesAsync(savePath, lines);
-            ProcessingStatus = $"✓ Log saved to {Path.GetFileName(savePath)}";
+            ProcessingStatus = $"✓ Log saved to {savePath}";
         }
         catch (Exception ex)
         {
