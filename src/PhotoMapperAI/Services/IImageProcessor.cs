@@ -26,12 +26,14 @@ public interface IImageProcessor
     /// <param name="landmarks">Face landmarks for cropping</param>
     /// <param name="portraitWidth">Target portrait width</param>
     /// <param name="portraitHeight">Target portrait height</param>
+    /// <param name="cropOffset">Optional crop offset preset</param>
     /// <returns>Cropped portrait image</returns>
     Task<SixLabors.ImageSharp.Image> CropPortraitAsync(
         SixLabors.ImageSharp.Image image,
         FaceLandmarks landmarks,
         int portraitWidth,
-        int portraitHeight);
+        int portraitHeight,
+        CropOffsetPreset? cropOffset = null);
 
     /// <summary>
     /// Saves an image to file.
@@ -47,4 +49,13 @@ public interface IImageProcessor
     /// <param name="imagePath">Path to the image file</param>
     /// <returns>Width and height</returns>
     Task<(int Width, int Height)> GetImageDimensionsAsync(string imagePath);
+
+    /// <summary>
+    /// Resizes an image to the specified dimensions.
+    /// </summary>
+    /// <param name="image">Source image</param>
+    /// <param name="targetWidth">Target width</param>
+    /// <param name="targetHeight">Target height</param>
+    /// <returns>Resized image</returns>
+    Task<SixLabors.ImageSharp.Image> ResizeAsync(SixLabors.ImageSharp.Image image, int targetWidth, int targetHeight);
 }

@@ -8,7 +8,7 @@
 --   TeamId
 --   FamilyName
 --   SurName (first name)
---   ExternalId (empty - will be filled by mapping)
+--   External_Player_ID (empty - will be filled by mapping)
 --   ValidMapping (0/False - will be updated by mapping)
 --   Confidence (0 - will be updated by mapping)
 --   FullName (generated column for display)
@@ -18,7 +18,7 @@ SELECT
     p.TeamId AS [TeamId],
     p.FamilyName AS [FamilyName],
     p.FirstName AS [SurName],
-    '' AS [ExternalId],
+    '' AS [External_Player_ID],
     0 AS [ValidMapping],
     0.0 AS [Confidence],
     CONCAT(p.FirstName, ' ', p.FamilyName) AS [FullName]

@@ -3,265 +3,362 @@
              xmlns:vm="using:PhotoMapperAI.UI.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="PhotoMapperAI.UI.Views.MapStepView"
-             x:DataType="vm:MapStepViewModel">
+             x:DataType="vm:MapStepViewModel"
+             Background="{DynamicResource BackgroundBrush}">
 
   <Design.DataContext>
     <vm:MapStepViewModel/>
   </Design.DataContext>
 
   <ScrollViewer>
-    <StackPanel Margin="24" Spacing="20">
+    <StackPanel Margin="16" Spacing="12">
       <!-- Header -->
       <TextBlock Text="Step 2: Map Players to Photos" 
-                 FontSize="24" FontWeight="Bold" 
-                 Foreground="#1976D2"/>
-      <TextBlock Text="Match players to photos using IDs embedded in filenames. The CSV from Step 1 will be updated with photo mappings."
-                 FontSize="14" Foreground="#666" TextWrapping="Wrap"/>
+                 FontSize="20" FontWeight="Bold" 
+                 Foreground="{DynamicResource PrimaryBrush}"/>
+      <TextBlock Text="Match players from the CSV to photos using name comparison and optional AI. The output CSV will contain photo mappings."
+                 FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
 
-      <Separator Margin="0,8"/>
+      <Separator Margin="0,4" Background="{DynamicResource DividerBrush}"/>
 
-      <!-- CSV File Selection -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Select the CSV file from Step 1 (or a previously saved session)"
-                     FontSize="12" Foreground="#666"/>
+      <!-- STEP 1: Source Data -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="1" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Source Data" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+          
+          <!-- Players CSV File -->
+          <TextBlock Text="Players CSV file (from Step 1 or saved session)"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 
                      Watermark="Path to CSV file..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowseCsvFile_Click"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
             <Button Grid.Column="2" Content="Clear"
                     Command="{Binding ClearInputCsvCommand}"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
           </Grid>
-        </StackPanel>
-      </Border>
 
-      <!-- Photos Directory -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📁 Photos Directory" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Select the directory containing player photos"
-                     FontSize="12" Foreground="#666"/>
+          <!-- Photos Directory -->
+          <TextBlock Text="Photos directory" 
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding PhotosDirectory}" 
                      Watermark="Path to photos directory..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowsePhotosDirectory_Click"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
             <Button Grid.Column="2" Content="Clear"
                     Command="{Binding ClearPhotosDirectoryCommand}"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
           </Grid>
         </StackPanel>
       </Border>
 
-      <!-- Output Directory -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📂 Output Folder" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Choose where the mapped CSV will be saved"
-                     FontSize="12" Foreground="#666"/>
-          <Grid ColumnDefinitions="*,Auto,Auto">
-            <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" 
-                     Watermark="Path to output folder..."
-                     IsReadOnly="True" Height="36"/>
-            <Button Grid.Column="1" Content="Browse" 
-                    Click="BrowseOutputDirectory_Click"
-                    Margin="8,0,0,0" Padding="16,8"/>
-            <Button Grid.Column="2" Content="Clear"
-                    Command="{Binding ClearOutputDirectoryCommand}"
-                    Margin="8,0,0,0" Padding="16,8"/>
-          </Grid>
-        </StackPanel>
-      </Border>
+      <!-- STEP 2: Matching Strategy -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="2" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Matching Strategy" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
 
-      <!-- Options Grid -->
-      <Grid ColumnDefinitions="3*,1.4*" Margin="0,8">
-        <!-- Name Model -->
-        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
-          <StackPanel Spacing="12">
-            <TextBlock Text="🤖 AI Model for Name Matching" FontSize="16" FontWeight="SemiBold"/>
-            <CheckBox Content="Enable AI name matching (slower)"
-                      IsChecked="{Binding UseAiMapping}"/>
+          <!-- Matching Flow Explanation -->
+          <Border Background="{DynamicResource CardBrush}" CornerRadius="6" Padding="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+            <StackPanel Spacing="2">
+              <TextBlock Text="How matching works:" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Text="1. Direct ID match (if player has External_Player_ID matching photo filename)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Text="2. Deterministic name comparison (string similarity above threshold)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Text="3. AI model pass (if enabled and still unmatched)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            </StackPanel>
+          </Border>
 
-            <TabControl IsEnabled="{Binding UseAiMapping}"
-                        SelectedIndex="{Binding SelectedModelTierIndex}">
-              <TabItem Header="Local (Ollama)">
-                <StackPanel Spacing="8" Margin="0,8,0,0">
-                  <TextBlock Text="Runs locally via Ollama on this machine."
-                             FontSize="12" Foreground="#666"/>
-                  <ComboBox ItemsSource="{Binding LocalNameModels}"
-                            SelectedItem="{Binding NameModel, Mode=OneWay}"
-                            SelectionChanged="NameModelSelectionChanged"
-                            HorizontalAlignment="Left" Width="320" Height="36"/>
-                </StackPanel>
-              </TabItem>
-              <TabItem Header="Free Tier">
-                <StackPanel Spacing="8" Margin="0,8,0,0">
-                  <TextBlock Text="Cloud models with free-tier access (quota dependent)."
-                             FontSize="12" Foreground="#666"/>
+          <!-- Confidence Threshold -->
+          <StackPanel Spacing="4">
+            <TextBlock Text="Confidence Threshold" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Text="Minimum similarity score for a match. Higher = stricter (fewer false positives, more unmatched)."
+                       FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <Slider Grid.Column="0" Value="{Binding ConfidenceThreshold}"
+                      Minimum="0.8" Maximum="1.0"
+                      TickFrequency="0.05" IsSnapToTickEnabled="True"/>
+              <TextBlock Grid.Column="1" Text="{Binding ConfidenceThreshold, StringFormat={}{0:F2}}"
+                         Width="40" VerticalAlignment="Center" FontSize="12"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+            </Grid>
+          </StackPanel>
+
+          <!-- AI Matching Toggle -->
+          <CheckBox Content="Enable AI name matching (for unresolved players)"
+                    IsChecked="{Binding UseAiMapping}"
+                    FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+          <!-- AI Configuration (visible when enabled) -->
+          <StackPanel IsVisible="{Binding UseAiMapping}" Spacing="8" Margin="0,4,0,0">
+            
+            <!-- Model Selection Tabs -->
+            <TextBlock Text="AI Model" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TabControl SelectedIndex="{Binding SelectedModelTierIndex}"
+                        Background="{DynamicResource BackgroundBrush}">
+              <TabItem Header="Free Tier (Cloud)">
+                <StackPanel Spacing="6" Margin="8,6,8,8">
+                  <TextBlock Text="Cloud models with free-tier access (quota limits apply)."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
                   <ComboBox ItemsSource="{Binding FreeTierNameModels}"
                             SelectedItem="{Binding NameModel, Mode=OneWay}"
                             SelectionChanged="NameModelSelectionChanged"
-                            HorizontalAlignment="Left" Width="320" Height="36"/>
+                            HorizontalAlignment="Stretch" Height="32"/>
                 </StackPanel>
               </TabItem>
-              <TabItem Header="Paid">
-                <StackPanel Spacing="8" Margin="0,8,0,0">
-                  <TextBlock Text="Paid API models (key required)."
-                             FontSize="12" Foreground="#666"/>
+              <TabItem Header="Local (Ollama)">
+                <StackPanel Spacing="6" Margin="8,6,8,8">
+                  <TextBlock Text="Runs locally via Ollama (requires Ollama installed and model pulled)."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                  <ComboBox ItemsSource="{Binding LocalNameModels}"
+                            SelectedItem="{Binding NameModel, Mode=OneWay}"
+                            SelectionChanged="NameModelSelectionChanged"
+                            HorizontalAlignment="Stretch" Height="32"/>
+                </StackPanel>
+              </TabItem>
+              <TabItem Header="Paid API">
+                <StackPanel Spacing="6" Margin="8,6,8,8">
+                  <TextBlock Text="Paid API models (requires API key below)."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
                   <ComboBox ItemsSource="{Binding PaidNameModels}"
                             SelectedItem="{Binding NameModel, Mode=OneWay}"
                             SelectionChanged="NameModelSelectionChanged"
-                            HorizontalAlignment="Left" Width="320" Height="36"/>
+                            HorizontalAlignment="Stretch" Height="32"/>
                 </StackPanel>
               </TabItem>
             </TabControl>
 
+            <!-- Model Actions -->
             <StackPanel Orientation="Horizontal" Spacing="8">
               <Button Content="Refresh Models"
                       Command="{Binding RefreshNameModelsCommand}"
-                      IsEnabled="{Binding UseAiMapping}"
-                      Padding="12,6"/>
+                      Padding="10,5" FontSize="11"/>
               <Button Content="Check Model"
                       Command="{Binding CheckNameModelCommand}"
-                      IsEnabled="{Binding UseAiMapping}"
-                      Padding="12,6"/>
+                      Padding="10,5" FontSize="11"/>
               <ProgressBar IsIndeterminate="True"
-                           Width="80"
-                           Height="4"
+                           Width="60" Height="4"
                            IsVisible="{Binding IsCheckingModel}"/>
             </StackPanel>
 
-            <CheckBox Content="Run AI second pass on unmatched players"
-                      IsChecked="{Binding AiSecondPass}"
-                      IsEnabled="{Binding UseAiMapping}"/>
-            <CheckBox Content="AI-only mode (skip deterministic matching)"
-                      IsChecked="{Binding AiOnly}"
-                      IsEnabled="{Binding UseAiMapping}"/>
-
-            <TextBox Text="{Binding OpenAiApiKey}"
-                     Watermark="OpenAI API key (memory only, not saved)"
-                     PasswordChar="•"
-                     IsVisible="{Binding ShowOpenAiApiKeyInput}"
-                     IsEnabled="{Binding UseAiMapping}"
-                     Height="36"/>
-            <TextBox Text="{Binding AnthropicApiKey}"
-                     Watermark="Anthropic API key (memory only, not saved)"
-                     PasswordChar="•"
-                     IsVisible="{Binding ShowAnthropicApiKeyInput}"
-                     IsEnabled="{Binding UseAiMapping}"
-                     Height="36"/>
+            <!-- Model Status -->
             <TextBlock Text="{Binding ModelDiagnosticStatus}"
-                       FontSize="12"
-                       Foreground="#666"
+                       FontSize="10"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
                        TextWrapping="Wrap"
                        IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-          </StackPanel>
-        </Border>
 
-        <!-- Confidence Threshold -->
-        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="12" Margin="8,0,0,0">
-          <StackPanel Spacing="8">
-            <TextBlock Text="📊 Confidence Threshold" FontSize="15" FontWeight="SemiBold"/>
-            <TextBlock Text="Applies to deterministic and AI matches."
-                       FontSize="11" Foreground="#777"/>
-            <Grid ColumnDefinitions="*,Auto">
-              <Slider Grid.Column="0" Value="{Binding ConfidenceThreshold}"
-                      Minimum="0.8" Maximum="1.0"
-                      TickFrequency="0.1" IsSnapToTickEnabled="True"/>
-              <TextBlock Grid.Column="1" Text="{Binding ConfidenceThreshold, StringFormat={}{0:F2}}"
-                         Width="40" VerticalAlignment="Center"/>
-            </Grid>
-          </StackPanel>
-        </Border>
-      </Grid>
+            <!-- API Keys (visible for paid models) -->
+            <TextBox Text="{Binding OpenAiApiKey}"
+                     Watermark="OpenAI API key (not saved to disk)"
+                     PasswordChar="•"
+                     IsVisible="{Binding ShowOpenAiApiKeyInput}"
+                     Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBox Text="{Binding AnthropicApiKey}"
+                     Watermark="Anthropic API key (not saved to disk)"
+                     PasswordChar="•"
+                     IsVisible="{Binding ShowAnthropicApiKeyInput}"
+                     Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
 
-      <!-- Advanced Options -->
-      <Expander Header="Advanced Options" IsExpanded="False">
-        <Border Background="#FAFAFA" CornerRadius="8" Padding="16" Margin="0,8,0,0">
-          <StackPanel Spacing="12">
-            <CheckBox Content="Use Photo Manifest File" 
-                      IsChecked="{Binding UsePhotoManifest}"/>
+            <!-- AI Options -->
+            <CheckBox Content="Run AI second pass on remaining unmatched players"
+                      IsChecked="{Binding AiSecondPass}"
+                      FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <CheckBox Content="AI-only mode (skip deterministic matching)"
+                      IsChecked="{Binding AiOnly}"
+                      FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- STEP 3: Output -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="3" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Output" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+          
+          <TextBlock Text="Where to save the mapped CSV file"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" 
+                     Watermark="Output folder (default: current directory)..."
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <Button Grid.Column="1" Content="Browse" 
+                    Click="BrowseOutputDirectory_Click"
+                    Margin="6,0,0,0" Padding="12,6"/>
+            <Button Grid.Column="2" Content="Clear"
+                    Command="{Binding ClearOutputDirectoryCommand}"
+                    Margin="6,0,0,0" Padding="12,6"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- STEP 4: Execute -->
+      <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+        <Button Content="▶ Map Players to Photos" 
+                Click="ExecuteMap_Click"
+                IsEnabled="{Binding !IsProcessing}"
+                Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}"
+                FontSize="14" FontWeight="SemiBold" Padding="24,10"/>
+        <Button Content="■ Cancel"
+                Command="{Binding CancelMapCommand}"
+                IsVisible="{Binding IsProcessing}"
+                Background="{DynamicResource ErrorBrush}" Foreground="{DynamicResource HeaderTextBrush}"
+                FontSize="14" Padding="20,10"/>
+      </StackPanel>
+
+      <!-- Status -->
+      <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="12" 
+              IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding ProcessingStatus}" 
+                     FontSize="13" TextWrapping="Wrap"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <ProgressBar Value="{Binding Progress}"
+                       Maximum="100"
+                       IsVisible="{Binding IsProcessing}"
+                       Height="6"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Success indicator -->
+      <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="12"
+              IsVisible="{Binding IsComplete}">
+        <StackPanel Spacing="6">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="✓" FontSize="18" Foreground="{DynamicResource SuccessBrush}"/>
+            <TextBlock Text="{Binding PlayersMatched, StringFormat='Successfully matched {0} players'}"
+                       FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SuccessDarkBrush}"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PlayersProcessed, StringFormat='Total players processed: {0}'}"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+          <TextBlock Text="{Binding OutputCsvPath, StringFormat='Saved to: {0}'}"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"
+                     IsVisible="{Binding OutputCsvPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Photo Filename Parsing -->
+      <Expander Header="Photo Filename Parsing" IsExpanded="False"
+                Background="{DynamicResource SurfaceBrush}"
+                HorizontalAlignment="Stretch">
+        <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,6,0,0"
+                HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8" HorizontalAlignment="Stretch">
+            <TextBlock Text="How photos are matched to players"
+                       FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Text="The system extracts player ID and name from photo filenames. Auto-detection works for common patterns like:"
+                       FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+            
+            <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="8" Margin="0,4,0,0">
+              <StackPanel Spacing="2">
+                <TextBlock Text="• 123_Smith_John.png  →  ID=123, Family=Smith, SurName=John" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Text="• Maria-Garcia-789.jpg  →  SurName=Maria, Family=Garcia, ID=789" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Text="• 456.jpg  →  ID=456 (simple ID-only naming)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              </StackPanel>
+            </Border>
+
+            <TextBlock Text="Custom Filename Pattern" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,8,0,0"/>
+            <TextBlock Text="Override auto-detection if your photos use a non-standard naming convention. Leave empty for auto-detect."
+                       FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+            
+            <ComboBox ItemsSource="{Binding FilenamePatternPresets}"
+                      SelectedItem="{Binding SelectedFilenamePatternPreset}"
+                      Height="28" Margin="0,4,0,0">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Name}"/>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            
+            <TextBox Text="{Binding FilenamePattern}" 
+                     Watermark="e.g., {id}_{family}_{sur}.png"
+                     Height="32" Margin="0,4,0,0"
+                     HorizontalAlignment="Stretch"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Text="Placeholders: {id} = player ID, {first} = first name, {last} = last name"
+                       FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"/>
+            
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+              <Button Content="Save Preset" Command="{Binding SaveFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"/>
+              <Button Content="New" Command="{Binding NewFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"
+                      ToolTip.Tip="Create a new preset with current pattern"/>
+            </StackPanel>
+            <TextBlock Text="{Binding FilenamePatternStatus}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+
+            <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
+
+            <CheckBox Content="Use Photo Manifest File (JSON with explicit photo metadata)" 
+                      IsChecked="{Binding UsePhotoManifest}"
+                      FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBlock Text="Alternative: provide a JSON file mapping filenames to player data"
+                       FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
             
             <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding UsePhotoManifest}">
               <TextBox Grid.Column="0" Text="{Binding PhotoManifestPath}" 
                        Watermark="Path to photo manifest JSON..."
-                       IsReadOnly="True" Height="36"/>
+                       IsReadOnly="True" Height="32"
+                       Background="{DynamicResource InputBackgroundBrush}"
+                       Foreground="{DynamicResource PrimaryTextBrush}"/>
               <Button Grid.Column="1" Content="Browse" 
                       Click="BrowsePhotoManifest_Click"
-                      Margin="8,0,0,0" Padding="16,8"/>
+                      Margin="6,0,0,0" Padding="12,6"/>
             </Grid>
-
-            <TextBox Text="{Binding FilenamePattern}" 
-                     Watermark="Filename pattern (e.g., {id}_{family}_{sur}.png)"
-                     Height="36"/>
           </StackPanel>
         </Border>
       </Expander>
-
-      <!-- Execute / Cancel Buttons -->
-      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
-        <Button Content="▶ Map Photos" 
-                Click="ExecuteMap_Click"
-                IsEnabled="{Binding !IsProcessing}"
-                Background="#4CAF50" Foreground="White"
-                FontSize="16" Padding="24,12"/>
-        <Button Content="■ Cancel"
-                Command="{Binding CancelMapCommand}"
-                IsVisible="{Binding IsProcessing}"
-                Background="#F44336" Foreground="White"
-                FontSize="16" Padding="24,12"/>
-      </StackPanel>
-
-      <!-- Status -->
-      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
-              IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-        <StackPanel Spacing="8">
-          <TextBlock Text="{Binding ProcessingStatus}" 
-                     FontSize="14" TextWrapping="Wrap"/>
-          <ProgressBar Value="{Binding Progress}"
-                       Maximum="100"
-                       IsVisible="{Binding IsProcessing}"
-                       Height="8"/>
-        </StackPanel>
-      </Border>
 
       <!-- Run Log -->
-      <Expander Header="Run Log" IsExpanded="False">
-        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
-          <ScrollViewer Height="160">
-            <ItemsControl ItemsSource="{Binding LogLines}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
+      <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch"
+                Background="{DynamicResource SurfaceBrush}">
+        <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="10" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+            <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="10,5"/>
+            <ScrollViewer Height="120" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding LogLines}" HorizontalAlignment="Stretch">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="NoWrap"
+                                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
         </Border>
       </Expander>
-
-      <!-- Success indicator -->
-      <Border Background="#E8F5E9" CornerRadius="8" Padding="16"
-              IsVisible="{Binding IsComplete}">
-        <StackPanel Spacing="8">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="✓" FontSize="20" Foreground="#4CAF50"/>
-            <TextBlock Text="{Binding PlayersMatched, StringFormat='Successfully matched {0} players'}"
-                       FontSize="14" Foreground="#2E7D32"/>
-          </StackPanel>
-          <TextBlock Text="{Binding PlayersProcessed, StringFormat='Total players processed: {0}'}"
-                     FontSize="12" Foreground="#666"/>
-        </StackPanel>
-      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

@@ -1,0 +1,2233 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Text.Json;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Services.Database;
+using PhotoMapperAI.Services.Diagnostics;
+using PhotoMapperAI.Services.Image;
+using PhotoMapperAI.UI.Configuration;
+using PhotoMapperAI.UI.Execution;
+using PhotoMapperAI.UI.Models;
+using PhotoMapperAI.Models;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
+
+namespace PhotoMapperAI.UI.ViewModels;
+
+public partial class BatchAutomationViewModel : ViewModelBase
+{
+    private const double MinConfidenceThreshold = 0.8;
+    private readonly DatabaseExtractor _databaseExtractor;
+    private readonly ExternalMapCliRunner _mapRunner;
+    private readonly ExternalGenerateCliRunner _generateRunner;
+    private CancellationTokenSource? _cancellationTokenSource;
+    private CancellationTokenSource? _autoPreviewCts;
+    private BatchSessionState _sessionState = new();
+
+    private static readonly string[] DefaultLocalNameModels =
+    {
+        "qwen2.5:7b",
+        "qwen2.5-coder:7b-instruct-q4_K_M",
+        "qwen3:8b",
+        "llava:7b"
+    };
+    private static readonly string[] KnownCloudNameModels =
+    {
+        "gemini-3-flash-preview:cloud",
+        "qwen3-coder-next:cloud",
+        "kimi-k2.5:cloud",
+        "glm-4.7:cloud",
+        "minimax-m2:cloud",
+        "qwen3-coder:480b-cloud"
+    };
+    private static readonly string[] DefaultPaidNameModels =
+    {
+        "openai:gpt-5-mini",
+        "openai:gpt-5.2",
+        "openai:gpt-5.2-pro",
+        "anthropic:claude-3-5-sonnet"
+    };
+
+    private static readonly string[] ConfiguredPaidNameModels =
+        UiModelConfigLoader.Load().MapPaidModels.ToArray();
+
+    public BatchAutomationViewModel()
+    {
+        _databaseExtractor = new DatabaseExtractor();
+        _mapRunner = new ExternalMapCliRunner();
+        _generateRunner = new ExternalGenerateCliRunner();
+
+        var defaultProfile = ResolveDefaultSizeProfilePath();
+        if (!string.IsNullOrWhiteSpace(defaultProfile))
+        {
+            SizeProfilePath = defaultProfile;
+        }
+        
+        SeedNameModelList();
+        LoadCropOffsetPresets();
+        LoadFilenamePatternPresets();
+        UpdateProviderKeyInputVisibility();
+        _ = RefreshNameModelsAsync(showStatus: false);
+    }
+
+    #region Configuration Properties
+
+    // Database Connection
+    [ObservableProperty]
+    private string _connectionString = string.Empty;
+
+    [ObservableProperty]
+    private string _teamsSqlPath = string.Empty;
+
+    [ObservableProperty]
+    private string _playersSqlPath = string.Empty;
+
+    // Paths
+    [ObservableProperty]
+    private string _baseCsvDirectory = string.Empty;
+
+    [ObservableProperty]
+    private string _basePhotoDirectory = string.Empty;
+
+    [ObservableProperty]
+    private string _baseOutputDirectory = string.Empty;
+
+    // Photo directory structure
+    [ObservableProperty]
+    private bool _useTeamPhotoSubdirectories = true;
+
+    // Name Matching Settings
+    [ObservableProperty]
+    private string _nameMatchingModel = "qwen2.5:7b";
+
+    [ObservableProperty]
+    private double _nameMatchingThreshold = MinConfidenceThreshold;
+
+    [ObservableProperty]
+    private bool _useAiMapping;
+
+    [ObservableProperty]
+    private bool _aiOnly;
+
+    [ObservableProperty]
+    private bool _aiSecondPass = true;
+
+    [ObservableProperty]
+    private string _openAiApiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _anthropicApiKey = string.Empty;
+
+    [ObservableProperty]
+    private bool _showOpenAiApiKeyInput;
+
+    [ObservableProperty]
+    private bool _showAnthropicApiKeyInput;
+
+    [ObservableProperty]
+    private int _selectedModelTierIndex;
+
+    [ObservableProperty]
+    private bool _isCheckingModel;
+
+    [ObservableProperty]
+    private string _modelDiagnosticStatus = string.Empty;
+
+    public ObservableCollection<string> LocalNameModels { get; } = new();
+    public ObservableCollection<string> FreeTierNameModels { get; } = new();
+    public ObservableCollection<string> PaidNameModels { get; } = new();
+
+    // Face Detection Settings
+    [ObservableProperty]
+    private string _faceDetectionModel = "opencv-dnn";
+
+    [ObservableProperty]
+    private bool _downloadOpenCvModels;
+
+    [ObservableProperty]
+    private int _selectedFaceModelTierIndex;
+
+    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new() { "opencv-dnn" };
+    public ObservableCollection<string> LocalVisionFaceDetectionModels { get; } = new() { "llava:7b", "qwen3-vl" };
+    public ObservableCollection<string> AdvancedFaceDetectionModels { get; } = new() { "yolov8-face", "haar-cascade", "center" };
+
+    // Size Settings
+    [ObservableProperty]
+    private string _sizeProfilePath = string.Empty;
+
+    [ObservableProperty]
+    private bool _generateAllSizes = true;
+
+    [ObservableProperty]
+    private int _defaultWidth = 200;
+
+    [ObservableProperty]
+    private int _defaultHeight = 300;
+
+    // Crop Offset Settings
+    [ObservableProperty]
+    private double _cropOffsetX;
+
+    [ObservableProperty]
+    private double _cropOffsetY;
+
+    [ObservableProperty]
+    private CropOffsetPreset? _selectedCropOffsetPreset;
+
+    [ObservableProperty]
+    private string _cropOffsetStatus = string.Empty;
+
+    public ObservableCollection<CropOffsetPreset> CropOffsetPresets { get; } = new();
+
+    // Preview + custom dimensions
+    [ObservableProperty]
+    private Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private string _previewStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _previewTeamLabel = string.Empty;
+
+    [ObservableProperty]
+    private bool _isPreviewing;
+
+    [ObservableProperty]
+    private bool _autoPreviewEnabled;
+
+    [ObservableProperty]
+    private int _previewCustomWidth = 200;
+
+    [ObservableProperty]
+    private int _previewCustomHeight = 300;
+
+    [ObservableProperty]
+    private bool _useCustomPreviewDimensions;
+
+    [ObservableProperty]
+    private PreviewDimensionPreset? _selectedPreviewDimensionPreset;
+
+    [ObservableProperty]
+    private string _previewDimensionStatus = string.Empty;
+
+    public ObservableCollection<PreviewDimensionPreset> PreviewDimensionPresets { get; } = new();
+
+    // Output Settings
+    [ObservableProperty]
+    private string _imageFormat = "jpg";
+
+    [ObservableProperty]
+    private string _outputProfile = "none";
+
+    // Photo Filename Parsing
+    [ObservableProperty]
+    private string _filenamePattern = string.Empty;
+
+    [ObservableProperty]
+    private FilenamePatternPreset? _selectedFilenamePatternPreset;
+
+    [ObservableProperty]
+    private string _filenamePatternStatus = string.Empty;
+
+    public ObservableCollection<FilenamePatternPreset> FilenamePatternPresets { get; } = new();
+
+    [ObservableProperty]
+    private bool _usePhotoManifest;
+
+    [ObservableProperty]
+    private string _photoManifestPath = string.Empty;
+
+    #endregion
+
+    #region Team List
+
+    [ObservableProperty]
+    private ObservableCollection<BatchTeamItem> _teams = new();
+
+    [ObservableProperty]
+    private BatchTeamItem? _selectedTeam;
+
+    [ObservableProperty]
+    private bool _isLoadingTeams;
+
+    [ObservableProperty]
+    private ObservableCollection<MissingTeamFolderItem> _missingPhotoTeams = new();
+
+    [ObservableProperty]
+    private MissingTeamFolderItem? _selectedMissingPhotoTeam;
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availablePhotoFolders = new();
+
+    [ObservableProperty]
+    private string? _selectedPhotoFolder;
+
+    [ObservableProperty]
+    private string _missingPhotoStatus = string.Empty;
+
+    #endregion
+
+    #region Execution State
+
+    [ObservableProperty]
+    private bool _isProcessing;
+
+    [ObservableProperty]
+    private double _progress;
+
+    [ObservableProperty]
+    private string _processingStatus = string.Empty;
+
+    [ObservableProperty]
+    private int _teamsCompleted;
+
+    [ObservableProperty]
+    private int _teamsFailed;
+
+    [ObservableProperty]
+    private int _teamsSkipped;
+
+    [ObservableProperty]
+    private ObservableCollection<BatchIssueSummaryItem> _errorSummaryItems = new();
+
+    [ObservableProperty]
+    private bool _hasErrorSummary;
+
+    [ObservableProperty]
+    private string _errorSummaryTitle = "Issues: none";
+
+    public ObservableCollection<string> LogLines { get; } = new();
+
+    public bool CanStart => !IsProcessing && Teams.Count > 0;
+
+    public bool CanRenameMissingPhotoFolder =>
+        !IsProcessing &&
+        SelectedMissingPhotoTeam != null &&
+        !string.IsNullOrWhiteSpace(SelectedPhotoFolder);
+
+    #endregion
+
+    #region Commands
+
+    [RelayCommand]
+    private async Task RefreshNameModels()
+    {
+        await RefreshNameModelsAsync(showStatus: true);
+    }
+
+    [RelayCommand]
+    private async Task CheckNameModel()
+    {
+        if (!UseAiMapping)
+        {
+            ModelDiagnosticStatus = "Enable AI mapping to check models.";
+            return;
+        }
+
+        if (IsProcessing)
+            return;
+
+        IsCheckingModel = true;
+        ModelDiagnosticStatus = $"Checking model '{NameMatchingModel}'...";
+
+        try
+        {
+            if (IsOpenAiModel(NameMatchingModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(OpenAiApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ OpenAI API key available (GUI field or OPENAI_API_KEY)."
+                    : "✗ OpenAI API key is missing (GUI field or OPENAI_API_KEY).";
+                return;
+            }
+
+            if (IsAnthropicModel(NameMatchingModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(AnthropicApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ Anthropic API key available (GUI field or ANTHROPIC_API_KEY)."
+                    : "✗ Anthropic API key is missing (GUI field or ANTHROPIC_API_KEY).";
+                return;
+            }
+
+            var client = new OllamaClient();
+            var available = await client.IsAvailableAsync();
+            if (!available)
+            {
+                ModelDiagnosticStatus = "✗ Ollama server is not reachable (http://localhost:11434)";
+                return;
+            }
+
+            if (IsFreeTierModel(NameMatchingModel))
+            {
+                ModelDiagnosticStatus = $"ℹ Free-tier cloud model selected: {NameMatchingModel}.";
+                return;
+            }
+
+            var models = await client.GetAvailableModelsAsync();
+            var exists = models.Any(m => string.Equals(m, NameMatchingModel, StringComparison.OrdinalIgnoreCase));
+            ModelDiagnosticStatus = exists
+                ? $"✓ Model available: {NameMatchingModel}"
+                : $"✗ Model not found in Ollama: {NameMatchingModel}";
+        }
+        catch (Exception ex)
+        {
+            ModelDiagnosticStatus = $"✗ Model check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingModel = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckFaceModel()
+    {
+        if (IsProcessing)
+            return;
+
+        IsCheckingModel = true;
+        ModelDiagnosticStatus = $"Checking face detection model '{FaceDetectionModel}'...";
+
+        try
+        {
+            var preflight = await PreflightChecker.CheckGenerateAsync(FaceDetectionModel, DownloadOpenCvModels);
+            if (!preflight.IsOk)
+            {
+                ModelDiagnosticStatus = preflight.BuildMessage();
+                return;
+            }
+
+            var warningMessage = preflight.BuildWarningMessage();
+            ModelDiagnosticStatus = string.IsNullOrWhiteSpace(warningMessage)
+                ? $"✓ Face detection model ready: {FaceDetectionModel}"
+                : $"✓ Face detection model ready: {FaceDetectionModel}\n{warningMessage}";
+        }
+        catch (Exception ex)
+        {
+            ModelDiagnosticStatus = $"✗ Model check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingModel = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task GeneratePreview()
+    {
+        if (IsProcessing || IsPreviewing)
+        {
+            return;
+        }
+
+        PreviewImage = null;
+        PreviewStatus = string.Empty;
+        PreviewTeamLabel = string.Empty;
+        IsPreviewing = true;
+
+        try
+        {
+            if (Teams.Count == 0)
+            {
+                PreviewStatus = "Load teams before previewing.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(BaseCsvDirectory) || string.IsNullOrWhiteSpace(BasePhotoDirectory))
+            {
+                PreviewStatus = "Configure CSV and photo directories before previewing.";
+                return;
+            }
+
+            var team = FindPreviewTeamCandidate();
+            if (team == null)
+            {
+                PreviewStatus = "No eligible team found for preview.";
+                return;
+            }
+
+            var teamPhotoDir = ResolveTeamPhotoDirectory(team);
+            if (string.IsNullOrWhiteSpace(teamPhotoDir) || !Directory.Exists(teamPhotoDir))
+            {
+                PreviewStatus = $"Preview skipped: photo folder not found for {team.TeamName}.";
+                return;
+            }
+
+            var teamCsvDir = Path.Combine(BaseCsvDirectory, team.TeamName);
+            Directory.CreateDirectory(teamCsvDir);
+            var teamCsvPath = Path.Combine(teamCsvDir, $"{team.TeamName}.csv");
+
+            if (!File.Exists(teamCsvPath))
+            {
+                if (string.IsNullOrWhiteSpace(ConnectionString) || string.IsNullOrWhiteSpace(PlayersSqlPath))
+                {
+                    PreviewStatus = "Provide connection string and players SQL to extract preview data.";
+                    return;
+                }
+
+                if (!File.Exists(PlayersSqlPath))
+                {
+                    PreviewStatus = $"Players SQL file not found: {PlayersSqlPath}";
+                    return;
+                }
+
+                var playersSql = await File.ReadAllTextAsync(PlayersSqlPath);
+                playersSql = playersSql.Replace("{TeamId}", team.TeamId.ToString());
+
+                var parameters = new Dictionary<string, object>
+                {
+                    { "TeamId", team.TeamId }
+                };
+
+                await _databaseExtractor.ExtractPlayersToCsvAsync(ConnectionString, playersSql, parameters, teamCsvPath);
+            }
+
+            var mappedCsvPath = Path.Combine(teamCsvDir, BuildMappedFileName(teamCsvPath));
+            if (!File.Exists(mappedCsvPath))
+            {
+                var mapResult = await _mapRunner.ExecuteAsync(
+                    Directory.GetCurrentDirectory(),
+                    teamCsvDir,
+                    teamCsvPath,
+                    teamPhotoDir,
+                    string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
+                    UsePhotoManifest ? PhotoManifestPath : null,
+                    NameMatchingModel,
+                    NameMatchingThreshold,
+                    UseAiMapping,
+                    AiSecondPass,
+                    AiOnly,
+                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
+                    CancellationToken.None,
+                    log: null);
+
+                if (mapResult.ExitCode != 0)
+                {
+                    PreviewStatus = $"Mapping failed with exit code {mapResult.ExitCode}.";
+                    return;
+                }
+
+                mappedCsvPath = mapResult.OutputCsvPath;
+            }
+
+            if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
+            {
+                PreviewStatus = "Mapped CSV not found for preview.";
+                return;
+            }
+
+            var previewPlayer = await ResolvePreviewPlayerAsync(mappedCsvPath);
+            if (previewPlayer == null || string.IsNullOrWhiteSpace(previewPlayer.External_Player_ID))
+            {
+                PreviewStatus = "No eligible player with External_Player_ID found for preview.";
+                return;
+            }
+
+            var (previewWidth, previewHeight) = ResolvePreviewDimensions();
+            var photoPath = ResolvePreviewPhotoPath(teamPhotoDir, previewPlayer.External_Player_ID);
+
+            if (string.IsNullOrWhiteSpace(photoPath))
+            {
+                PreviewStatus = $"No photo found for External_Player_ID {previewPlayer.External_Player_ID}.";
+                return;
+            }
+
+            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
+            await faceDetectionService.InitializeAsync();
+
+            FaceLandmarks landmarks;
+            PreviewStatus = "Detecting face for preview...";
+            landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath)
+                ?? new FaceLandmarks { FaceDetected = false };
+
+            var imageProcessor = new ImageProcessor();
+            using var image = await imageProcessor.LoadImageAsync(photoPath);
+
+            var cropOffset = BuildCurrentCropOffsetPreset();
+
+            using var cropped = await imageProcessor.CropPortraitAsync(
+                image,
+                landmarks.FaceDetected ? landmarks : new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
+                previewWidth,
+                previewHeight,
+                cropOffset);
+
+            using var stream = new MemoryStream();
+            cropped.Save(stream, new JpegEncoder { Quality = 92 });
+            stream.Position = 0;
+            PreviewImage = new Bitmap(stream);
+
+            PreviewTeamLabel = $"Preview team: {team.TeamName} | {BuildPreviewPlayerLabel(previewPlayer)}";
+            PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+        }
+        catch (Exception ex)
+        {
+            PreviewStatus = $"Preview failed: {ex.Message}";
+        }
+        finally
+        {
+            IsPreviewing = false;
+        }
+    }
+
+    [RelayCommand]
+    private void SaveCropOffsetPreset()
+    {
+        var presetName = SelectedCropOffsetPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = CropOffsetPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new CropOffsetPreset { Name = presetName };
+            CropOffsetPresets.Add(preset);
+        }
+
+        preset.HorizontalPercent = CropOffsetX;
+        preset.VerticalPercent = CropOffsetY;
+
+        var settings = BuildCropOffsetSettingsSnapshot(presetName);
+        CropOffsetSettingsLoader.SaveToLocal(settings);
+        CropOffsetStatus = $"Saved offset preset '{presetName}'.";
+        SelectedCropOffsetPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewCropOffsetPreset()
+    {
+        var baseName = "new_preset";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (CropOffsetPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new CropOffsetPreset
+        {
+            Name = newName,
+            HorizontalPercent = CropOffsetX,
+            VerticalPercent = CropOffsetY
+        };
+
+        CropOffsetPresets.Add(newPreset);
+        SelectedCropOffsetPreset = newPreset;
+        CropOffsetStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
+    }
+
+    [RelayCommand]
+    private void SavePreviewDimensionPreset()
+    {
+        var presetName = SelectedPreviewDimensionPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = PreviewDimensionPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new PreviewDimensionPreset { Name = presetName };
+            PreviewDimensionPresets.Add(preset);
+        }
+
+        preset.Width = PreviewCustomWidth;
+        preset.Height = PreviewCustomHeight;
+
+        var settings = BuildCropOffsetSettingsSnapshot(SelectedCropOffsetPreset?.Name ?? "default");
+        settings.ActivePreviewDimensionPresetName = presetName;
+        settings.PreviewDimensionPresets = PreviewDimensionPresets
+            .Select(p => new PreviewDimensionPreset
+            {
+                Name = p.Name,
+                Width = p.Width,
+                Height = p.Height
+            })
+            .ToList();
+
+        CropOffsetSettingsLoader.SaveToLocal(settings);
+        PreviewDimensionStatus = $"Saved dimension preset '{presetName}'.";
+        SelectedPreviewDimensionPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewPreviewDimensionPreset()
+    {
+        var baseName = "new_dimensions";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (PreviewDimensionPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new PreviewDimensionPreset
+        {
+            Name = newName,
+            Width = PreviewCustomWidth,
+            Height = PreviewCustomHeight
+        };
+
+        PreviewDimensionPresets.Add(newPreset);
+        SelectedPreviewDimensionPreset = newPreset;
+        UseCustomPreviewDimensions = true;
+        PreviewDimensionStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
+    }
+
+    [RelayCommand]
+    private void DecrementCustomWidth()
+    {
+        if (PreviewCustomWidth > 50)
+        {
+            PreviewCustomWidth -= 10;
+        }
+    }
+
+    [RelayCommand]
+    private void IncrementCustomWidth()
+    {
+        PreviewCustomWidth += 10;
+    }
+
+    [RelayCommand]
+    private void DecrementCustomHeight()
+    {
+        if (PreviewCustomHeight > 50)
+        {
+            PreviewCustomHeight -= 10;
+        }
+    }
+
+    [RelayCommand]
+    private void IncrementCustomHeight()
+    {
+        PreviewCustomHeight += 10;
+    }
+
+    [RelayCommand]
+    private async Task LoadTeamsFromDatabase()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionString) || string.IsNullOrWhiteSpace(TeamsSqlPath))
+        {
+            AppendLog("Error: Connection string and Teams SQL path are required.");
+            return;
+        }
+
+        if (!File.Exists(TeamsSqlPath))
+        {
+            AppendLog($"Error: Teams SQL file not found: {TeamsSqlPath}");
+            return;
+        }
+
+        IsLoadingTeams = true;
+        Teams.Clear();
+
+        try
+        {
+            var sql = await File.ReadAllTextAsync(TeamsSqlPath);
+            var tempCsvPath = Path.Combine(Path.GetTempPath(), "teams_temp.csv");
+            
+            await _databaseExtractor.ExtractTeamsToCsvAsync(ConnectionString, sql, tempCsvPath);
+            var teams = await _databaseExtractor.ReadTeamsCsvAsync(tempCsvPath);
+
+            foreach (var team in teams)
+            {
+                var teamPhotoDir = UseTeamPhotoSubdirectories 
+                    ? Path.Combine(BasePhotoDirectory, team.TeamName) 
+                    : BasePhotoDirectory;
+                
+                var hasPhotoDir = !string.IsNullOrWhiteSpace(BasePhotoDirectory) && Directory.Exists(teamPhotoDir);
+                
+                Teams.Add(new BatchTeamItem
+                {
+                    TeamId = team.TeamId,
+                    TeamName = team.TeamName,
+                    Status = BatchTeamStatus.Pending,
+                    HasPhotoDirectory = hasPhotoDir,
+                    StatusMessage = hasPhotoDir ? "Ready" : "⚠ No photo directory"
+                });
+            }
+
+            var teamsWithoutPhotos = Teams.Count(t => !t.HasPhotoDirectory);
+            AppendLog($"Loaded {Teams.Count} teams from database.");
+            if (teamsWithoutPhotos > 0)
+            {
+                AppendLog($"⚠ WARNING: {teamsWithoutPhotos} teams have no photo directory!");
+            }
+            
+            // Clean up temp file
+            if (File.Exists(tempCsvPath))
+                File.Delete(tempCsvPath);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error loading teams: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingTeams = false;
+            OnPropertyChanged(nameof(CanStart));
+        }
+    }
+
+    public async Task LoadTeamsFromCsvFileAsync(string csvPath)
+    {
+        if (string.IsNullOrWhiteSpace(csvPath) || !File.Exists(csvPath))
+        {
+            AppendLog($"Error: Teams CSV file not found: {csvPath}");
+            return;
+        }
+
+        IsLoadingTeams = true;
+        Teams.Clear();
+
+        try
+        {
+            var teams = await _databaseExtractor.ReadTeamsCsvAsync(csvPath);
+
+            foreach (var team in teams)
+            {
+                var teamPhotoDir = UseTeamPhotoSubdirectories 
+                    ? Path.Combine(BasePhotoDirectory, team.TeamName) 
+                    : BasePhotoDirectory;
+                
+                var hasPhotoDir = !string.IsNullOrWhiteSpace(BasePhotoDirectory) && Directory.Exists(teamPhotoDir);
+                
+                Teams.Add(new BatchTeamItem
+                {
+                    TeamId = team.TeamId,
+                    TeamName = team.TeamName,
+                    Status = BatchTeamStatus.Pending,
+                    HasPhotoDirectory = hasPhotoDir,
+                    StatusMessage = hasPhotoDir ? "Ready" : "⚠ No photo directory"
+                });
+            }
+
+            var teamsWithoutPhotos = Teams.Count(t => !t.HasPhotoDirectory);
+            AppendLog($"Loaded {Teams.Count} teams from CSV.");
+            if (teamsWithoutPhotos > 0)
+            {
+                AppendLog($"⚠ WARNING: {teamsWithoutPhotos} teams have no photo directory!");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error loading teams from CSV: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingTeams = false;
+            OnPropertyChanged(nameof(CanStart));
+        }
+    }
+    
+    [RelayCommand]
+    private void ValidatePhotoDirectories()
+    {
+        if (string.IsNullOrWhiteSpace(BasePhotoDirectory))
+        {
+            AppendLog("Error: Photo directory not configured.");
+            return;
+        }
+        
+        var teamsWithoutPhotos = 0;
+        foreach (var team in Teams)
+        {
+            var teamPhotoDir = UseTeamPhotoSubdirectories 
+                ? Path.Combine(BasePhotoDirectory, team.TeamName) 
+                : BasePhotoDirectory;
+            
+            team.HasPhotoDirectory = Directory.Exists(teamPhotoDir);
+            if (!team.HasPhotoDirectory)
+            {
+                teamsWithoutPhotos++;
+                team.StatusMessage = $"⚠ No photo directory: {teamPhotoDir}";
+            }
+            else
+            {
+                team.StatusMessage = "Ready";
+            }
+        }
+        
+        AppendLog($"Photo directory validation complete. {teamsWithoutPhotos} teams missing photos.");
+        RefreshMissingPhotoFolders();
+    }
+
+    [RelayCommand]
+    private void ClearTeams()
+    {
+        Teams.Clear();
+        TeamsCompleted = 0;
+        TeamsFailed = 0;
+        TeamsSkipped = 0;
+        ResetErrorSummary();
+        OnPropertyChanged(nameof(CanStart));
+    }
+
+    public async Task SaveTeamsToCsvAsync(string csvPath)
+    {
+        if (string.IsNullOrWhiteSpace(csvPath))
+        {
+            AppendLog("Error: CSV path is required.");
+            return;
+        }
+
+        if (Teams.Count == 0)
+        {
+            AppendLog("Error: No teams to save. Load teams first.");
+            return;
+        }
+
+        try
+        {
+            var teamRecords = Teams.Select(t => new TeamRecord
+            {
+                TeamId = t.TeamId,
+                TeamName = t.TeamName
+            }).ToList();
+
+            await DatabaseExtractor.WriteTeamsCsvAsync(teamRecords, csvPath);
+            AppendLog($"Saved {Teams.Count} teams to {csvPath}");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error saving teams to CSV: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void SelectAllTeams()
+    {
+        foreach (var team in Teams)
+        {
+            team.IsEnabled = true;
+        }
+    }
+
+    [RelayCommand]
+    private void DeselectAllTeams()
+    {
+        foreach (var team in Teams)
+        {
+            team.IsEnabled = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task StartBatch()
+    {
+        if (IsProcessing || Teams.Count == 0)
+            return;
+
+        // Initialize session state
+        _sessionState = new BatchSessionState
+        {
+            ConnectionString = ConnectionString,
+            TeamsSqlPath = TeamsSqlPath,
+            PlayersSqlPath = PlayersSqlPath,
+            BaseCsvDirectory = BaseCsvDirectory,
+            BasePhotoDirectory = BasePhotoDirectory,
+            BaseOutputDirectory = BaseOutputDirectory,
+            UseTeamPhotoSubdirectories = UseTeamPhotoSubdirectories,
+            NameMatchingModel = NameMatchingModel,
+            NameMatchingThreshold = NameMatchingThreshold < MinConfidenceThreshold ? MinConfidenceThreshold : NameMatchingThreshold,
+            UseAiMapping = UseAiMapping,
+            AiOnly = AiOnly,
+            AiSecondPass = AiSecondPass,
+            FaceDetectionModel = FaceDetectionModel,
+            DownloadOpenCvModels = DownloadOpenCvModels,
+            SizeProfilePath = SizeProfilePath,
+            GenerateAllSizes = GenerateAllSizes,
+            DefaultWidth = DefaultWidth,
+            DefaultHeight = DefaultHeight,
+            ImageFormat = ImageFormat,
+            OutputProfile = OutputProfile,
+            TotalTeams = Teams.Count,
+            Status = "Running"
+        };
+
+        if (NameMatchingThreshold < MinConfidenceThreshold)
+        {
+            NameMatchingThreshold = MinConfidenceThreshold;
+        }
+
+        _cancellationTokenSource = new CancellationTokenSource();
+        IsProcessing = true;
+        Progress = 0;
+        TeamsCompleted = 0;
+        TeamsFailed = 0;
+        TeamsSkipped = 0;
+        ResetErrorSummary();
+
+        var totalTeams = Teams.Count;
+
+        AppendLog($"Starting batch processing for {totalTeams} teams...");
+
+        // Run the entire batch processing on a background thread to prevent UI freeze
+        await Task.Run(async () =>
+        {
+            var processedTeams = 0;
+            
+            try
+            {
+                foreach (var team in Teams)
+                {
+                    if (_cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        AppendLog("Batch processing cancelled.");
+                        break;
+                    }
+
+                    // Skip disabled teams
+                    if (!team.IsEnabled)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            team.Status = BatchTeamStatus.Skipped;
+                            team.StatusMessage = "Disabled by user";
+                        });
+                        TeamsSkipped++;
+                        processedTeams++;
+                        UpdateProgress(processedTeams, totalTeams);
+                        continue;
+                    }
+
+                    try
+                    {
+                        await ProcessTeamAsync(team, _cancellationTokenSource.Token);
+                        TeamsCompleted++;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            team.Status = BatchTeamStatus.Skipped;
+                            team.StatusMessage = "Cancelled";
+                        });
+                        TeamsSkipped++;
+                    }
+                    catch (Exception ex)
+                    {
+                        var errorMessage = ex.Message;
+                        var innerMessage = ex.InnerException?.Message;
+                        var fullError = string.IsNullOrEmpty(innerMessage) 
+                            ? errorMessage 
+                            : $"{errorMessage} -> {innerMessage}";
+                        
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            team.Status = BatchTeamStatus.Failed;
+                            team.StatusMessage = fullError;
+                        });
+                        TeamsFailed++;
+                        AppendLog($"[ERROR] Team {team.TeamName}: {fullError}");
+                        AppendLog($"[ERROR] Stack trace: {ex.StackTrace}");
+                        
+                        // Add failed result to session
+                        _sessionState.TeamResults.Add(new BatchTeamResult
+                        {
+                            TeamId = team.TeamId,
+                            TeamName = team.TeamName,
+                            Status = "Failed",
+                            StatusMessage = fullError,
+                            ErrorMessage = fullError,
+                            CompletedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    processedTeams++;
+                    UpdateProgress(processedTeams, totalTeams);
+                }
+            }
+            finally
+            {
+                // Finalize and save session state (always save, even on cancellation)
+                _sessionState.CompletedAt = DateTime.UtcNow;
+                _sessionState.TeamsCompleted = TeamsCompleted;
+                _sessionState.TeamsFailed = TeamsFailed;
+                _sessionState.TeamsSkipped = TeamsSkipped;
+                _sessionState.Status = _cancellationTokenSource?.Token.IsCancellationRequested == true 
+                    ? "Cancelled" 
+                    : "Completed";
+
+                // Save session state to JSON
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(BaseOutputDirectory))
+                    {
+                        Directory.CreateDirectory(BaseOutputDirectory);
+                        var sessionPath = BatchSessionState.GetSessionPath(BaseOutputDirectory);
+                        _sessionState.SaveAsync(sessionPath).Wait();
+                        AppendLog($"Session state saved to: {sessionPath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"Warning: Could not save session state: {ex.Message}");
+                }
+
+                AppendLog($"Batch processing complete. Completed: {TeamsCompleted}, Failed: {TeamsFailed}, Skipped: {TeamsSkipped}");
+                
+                // Update UI on the UI thread
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    IsProcessing = false;
+                    OnPropertyChanged(nameof(CanStart));
+                });
+            }
+        }, _cancellationTokenSource.Token);
+    }
+    
+    private void UpdateProgress(int processedTeams, int totalTeams)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            Progress = (double)processedTeams / totalTeams * 100;
+            ProcessingStatus = $"Processed {processedTeams}/{totalTeams} teams (Completed: {TeamsCompleted}, Failed: {TeamsFailed}, Skipped: {TeamsSkipped})";
+            UpdateErrorSummary();
+        });
+    }
+
+    [RelayCommand]
+    private void CancelBatch()
+    {
+        _cancellationTokenSource?.Cancel();
+        ProcessingStatus = "Cancelling batch processing...";
+    }
+
+    [RelayCommand]
+    private void RefreshMissingPhotoFolders()
+    {
+        MissingPhotoTeams.Clear();
+        AvailablePhotoFolders.Clear();
+        SelectedMissingPhotoTeam = null;
+        SelectedPhotoFolder = null;
+
+        if (string.IsNullOrWhiteSpace(BasePhotoDirectory))
+        {
+            MissingPhotoStatus = "Photo directory not configured.";
+            return;
+        }
+
+        if (!Directory.Exists(BasePhotoDirectory))
+        {
+            MissingPhotoStatus = $"Photo directory not found: {BasePhotoDirectory}";
+            return;
+        }
+
+        if (!UseTeamPhotoSubdirectories)
+        {
+            MissingPhotoStatus = "Team subdirectories are disabled; no per-team folders required.";
+            return;
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(BasePhotoDirectory))
+        {
+            var name = Path.GetFileName(directory);
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                AvailablePhotoFolders.Add(name);
+            }
+        }
+
+        var missingCount = 0;
+        foreach (var team in Teams)
+        {
+            var teamPhotoDir = Path.Combine(BasePhotoDirectory, team.TeamName);
+            var hasPhotoDir = Directory.Exists(teamPhotoDir);
+            team.HasPhotoDirectory = hasPhotoDir;
+            team.StatusMessage = hasPhotoDir ? "Ready" : "No photo directory";
+
+            if (!hasPhotoDir)
+            {
+                MissingPhotoTeams.Add(new MissingTeamFolderItem
+                {
+                    TeamId = team.TeamId,
+                    TeamName = team.TeamName
+                });
+                missingCount++;
+            }
+        }
+
+        MissingPhotoStatus = missingCount == 0
+            ? "All teams have photo folders."
+            : $"Missing folders: {missingCount}.";
+    }
+
+    [RelayCommand]
+    private void RenameMissingPhotoFolder()
+    {
+        if (string.IsNullOrWhiteSpace(BasePhotoDirectory))
+        {
+            MissingPhotoStatus = "Photo directory not configured.";
+            return;
+        }
+
+        if (SelectedMissingPhotoTeam == null || string.IsNullOrWhiteSpace(SelectedPhotoFolder))
+        {
+            MissingPhotoStatus = "Select a missing team and an existing folder.";
+            return;
+        }
+
+        var sourceDir = Path.Combine(BasePhotoDirectory, SelectedPhotoFolder);
+        var targetDir = Path.Combine(BasePhotoDirectory, SelectedMissingPhotoTeam.TeamName);
+
+        if (!Directory.Exists(sourceDir))
+        {
+            MissingPhotoStatus = $"Source folder not found: {sourceDir}";
+            return;
+        }
+
+        if (Directory.Exists(targetDir))
+        {
+            MissingPhotoStatus = $"Target folder already exists: {targetDir}";
+            return;
+        }
+
+        try
+        {
+            Directory.Move(sourceDir, targetDir);
+            AppendLog($"Renamed photo folder '{SelectedPhotoFolder}' to '{SelectedMissingPhotoTeam.TeamName}'.");
+            MissingPhotoStatus = $"Renamed '{SelectedPhotoFolder}' to '{SelectedMissingPhotoTeam.TeamName}'.";
+            RefreshMissingPhotoFolders();
+        }
+        catch (Exception ex)
+        {
+            MissingPhotoStatus = $"Rename failed: {ex.Message}";
+        }
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private async Task ProcessTeamAsync(BatchTeamItem team, CancellationToken cancellationToken)
+    {
+        var teamCsvDir = Path.Combine(BaseCsvDirectory, team.TeamName);
+        // Use team subdirectory if enabled, otherwise use base photo directory directly
+        var teamPhotoDir = UseTeamPhotoSubdirectories 
+            ? Path.Combine(BasePhotoDirectory, team.TeamName) 
+            : BasePhotoDirectory;
+        var teamOutputDir = Path.Combine(BaseOutputDirectory, team.TeamName);
+
+        Directory.CreateDirectory(teamCsvDir);
+        Directory.CreateDirectory(teamOutputDir);
+
+        var csvPath = Path.Combine(teamCsvDir, $"{team.TeamName}.csv");
+        var teamResult = new BatchTeamResult
+        {
+            TeamId = team.TeamId,
+            TeamName = team.TeamName,
+            StartedAt = DateTime.UtcNow
+        };
+
+        try
+        {
+            // Step 1: Extract players
+            UpdateTeamStatus(team, BatchTeamStatus.Extracting, "Extracting players...");
+            AppendLog($"[EXTRACT] {team.TeamName}: Extracting players...");
+
+            if (File.Exists(PlayersSqlPath))
+            {
+                var playersSql = await File.ReadAllTextAsync(PlayersSqlPath, cancellationToken);
+                playersSql = playersSql.Replace("{TeamId}", team.TeamId.ToString());
+                
+                var parameters = new Dictionary<string, object>
+                {
+                    { "TeamId", team.TeamId }
+                };
+                
+                var playerCount = await _databaseExtractor.ExtractPlayersToCsvAsync(
+                    ConnectionString, playersSql, parameters, csvPath);
+                
+                UpdateTeamProperty(team, t => t.PlayersExtracted = playerCount);
+                UpdateTeamProperty(team, t => t.CsvPath = csvPath);
+                teamResult.PlayersExtracted = playerCount;
+                teamResult.CsvPath = csvPath;
+                AppendLog($"[EXTRACT] {team.TeamName}: Extracted {playerCount} players.");
+            }
+            else
+            {
+                throw new FileNotFoundException($"Players SQL file not found: {PlayersSqlPath}");
+            }
+
+            // Check if photo directory exists (after extraction)
+            if (!Directory.Exists(teamPhotoDir))
+            {
+                AppendLog($"[SKIP] {team.TeamName}: Photo directory not found: {teamPhotoDir}");
+                UpdateTeamStatus(team, BatchTeamStatus.Skipped, $"Photo directory not found: {teamPhotoDir}");
+                TeamsSkipped++;
+                teamResult.Status = "Skipped";
+                teamResult.StatusMessage = $"Photo directory not found: {teamPhotoDir}";
+                teamResult.CompletedAt = DateTime.UtcNow;
+                _sessionState.TeamResults.Add(teamResult);
+                return;
+            }
+
+            // Step 2: Map players
+            UpdateTeamStatus(team, BatchTeamStatus.Mapping, "Mapping players...");
+            AppendLog($"[MAP] {team.TeamName}: Mapping players...");
+
+            try
+            {
+                var effectiveNameModel = string.IsNullOrWhiteSpace(NameMatchingModel)
+                    ? "qwen2.5:7b"
+                    : NameMatchingModel;
+
+                if (!string.Equals(effectiveNameModel, NameMatchingModel, StringComparison.OrdinalIgnoreCase))
+                {
+                    NameMatchingModel = effectiveNameModel;
+                    AppendLog($"[MAP] {team.TeamName}: Name matching model was empty; defaulted to '{effectiveNameModel}'.");
+                }
+
+                if (NameMatchingThreshold < MinConfidenceThreshold)
+                {
+                    NameMatchingThreshold = MinConfidenceThreshold;
+                }
+
+                var preflight = await PreflightChecker.CheckMapAsync(
+                    UseAiMapping,
+                    effectiveNameModel,
+                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
+                if (!preflight.IsOk)
+                {
+                    throw new InvalidOperationException(preflight.BuildMessage());
+                }
+
+                var warningMessage = preflight.BuildWarningMessage();
+                if (!string.IsNullOrWhiteSpace(warningMessage))
+                {
+                    AppendLog($"[MAP] {team.TeamName}: {warningMessage}");
+                }
+
+                var effectiveAiSecondPass = UseAiMapping && AiSecondPass;
+                var effectiveAiOnly = UseAiMapping && AiOnly;
+
+                var mapResult = await _mapRunner.ExecuteAsync(
+                    Directory.GetCurrentDirectory(),
+                    teamCsvDir,
+                    csvPath,
+                    teamPhotoDir,
+                    filenamePattern: string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
+                    photoManifest: UsePhotoManifest ? PhotoManifestPath : null,
+                    nameModel: effectiveNameModel,
+                    confidenceThreshold: NameMatchingThreshold,
+                    useAi: UseAiMapping,
+                    aiSecondPass: effectiveAiSecondPass,
+                    aiOnly: effectiveAiOnly,
+                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
+                    cancellationToken,
+                    new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
+
+                if (mapResult.ExitCode != 0)
+                {
+                    throw new Exception($"Map failed with exit code {mapResult.ExitCode}");
+                }
+
+                UpdateTeamProperty(team, t => t.PlayersMapped = mapResult.PlayersMatched);
+                teamResult.PlayersMapped = mapResult.PlayersMatched;
+                AppendLog($"[MAP] {team.TeamName}: Mapped {mapResult.PlayersMatched} players.");
+
+                // Use the mapped CSV for generation (contains External_Player_ID)
+                var mappedCsvPath = mapResult.OutputCsvPath;
+                if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
+                {
+                    mappedCsvPath = csvPath; // Fallback to original if mapped not found
+                }
+                teamResult.MappedCsvPath = mappedCsvPath;
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"[ERROR] {team.TeamName}: Map step failed - {ex.Message}");
+                throw;
+            }
+
+            // Step 3: Generate photos
+            UpdateTeamStatus(team, BatchTeamStatus.Generating, "Generating photos...");
+            AppendLog($"[GENERATE] {team.TeamName}: Generating photos...");
+
+            try
+            {
+                var cropOffset = new CropOffsetPreset
+                {
+                    Name = SelectedCropOffsetPreset?.Name ?? "batch",
+                    HorizontalPercent = CropOffsetX,
+                    VerticalPercent = CropOffsetY
+                };
+
+                var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
+                var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
+                var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+                var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+                var allSizes = wantsAllSizes;
+
+                var effectiveWidth = wantsCustomDimensions ? PreviewCustomWidth : DefaultWidth;
+                var effectiveHeight = wantsCustomDimensions ? PreviewCustomHeight : DefaultHeight;
+
+                var generateResult = await _generateRunner.ExecuteAsync(
+                    Directory.GetCurrentDirectory(),
+                    teamResult.MappedCsvPath ?? csvPath,  // Use mapped CSV with External_Player_ID
+                    teamPhotoDir,
+                    teamOutputDir,
+                    ImageFormat,
+                    FaceDetectionModel,
+                    false,
+                    effectiveWidth,
+                    effectiveHeight,
+                    sizeProfilePath,
+                    allSizes,
+                    false,
+                    DownloadOpenCvModels,
+                    null,
+                    null,
+                    cropOffset,
+                    cancellationToken,
+                    new Progress<string>(msg => AppendLog($"[GENERATE] {team.TeamName}: {msg}")));
+
+                if (generateResult.ExitCode != 0)
+                {
+                    throw new Exception($"Generate failed with exit code {generateResult.ExitCode}");
+                }
+
+                UpdateTeamProperty(team, t => t.PhotosGenerated = generateResult.PortraitsGenerated);
+                UpdateTeamProperty(team, t => t.PhotoPath = teamOutputDir);
+                var unmappedCount = GetUnmappedCount(teamResult.PlayersExtracted, teamResult.PlayersMapped);
+                var completedMessage = unmappedCount > 0
+                    ? $"Completed: {generateResult.PortraitsGenerated} photos generated (Unmapped: {unmappedCount})"
+                    : $"Completed: {generateResult.PortraitsGenerated} photos generated";
+                UpdateTeamStatus(team, BatchTeamStatus.Completed, completedMessage);
+                AppendLog($"[GENERATE] {team.TeamName}: Generated {generateResult.PortraitsGenerated} photos.");
+
+                // Update team result and add to session
+                teamResult.PhotosGenerated = generateResult.PortraitsGenerated;
+                teamResult.PhotoPath = teamOutputDir;
+                teamResult.Status = "Completed";
+                teamResult.StatusMessage = completedMessage;
+                teamResult.CompletedAt = DateTime.UtcNow;
+                _sessionState.TeamResults.Add(teamResult);
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"[ERROR] {team.TeamName}: Generate step failed - {ex.Message}");
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[ERROR] {team.TeamName}: ProcessTeamAsync failed - {ex.Message}");
+            AppendLog($"[ERROR] Stack trace: {ex.StackTrace}");
+            throw;
+        }
+    }
+
+    private BatchTeamItem? FindPreviewTeamCandidate()
+    {
+        foreach (var team in Teams)
+        {
+            if (!team.IsEnabled)
+            {
+                continue;
+            }
+
+            var teamPhotoDir = ResolveTeamPhotoDirectory(team);
+            if (!string.IsNullOrWhiteSpace(teamPhotoDir) && Directory.Exists(teamPhotoDir))
+            {
+                return team;
+            }
+        }
+
+        return null;
+    }
+
+    private string ResolveTeamPhotoDirectory(BatchTeamItem team)
+    {
+        if (string.IsNullOrWhiteSpace(BasePhotoDirectory))
+        {
+            return string.Empty;
+        }
+
+        return UseTeamPhotoSubdirectories
+            ? Path.Combine(BasePhotoDirectory, team.TeamName)
+            : BasePhotoDirectory;
+    }
+
+    private async Task<PlayerRecord?> ResolvePreviewPlayerAsync(string csvPath)
+    {
+        var players = await _databaseExtractor.ReadCsvAsync(csvPath);
+        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.External_Player_ID));
+    }
+
+    private (int width, int height) ResolvePreviewDimensions()
+    {
+        if (UseCustomPreviewDimensions)
+        {
+            return (PreviewCustomWidth, PreviewCustomHeight);
+        }
+
+        if (!string.IsNullOrWhiteSpace(SizeProfilePath))
+        {
+            var profile = LoadSizeProfile(SizeProfilePath);
+            var variant = profile.Variants.FirstOrDefault(v =>
+                              string.Equals(v.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
+                              || (v.Width == 200 && v.Height == 300))
+                          ?? profile.Variants.First();
+            return (variant.Width, variant.Height);
+        }
+
+        return (DefaultWidth, DefaultHeight);
+    }
+
+    private string? ResolvePreviewPhotoPath(string photosDirectory, string External_Player_ID)
+    {
+        if (string.IsNullOrWhiteSpace(External_Player_ID))
+        {
+            return null;
+        }
+
+        var photoFiles = FindPlayerPhotoFiles(photosDirectory, External_Player_ID);
+        return photoFiles.FirstOrDefault();
+    }
+
+    private static List<string> FindPlayerPhotoFiles(string photosDirectory, string External_Player_ID)
+    {
+        var photoFiles = Directory.GetFiles(photosDirectory, $"{External_Player_ID}.*")
+            .Where(IsSupportedImageFormat)
+            .ToList();
+
+        if (photoFiles.Count == 0)
+        {
+            var pattern = $"*_{External_Player_ID}.*";
+            photoFiles = Directory.GetFiles(photosDirectory, pattern, SearchOption.AllDirectories)
+                .Where(IsSupportedImageFormat)
+                .ToList();
+        }
+
+        return photoFiles;
+    }
+
+    private static bool IsSupportedImageFormat(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension is ".png" or ".jpg" or ".jpeg" or ".bmp";
+    }
+
+    private static string BuildMappedFileName(string inputCsvPath)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(inputCsvPath);
+        return $"mapped_{baseName}.csv";
+    }
+
+    private CropOffsetPreset BuildCurrentCropOffsetPreset()
+    {
+        var presetName = SelectedCropOffsetPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "custom";
+        }
+
+        return new CropOffsetPreset
+        {
+            Name = presetName,
+            HorizontalPercent = CropOffsetX,
+            VerticalPercent = CropOffsetY
+        };
+    }
+
+    private CropOffsetSettings BuildCropOffsetSettingsSnapshot(string activePresetName)
+    {
+        return new CropOffsetSettings
+        {
+            ActivePresetName = activePresetName,
+            Presets = CropOffsetPresets
+                .Select(p => new CropOffsetPreset
+                {
+                    Name = p.Name,
+                    HorizontalPercent = p.HorizontalPercent,
+                    VerticalPercent = p.VerticalPercent
+                })
+                .ToList(),
+            PreviewCustomDimensions = new PreviewCustomDimensions
+            {
+                Width = PreviewCustomWidth,
+                Height = PreviewCustomHeight,
+                UseCustom = UseCustomPreviewDimensions
+            },
+            ActivePreviewDimensionPresetName = SelectedPreviewDimensionPreset?.Name ?? "default",
+            PreviewDimensionPresets = PreviewDimensionPresets
+                .Select(p => new PreviewDimensionPreset
+                {
+                    Name = p.Name,
+                    Width = p.Width,
+                    Height = p.Height
+                })
+                .ToList()
+        };
+    }
+
+    private static string BuildPreviewPlayerLabel(PlayerRecord player)
+    {
+        var External_Player_ID = string.IsNullOrWhiteSpace(player.External_Player_ID) ? "n/a" : player.External_Player_ID;
+        return $"{player.FullName} (ID: {External_Player_ID})";
+    }
+
+    private void ScheduleAutoPreview()
+    {
+        if (!AutoPreviewEnabled || IsProcessing)
+        {
+            return;
+        }
+
+        _autoPreviewCts?.Cancel();
+        _autoPreviewCts?.Dispose();
+        _autoPreviewCts = new CancellationTokenSource();
+        var token = _autoPreviewCts.Token;
+
+        _ = DebouncedAutoPreviewAsync(token);
+    }
+
+    private async Task DebouncedAutoPreviewAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(250, token);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (GeneratePreviewCommand.CanExecute(null))
+                {
+                    GeneratePreviewCommand.Execute(null);
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void RequestAutoPreviewFromUi()
+    {
+        ScheduleAutoPreview();
+    }
+    
+    private void UpdateTeamStatus(BatchTeamItem team, BatchTeamStatus status, string message)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            team.Status = status;
+            team.StatusMessage = message;
+            UpdateErrorSummary();
+        });
+    }
+    
+    private void UpdateTeamProperty(BatchTeamItem team, Action<BatchTeamItem> updateAction)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => updateAction(team));
+    }
+
+    private void AppendLog(string message)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            LogLines.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
+        });
+    }
+
+    private void UpdateProviderKeyInputVisibility()
+    {
+        ShowOpenAiApiKeyInput = IsOpenAiModel(NameMatchingModel);
+        ShowAnthropicApiKeyInput = IsAnthropicModel(NameMatchingModel);
+    }
+
+    private void ResetErrorSummary()
+    {
+        ErrorSummaryItems.Clear();
+        HasErrorSummary = false;
+        ErrorSummaryTitle = "Issues: none";
+    }
+
+    private static int GetUnmappedCount(int playersExtracted, int playersMapped)
+        => Math.Max(0, playersExtracted - playersMapped);
+
+    private void UpdateErrorSummary()
+    {
+        var items = Teams
+            .Select(team =>
+            {
+                var unmappedCount = GetUnmappedCount(team.PlayersExtracted, team.PlayersMapped);
+                var hasUnmapped = team.Status == BatchTeamStatus.Completed && unmappedCount > 0;
+                var isIssue = team.Status is BatchTeamStatus.Failed or BatchTeamStatus.Skipped || hasUnmapped;
+                if (!isIssue)
+                {
+                    return null;
+                }
+
+                var message = team.Status == BatchTeamStatus.Completed
+                    ? $"Unmapped players: {unmappedCount}"
+                    : team.StatusMessage;
+
+                var isCritical = team.Status == BatchTeamStatus.Failed || hasUnmapped;
+
+                return new BatchIssueSummaryItem
+                {
+                    TeamName = team.TeamName,
+                    Status = team.Status.ToString(),
+                    Message = message,
+                    IsCritical = isCritical
+                };
+            })
+            .Where(item => item != null)
+            .Select(item => item!)
+            .ToList();
+
+        ErrorSummaryItems.Clear();
+        foreach (var item in items)
+        {
+            ErrorSummaryItems.Add(item);
+        }
+
+        var failedCount = items.Count(item => item.Status == BatchTeamStatus.Failed.ToString());
+        var skippedCount = items.Count(item => item.Status == BatchTeamStatus.Skipped.ToString());
+        var unmappedCount = items.Count(item => item.Status == BatchTeamStatus.Completed.ToString());
+
+        HasErrorSummary = items.Count > 0;
+        ErrorSummaryTitle = HasErrorSummary
+            ? $"Issues: {failedCount} failed, {skippedCount} skipped, {unmappedCount} unmapped"
+            : "Issues: none";
+    }
+
+    #endregion
+
+    #region Model Management
+
+    private async Task RefreshNameModelsAsync(bool showStatus)
+    {
+        if (showStatus)
+        {
+            ModelDiagnosticStatus = "Refreshing models from Ollama...";
+        }
+
+        try
+        {
+            var client = new OllamaClient();
+            var available = await client.IsAvailableAsync();
+
+            if (!available)
+            {
+                if (showStatus)
+                {
+                    ModelDiagnosticStatus = "Ollama server is not reachable. Showing fallback model list.";
+                }
+
+                SeedNameModelList();
+                return;
+            }
+
+            var localModels = await client.GetAvailableModelsAsync();
+            RebuildNameModelLists(localModels);
+
+            if (showStatus)
+            {
+                var total = LocalNameModels.Count + FreeTierNameModels.Count + PaidNameModels.Count;
+                ModelDiagnosticStatus = $"✓ Loaded {total} models (Local {LocalNameModels.Count}, Free {FreeTierNameModels.Count}, Paid {PaidNameModels.Count})";
+            }
+        }
+        catch (Exception ex)
+        {
+            SeedNameModelList();
+            if (showStatus)
+            {
+                ModelDiagnosticStatus = $"✗ Failed to refresh model list: {ex.Message}";
+            }
+        }
+    }
+
+    private void SeedNameModelList()
+    {
+        RebuildNameModelLists(Array.Empty<string>());
+    }
+
+    private static string? ResolveDefaultSizeProfilePath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "size_profiles.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "size_profiles.json"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "size_profiles.json")),
+            Path.Combine(Directory.GetCurrentDirectory(), "samples", "size_profiles.default.json"),
+            Path.Combine(AppContext.BaseDirectory, "samples", "size_profiles.default.json"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "samples", "size_profiles.default.json")),
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    private static UiSizeProfile LoadSizeProfile(string profilePath)
+    {
+        if (string.IsNullOrWhiteSpace(profilePath) || !File.Exists(profilePath))
+        {
+            throw new FileNotFoundException($"Size profile file not found: {profilePath}");
+        }
+
+        var json = File.ReadAllText(profilePath);
+        var profile = JsonSerializer.Deserialize<UiSizeProfile>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        });
+
+        if (profile == null || profile.Variants == null || profile.Variants.Count == 0)
+        {
+            throw new InvalidOperationException("Size profile must contain at least one variant.");
+        }
+
+        foreach (var variant in profile.Variants)
+        {
+            if (string.IsNullOrWhiteSpace(variant.Key) || variant.Width <= 0 || variant.Height <= 0)
+            {
+                throw new InvalidOperationException("Each size profile variant requires key, width > 0, and height > 0.");
+            }
+        }
+
+        return profile;
+    }
+
+    private sealed class UiSizeProfile
+    {
+        public string Name { get; set; } = "default";
+        public List<UiSizeVariant> Variants { get; set; } = new();
+    }
+
+    private sealed class UiSizeVariant
+    {
+        public string Key { get; set; } = string.Empty;
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public string? OutputSubfolder { get; set; }
+        public string? PlaceholderPath { get; set; }
+    }
+
+    private void RebuildNameModelLists(IEnumerable<string> discoveredModels)
+    {
+        var previousSelection = NameMatchingModel;
+        var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var model in DefaultLocalNameModels)
+            merged.Add(model);
+
+        foreach (var model in discoveredModels.Where(m => !string.IsNullOrWhiteSpace(m)))
+            merged.Add(model.Trim());
+
+        foreach (var model in KnownCloudNameModels)
+            merged.Add(model);
+
+        var paidModels = ConfiguredPaidNameModels.Length > 0
+            ? ConfiguredPaidNameModels
+            : DefaultPaidNameModels;
+
+        foreach (var model in paidModels)
+            merged.Add(model);
+
+        var local = new List<string>();
+        var freeTier = new List<string>();
+        var paid = new List<string>();
+
+        foreach (var model in merged)
+        {
+            if (IsPaidModel(model))
+            {
+                paid.Add(model);
+            }
+            else if (IsFreeTierModel(model))
+            {
+                freeTier.Add(model);
+            }
+            else
+            {
+                local.Add(model);
+            }
+        }
+
+        local.Sort(StringComparer.OrdinalIgnoreCase);
+        freeTier.Sort(StringComparer.OrdinalIgnoreCase);
+
+        var paidOrdered = new List<string>();
+        foreach (var model in paidModels)
+        {
+            var found = paid.FirstOrDefault(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(found))
+                paidOrdered.Add(found);
+        }
+
+        foreach (var model in paid)
+        {
+            if (!paidOrdered.Any(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase)))
+                paidOrdered.Add(model);
+        }
+
+        paid = paidOrdered;
+
+        LocalNameModels.Clear();
+        foreach (var model in local)
+            LocalNameModels.Add(model);
+
+        FreeTierNameModels.Clear();
+        foreach (var model in freeTier)
+            FreeTierNameModels.Add(model);
+
+        PaidNameModels.Clear();
+        foreach (var model in paid)
+            PaidNameModels.Add(model);
+
+        if (!string.IsNullOrWhiteSpace(previousSelection) &&
+            (LocalNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
+             FreeTierNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
+             PaidNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase))))
+        {
+            NameMatchingModel = previousSelection;
+            return;
+        }
+
+        if (LocalNameModels.Contains("qwen2.5:7b"))
+        {
+            NameMatchingModel = "qwen2.5:7b";
+            return;
+        }
+
+        NameMatchingModel = LocalNameModels.FirstOrDefault()
+                    ?? FreeTierNameModels.FirstOrDefault()
+                    ?? PaidNameModels.FirstOrDefault()
+                    ?? "qwen2.5:7b";
+    }
+
+    private static bool IsCloudModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (modelName.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase) ||
+            modelName.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsFreeTierModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (IsCloudModel(modelName) ||
+            modelName.EndsWith(":free", StringComparison.OrdinalIgnoreCase) ||
+            modelName.EndsWith("/free", StringComparison.OrdinalIgnoreCase) ||
+            modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsPaidModel(string modelName)
+        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName);
+
+    private static bool IsOpenAiModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.StartsWith("openai:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAnthropicModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           (modelName.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
+            modelName.StartsWith("claude:", StringComparison.OrdinalIgnoreCase));
+
+    partial void OnNameMatchingModelChanged(string value)
+    {
+        UpdateProviderKeyInputVisibility();
+        SelectedModelTierIndex = GetTierIndexForModel(value);
+    }
+
+    partial void OnSelectedModelTierIndexChanged(int value)
+    {
+        string? candidate = value switch
+        {
+            0 => FreeTierNameModels.FirstOrDefault(),
+            1 => LocalNameModels.FirstOrDefault(),
+            2 => PaidNameModels.FirstOrDefault(),
+            _ => null
+        };
+
+        if (!string.IsNullOrWhiteSpace(candidate) &&
+            !string.Equals(NameMatchingModel, candidate, StringComparison.OrdinalIgnoreCase))
+        {
+            NameMatchingModel = candidate;
+        }
+    }
+
+    partial void OnFaceDetectionModelChanged(string value)
+    {
+        SelectedFaceModelTierIndex = GetFaceTierIndexForModel(value);
+    }
+
+    partial void OnSelectedCropOffsetPresetChanged(CropOffsetPreset? value)
+    {
+        if (value == null) return;
+        CropOffsetX = value.HorizontalPercent;
+        CropOffsetY = value.VerticalPercent;
+        ScheduleAutoPreview();
+    }
+
+    partial void OnCropOffsetXChanged(double value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnCropOffsetYChanged(double value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnSelectedPreviewDimensionPresetChanged(PreviewDimensionPreset? value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        PreviewCustomWidth = value.Width;
+        PreviewCustomHeight = value.Height;
+        UseCustomPreviewDimensions = true;
+        ScheduleAutoPreview();
+    }
+
+    partial void OnPreviewCustomWidthChanged(int value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnPreviewCustomHeightChanged(int value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnUseCustomPreviewDimensionsChanged(bool value)
+    {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnUseAiMappingChanged(bool value)
+    {
+        if (!value)
+        {
+            AiOnly = false;
+        }
+    }
+
+    partial void OnAiOnlyChanged(bool value)
+    {
+        if (value)
+        {
+            UseAiMapping = true;
+        }
+    }
+
+    partial void OnSelectedMissingPhotoTeamChanged(MissingTeamFolderItem? value)
+    {
+        OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
+    }
+
+    partial void OnSelectedPhotoFolderChanged(string? value)
+    {
+        OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
+    }
+
+    partial void OnIsProcessingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
+    }
+
+    private static int GetTierIndexForModel(string modelName)
+    {
+        if (IsPaidModel(modelName))
+            return 2;
+        if (IsFreeTierModel(modelName))
+            return 0;
+        return 1;
+    }
+
+    private static int GetFaceTierIndexForModel(string modelName)
+    {
+        if (string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        if (modelName.Contains("llava", StringComparison.OrdinalIgnoreCase) ||
+            modelName.Contains("qwen3-vl", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        return 2;
+    }
+
+    private void LoadCropOffsetPresets()
+    {
+        var settings = CropOffsetSettingsLoader.Load();
+
+        CropOffsetPresets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            CropOffsetPresets.Add(new CropOffsetPreset
+            {
+                Name = preset.Name,
+                HorizontalPercent = preset.HorizontalPercent,
+                VerticalPercent = preset.VerticalPercent
+            });
+        }
+
+        if (CropOffsetPresets.Count == 0)
+        {
+            CropOffsetPresets.Add(new CropOffsetPreset { Name = "default" });
+        }
+
+        var active = settings.GetActivePreset();
+        SelectedCropOffsetPreset = CropOffsetPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
+            ?? CropOffsetPresets[0];
+
+        if (settings.PreviewCustomDimensions != null)
+        {
+            PreviewCustomWidth = settings.PreviewCustomDimensions.Width;
+            PreviewCustomHeight = settings.PreviewCustomDimensions.Height;
+            UseCustomPreviewDimensions = settings.PreviewCustomDimensions.UseCustom;
+        }
+
+        PreviewDimensionPresets.Clear();
+        foreach (var preset in settings.PreviewDimensionPresets)
+        {
+            PreviewDimensionPresets.Add(new PreviewDimensionPreset
+            {
+                Name = preset.Name,
+                Width = preset.Width,
+                Height = preset.Height
+            });
+        }
+
+        if (PreviewDimensionPresets.Count == 0)
+        {
+            PreviewDimensionPresets.Add(new PreviewDimensionPreset
+            {
+                Name = "default",
+                Width = PreviewCustomWidth,
+                Height = PreviewCustomHeight
+            });
+        }
+
+        var activeDimensions = settings.GetActivePreviewDimensionPreset();
+        SelectedPreviewDimensionPreset = PreviewDimensionPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, activeDimensions.Name, StringComparison.OrdinalIgnoreCase))
+            ?? PreviewDimensionPresets[0];
+    }
+
+    private void LoadFilenamePatternPresets()
+    {
+        var settings = FilenamePatternSettingsLoader.Load();
+
+        FilenamePatternPresets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset
+            {
+                Name = preset.Name,
+                Pattern = preset.Pattern,
+                Description = preset.Description
+            });
+        }
+
+        if (FilenamePatternPresets.Count == 0)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset { Name = "default", Pattern = string.Empty });
+        }
+
+        var active = settings.GetActivePreset();
+        SelectedFilenamePatternPreset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
+            ?? FilenamePatternPresets[0];
+    }
+
+    [RelayCommand]
+    private void SaveFilenamePatternPreset()
+    {
+        var presetName = SelectedFilenamePatternPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new FilenamePatternPreset { Name = presetName };
+            FilenamePatternPresets.Add(preset);
+        }
+
+        preset.Pattern = FilenamePattern;
+
+        var settings = new FilenamePatternSettings
+        {
+            ActivePresetName = presetName,
+            Presets = FilenamePatternPresets
+                .Select(p => new FilenamePatternPreset
+                {
+                    Name = p.Name,
+                    Pattern = p.Pattern,
+                    Description = p.Description
+                })
+                .ToList()
+        };
+
+        FilenamePatternSettingsLoader.SaveToLocal(settings);
+        FilenamePatternStatus = $"Saved preset '{presetName}' to appsettings.local.json";
+        SelectedFilenamePatternPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewFilenamePatternPreset()
+    {
+        var baseName = "new_pattern";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (FilenamePatternPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new FilenamePatternPreset
+        {
+            Name = newName,
+            Pattern = FilenamePattern
+        };
+
+        FilenamePatternPresets.Add(newPreset);
+        SelectedFilenamePatternPreset = newPreset;
+        FilenamePatternStatus = $"Created new preset '{newName}'. Click 'Save' to persist.";
+    }
+
+    partial void OnSelectedFilenamePatternPresetChanged(FilenamePatternPreset? value)
+    {
+        if (value != null)
+        {
+            FilenamePattern = value.Pattern;
+        }
+    }
+
+    #endregion
+}

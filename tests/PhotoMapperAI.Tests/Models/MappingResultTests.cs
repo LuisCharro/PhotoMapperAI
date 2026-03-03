@@ -144,13 +144,13 @@ public class MappingResultTests
     }
 
     [Fact]
-    public void Constructor_Defaults_ExternalIdNull()
+    public void Constructor_Defaults_External_Player_IDNull()
     {
         // Arrange & Act
         var result = new MappingResult();
 
         // Assert
-        Assert.Null(result.ExternalId);
+        Assert.Null(result.External_Player_ID);
     }
 
     [Fact]
@@ -225,7 +225,7 @@ public class MappingResultTests
         var result = new MappingResult
         {
             PlayerId = 123,
-            ExternalId = "456",
+            External_Player_ID = "456",
             PhotoFileName = "photo.jpg",
             Confidence = 0.95,
             ConfidenceThreshold = 0.8,
@@ -237,7 +237,7 @@ public class MappingResultTests
 
         // Assert
         Assert.Equal(123, result.PlayerId);
-        Assert.Equal("456", result.ExternalId);
+        Assert.Equal("456", result.External_Player_ID);
         Assert.Equal("photo.jpg", result.PhotoFileName);
         Assert.Equal(0.95, result.Confidence);
         Assert.Equal(0.8, result.ConfidenceThreshold);

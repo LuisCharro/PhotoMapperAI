@@ -277,6 +277,13 @@ public static class PreflightChecker
                 continue;
 
             var exists = availableModels.Any(m => string.Equals(m, model, StringComparison.OrdinalIgnoreCase));
+
+            if (!exists && !model.Contains(':'))
+            {
+                var latestAlias = $"{model}:latest";
+                exists = availableModels.Any(m => string.Equals(m, latestAlias, StringComparison.OrdinalIgnoreCase));
+            }
+
             if (!exists)
                 missing.Add(model);
         }

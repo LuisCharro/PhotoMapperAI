@@ -14,7 +14,7 @@ public class MappingResult
     /// <summary>
     /// External player ID from photo
     /// </summary>
-    public string? ExternalId { get; set; }
+    public string? External_Player_ID { get; set; }
 
     /// <summary>
     /// Photo filename

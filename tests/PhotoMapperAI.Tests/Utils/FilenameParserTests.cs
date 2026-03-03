@@ -47,7 +47,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("123", result.ExternalId);
+        Assert.Equal("123", result.External_Player_ID);
         Assert.Equal("Smith", result.FamilyName);
         Assert.Equal("John", result.SurName);
         Assert.Equal("Smith John", result.FullName);
@@ -68,9 +68,9 @@ public class FilenameParserTests : IDisposable
         Assert.NotNull(resultJpeg);
         Assert.NotNull(resultBmp);
 
-        Assert.Equal("456", resultJpg.ExternalId);
-        Assert.Equal("456", resultJpeg.ExternalId);
-        Assert.Equal("456", resultBmp.ExternalId);
+        Assert.Equal("456", resultJpg.External_Player_ID);
+        Assert.Equal("456", resultJpeg.External_Player_ID);
+        Assert.Equal("456", resultBmp.External_Player_ID);
     }
 
     #endregion
@@ -85,7 +85,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("789", result.ExternalId);
+        Assert.Equal("789", result.External_Player_ID);
         Assert.Equal("Garcia", result.FamilyName);
         Assert.Equal("Maria", result.SurName);
         Assert.Equal("Garcia Maria", result.FullName);
@@ -103,7 +103,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("321", result.ExternalId);
+        Assert.Equal("321", result.External_Player_ID);
         Assert.Equal("Martinez", result.FamilyName);
         Assert.Equal("Carlos ", result.SurName); // Note: trailing space from regex pattern
     }
@@ -116,7 +116,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("321", result.ExternalId);
+        Assert.Equal("321", result.External_Player_ID);
         Assert.Equal("Martinez", result.FamilyName);
         Assert.Equal("Carlos ", result.SurName); // Note: trailing space from regex pattern
     }
@@ -133,7 +133,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("654", result.ExternalId);
+        Assert.Equal("654", result.External_Player_ID);
         Assert.Equal("Rodriguez", result.FamilyName);
         Assert.Equal("Luis", result.SurName);
     }
@@ -150,7 +150,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("987", result.ExternalId);
+        Assert.Equal("987", result.External_Player_ID);
         Assert.Equal("Lopez", result.FamilyName);
         Assert.Equal("Ana", result.SurName);
     }
@@ -167,7 +167,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("147", result.ExternalId);
+        Assert.Equal("147", result.External_Player_ID);
         Assert.Equal("Fernandez", result.FamilyName);
         Assert.Equal("Pedro", result.SurName);
     }
@@ -184,7 +184,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("258", result.ExternalId);
+        Assert.Equal("258", result.External_Player_ID);
         Assert.Equal("", result.FamilyName); // Empty string when group doesn't exist
         Assert.Equal("", result.SurName); // Empty string when group doesn't exist
     }
@@ -240,9 +240,9 @@ public class FilenameParserTests : IDisposable
         Assert.NotNull(resultUpper);
         Assert.NotNull(resultMixed);
 
-        Assert.Equal("123", resultLower.ExternalId);
-        Assert.Equal("123", resultUpper.ExternalId);
-        Assert.Equal("123", resultMixed.ExternalId);
+        Assert.Equal("123", resultLower.External_Player_ID);
+        Assert.Equal("123", resultUpper.External_Player_ID);
+        Assert.Equal("123", resultMixed.External_Player_ID);
     }
 
     #endregion
@@ -261,7 +261,7 @@ public class FilenameParserTests : IDisposable
         // Pattern 1: {id}_{family}_{sur}
         // Pattern 6: {family}_{sur}_{id}
         // Pattern 1 comes first, so "123" should be parsed as id
-        Assert.Equal("123", result.ExternalId);
+        Assert.Equal("123", result.External_Player_ID);
         Assert.Equal("Smith", result.FamilyName);
         Assert.Equal("John", result.SurName);
     }
@@ -278,7 +278,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("123", result.ExternalId);
+        Assert.Equal("123", result.External_Player_ID);
         Assert.Equal("Smith", result.FamilyName);
         Assert.Equal("John", result.SurName);
         Assert.Equal(MetadataSource.UserPattern, result.Source);
@@ -302,7 +302,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("123", result.ExternalId);
+        Assert.Equal("123", result.External_Player_ID);
         Assert.Equal("Smith", result.FamilyName);
         Assert.Equal("John", result.SurName);
     }
@@ -315,7 +315,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("999", result.ExternalId);
+        Assert.Equal("999", result.External_Player_ID);
         Assert.Equal("", result.FamilyName); // Empty string when placeholder not in template
         Assert.Equal("", result.SurName); // Empty string when placeholder not in template
     }
@@ -328,7 +328,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("123", result.ExternalId);
+        Assert.Equal("123", result.External_Player_ID);
     }
 
     [Fact]
@@ -397,7 +397,7 @@ public class FilenameParserTests : IDisposable
 
         Assert.True(result.ContainsKey("photo1.jpg"));
         var photo1 = result["photo1.jpg"];
-        Assert.Equal("123", photo1.ExternalId);
+        Assert.Equal("123", photo1.External_Player_ID);
         Assert.Equal("John Smith", photo1.FullName);
         Assert.Equal("Smith", photo1.FamilyName);
         Assert.Equal("John", photo1.SurName);
@@ -405,7 +405,7 @@ public class FilenameParserTests : IDisposable
 
         Assert.True(result.ContainsKey("photo2.png"));
         var photo2 = result["photo2.png"];
-        Assert.Equal("456", photo2.ExternalId);
+        Assert.Equal("456", photo2.External_Player_ID);
         Assert.Equal("Jane Doe", photo2.FullName);
         Assert.Equal("Doe", photo2.FamilyName);
         Assert.Equal("Jane", photo2.SurName);
@@ -463,7 +463,7 @@ public class FilenameParserTests : IDisposable
         // Assert
         Assert.Single(result);
         var photo = result["photo1.jpg"];
-        Assert.Equal("123", photo.ExternalId);
+        Assert.Equal("123", photo.External_Player_ID);
         Assert.Equal("Smith", photo.FamilyName);
         Assert.Null(photo.FullName);
         Assert.Null(photo.SurName);
@@ -540,7 +540,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("0", result.ExternalId);
+        Assert.Equal("0", result.External_Player_ID);
     }
 
     [Fact]
@@ -551,7 +551,7 @@ public class FilenameParserTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("999999", result.ExternalId);
+        Assert.Equal("999999", result.External_Player_ID);
     }
 
     #endregion

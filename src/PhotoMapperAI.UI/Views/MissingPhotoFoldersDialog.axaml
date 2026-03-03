@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PhotoMapperAI.UI.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="520"
+        x:Class="PhotoMapperAI.UI.Views.MissingPhotoFoldersDialog"
+        x:DataType="vm:BatchAutomationViewModel"
+        Title="Fix Missing Photo Folders"
+        Width="720" Height="520"
+        MinWidth="640" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BackgroundBrush}">
+
+  <Grid Margin="16" RowDefinitions="Auto,*,Auto" ColumnDefinitions="*">
+    <StackPanel Grid.Row="0" Spacing="4">
+      <TextBlock Text="Missing Photo Folders" FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource PrimaryBrush}"/>
+      <TextBlock Text="Select a missing team and a folder to rename." FontSize="11"
+                 Foreground="{DynamicResource SecondaryTextBrush}"/>
+    </StackPanel>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,12,0,12">
+      <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="10">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Teams missing folders" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <DataGrid ItemsSource="{Binding MissingPhotoTeams}"
+                    SelectedItem="{Binding SelectedMissingPhotoTeam, Mode=TwoWay}"
+                    AutoGenerateColumns="False"
+                    Height="300"
+                    GridLinesVisibility="All"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    Background="{DynamicResource SurfaceBrush}"
+                    Foreground="{DynamicResource PrimaryTextBrush}"
+                    HeadersVisibility="Column">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="ID" Binding="{Binding TeamId}" Width="Auto"/>
+              <DataGridTextColumn Header="Team" Binding="{Binding TeamName}" Width="2*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="10">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Existing folders" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+          <ListBox ItemsSource="{Binding AvailablePhotoFolders}"
+                   SelectedItem="{Binding SelectedPhotoFolder, Mode=TwoWay}"
+                   Height="300"
+                   Background="{DynamicResource InputBackgroundBrush}"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+      <TextBlock Grid.Column="0" Text="{Binding MissingPhotoStatus}" FontSize="11"
+                 Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
+      <Button Grid.Column="1" Content="Refresh"
+              Command="{Binding RefreshMissingPhotoFoldersCommand}"
+              Padding="12,6" FontSize="11"/>
+      <Button Grid.Column="2" Content="Rename"
+              Command="{Binding RenameMissingPhotoFolderCommand}"
+              IsEnabled="{Binding CanRenameMissingPhotoFolder}"
+              Padding="12,6" FontSize="11"
+              Background="{DynamicResource PrimaryBrush}"
+              Foreground="{DynamicResource HeaderTextBrush}"/>
+      <Button Grid.Column="3" Content="Close" Click="Close_Click"
+              Padding="12,6" FontSize="11"/>
+    </Grid>
+  </Grid>
+</Window>

@@ -19,7 +19,7 @@ public static class FaceDetectionServiceFactory
         if (string.IsNullOrWhiteSpace(model))
             throw new ArgumentException("Face detection model cannot be empty.", nameof(model));
 
-        var normalized = model.Trim();
+        var normalized = NormalizeOllamaAlias(model.Trim());
 
         if (allowFallbackChain && normalized.Contains(','))
             return new FallbackFaceDetectionService(normalized);
@@ -37,5 +37,13 @@ public static class FaceDetectionServiceFactory
                 => new OllamaFaceDetectionService(modelName: normalized),
             _ => throw new ArgumentException($"Unknown face detection model: {model}")
         };
+    }
+
+    private static string NormalizeOllamaAlias(string model)
+    {
+        if (string.Equals(model, "qwen3-vl", StringComparison.OrdinalIgnoreCase))
+            return "qwen3-vl:latest";
+
+        return model;
     }
 }

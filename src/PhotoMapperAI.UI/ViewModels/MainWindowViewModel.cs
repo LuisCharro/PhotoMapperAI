@@ -14,6 +14,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ExtractStepViewModel _extractStep;
     private readonly MapStepViewModel _mapStep;
     private readonly GenerateStepViewModel _generateStep;
+    private readonly BatchAutomationViewModel _batchAutomation;
 
     [ObservableProperty]
     private ViewModelBase _currentView;
@@ -30,13 +31,20 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isDarkTheme;
 
+    [ObservableProperty]
+    private bool _isBatchMode;
+
     public string ThemeToggleText => IsDarkTheme ? "☀️ Light" : "🌙 Dark";
+
+    public string ModeToggleText => IsBatchMode ? "📋 Step-by-Step Mode" : "🔄 Batch Mode";
 
     public MainWindowViewModel()
     {
         _extractStep = new ExtractStepViewModel();
         _mapStep = new MapStepViewModel();
         _generateStep = new GenerateStepViewModel();
+        _batchAutomation = new BatchAutomationViewModel();
+        
         _extractStep.PropertyChanged += OnStepPropertyChanged;
         _mapStep.PropertyChanged += OnStepPropertyChanged;
         _generateStep.PropertyChanged += OnStepPropertyChanged;
@@ -44,27 +52,41 @@ public partial class MainWindowViewModel : ViewModelBase
         _currentView = _extractStep;
     }
 
-    // Step colors for progress indicator
+    // Helper method to get theme-aware brush
+    private IBrush GetThemeBrush(string resourceKey, string fallbackColor)
+    {
+        if (Application.Current?.Resources?.TryGetResource(resourceKey, Application.Current.ActualThemeVariant, out var resource) == true 
+            && resource is IBrush brush)
+        {
+            return brush;
+        }
+        return new SolidColorBrush(Color.Parse(fallbackColor));
+    }
+
+    // Step colors for progress indicator - now theme-aware
     public IBrush Step1Background => CurrentStep >= 1 
-        ? new SolidColorBrush(Color.Parse("#4CAF50")) 
-        : new SolidColorBrush(Color.Parse("#E0E0E0"));
+        ? GetThemeBrush("StepActiveBrush", "#4CAF50") 
+        : GetThemeBrush("StepInactiveBrush", "#E0E0E0");
+    
     public IBrush Step1Foreground => CurrentStep >= 1 
-        ? new SolidColorBrush(Colors.White) 
-        : new SolidColorBrush(Color.Parse("#666666"));
+        ? GetThemeBrush("StepActiveTextBrush", "#FFFFFF") 
+        : GetThemeBrush("StepInactiveTextBrush", "#666666");
 
     public IBrush Step2Background => CurrentStep >= 2 
-        ? new SolidColorBrush(Color.Parse("#4CAF50")) 
-        : new SolidColorBrush(Color.Parse("#E0E0E0"));
+        ? GetThemeBrush("StepActiveBrush", "#4CAF50") 
+        : GetThemeBrush("StepInactiveBrush", "#E0E0E0");
+    
     public IBrush Step2Foreground => CurrentStep >= 2 
-        ? new SolidColorBrush(Colors.White) 
-        : new SolidColorBrush(Color.Parse("#666666"));
+        ? GetThemeBrush("StepActiveTextBrush", "#FFFFFF") 
+        : GetThemeBrush("StepInactiveTextBrush", "#666666");
 
     public IBrush Step3Background => CurrentStep >= 3 
-        ? new SolidColorBrush(Color.Parse("#4CAF50")) 
-        : new SolidColorBrush(Color.Parse("#E0E0E0"));
+        ? GetThemeBrush("StepActiveBrush", "#4CAF50") 
+        : GetThemeBrush("StepInactiveBrush", "#E0E0E0");
+    
     public IBrush Step3Foreground => CurrentStep >= 3 
-        ? new SolidColorBrush(Colors.White) 
-        : new SolidColorBrush(Color.Parse("#666666"));
+        ? GetThemeBrush("StepActiveTextBrush", "#FFFFFF") 
+        : GetThemeBrush("StepInactiveTextBrush", "#666666");
 
     public bool CanGoBack => CurrentStep > 1;
     public bool CanGoNext => CurrentStep < 3;
@@ -123,7 +145,46 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(ThemeToggleText));
+        
+        // Refresh step colors when theme changes
+        OnPropertyChanged(nameof(Step1Background));
+        OnPropertyChanged(nameof(Step1Foreground));
+        OnPropertyChanged(nameof(Step2Background));
+        OnPropertyChanged(nameof(Step2Foreground));
+        OnPropertyChanged(nameof(Step3Background));
+        OnPropertyChanged(nameof(Step3Foreground));
+        
         StatusMessage = $"Theme changed to {(IsDarkTheme ? "Dark" : "Light")}";
+    }
+
+    [RelayCommand]
+    private void ToggleMode()
+    {
+        IsBatchMode = !IsBatchMode;
+        OnPropertyChanged(nameof(ModeToggleText));
+
+        if (IsBatchMode)
+        {
+            CurrentView = _batchAutomation;
+            CurrentStepDescription = "Batch Mode: Process multiple teams automatically";
+            StatusMessage = "Switched to Batch Mode - Configure and run batch processing";
+        }
+        else
+        {
+            UpdateCurrentView();
+            StatusMessage = "Switched to Step-by-Step Mode";
+        }
+
+        // Notify UI of property changes
+        OnPropertyChanged(nameof(Step1Background));
+        OnPropertyChanged(nameof(Step1Foreground));
+        OnPropertyChanged(nameof(Step2Background));
+        OnPropertyChanged(nameof(Step2Foreground));
+        OnPropertyChanged(nameof(Step3Background));
+        OnPropertyChanged(nameof(Step3Foreground));
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanGoNext));
+        OnPropertyChanged(nameof(CanFinish));
     }
 
 

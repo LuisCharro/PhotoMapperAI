@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate synthetic player CSV from FIFA photos for PhotoMapperAI testing.
+Generate synthetic player CSV from competition photos for PhotoMapperAI testing.
 Matches the SQL schema expected by the extract command.
 """
 
@@ -40,7 +40,7 @@ def parse_filename(filename):
             last_name = ''
 
         return {
-            'ExternalId': player_id,
+            'External_Player_ID': player_id,
             'FullName': full_name,
             'SurName': first_name,  # SQL schema: SurName = First Name
             'FamilyName': last_name  # SQL schema: FamilyName = Last Name
@@ -96,18 +96,18 @@ def main():
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=[
             'PlayerId', 'TeamId', 'FamilyName', 'SurName',
-            'ExternalId', 'ValidMapping', 'Confidence', 'FullName'
+            'External_Player_ID', 'ValidMapping', 'Confidence', 'FullName'
         ])
         writer.writeheader()
 
         for player in players:
-            # Populate ExternalId from filename (for direct photo mapping)
+            # Populate External_Player_ID from filename (for direct photo mapping)
             writer.writerow({
                 'PlayerId': player['PlayerId'],
                 'TeamId': player['TeamId'],
                 'FamilyName': player['FamilyName'],
                 'SurName': player['SurName'],
-                'ExternalId': player['ExternalId'],  # Use parsed PlayerID from filename
+                'External_Player_ID': player['External_Player_ID'],  # Use parsed PlayerID from filename
                 'ValidMapping': 1,  # Already mapped
                 'Confidence': 1.0,  # 100% confidence
                 'FullName': player['FullName']

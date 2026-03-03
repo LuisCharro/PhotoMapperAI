@@ -81,6 +81,10 @@ tests/Data/*
 appsettings.local.json
 appsettings.json
 
+# Allow default size_profiles.json to be tracked (but not local overrides)
+!size_profiles.json
+size_profiles.local.json
+
 # Test outputs and generated files
 *.csv
 !test-*.csv
@@ -115,3 +119,11 @@ benchmark-results/*.json
 
 # Face detection cache
 .face-detection-cache.json
+
+# Published distributables
+publish/
+
+# Local dev scratch artifacts
+scripts/dev/*.log
+scripts/dev/*.tmp
+scripts/dev/*.bak

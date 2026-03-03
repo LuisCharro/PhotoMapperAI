@@ -1,0 +1,39 @@
+name: Ops Scripts CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+      - planning/**
+    paths:
+      - 'scripts/ops/**'
+      - 'docs/PARITY_*.md'
+      - '.github/workflows/ops-scripts-ci.yml'
+  pull_request:
+    branches:
+      - main
+      - feature/**
+      - planning/**
+    paths:
+      - 'scripts/ops/**'
+      - 'docs/PARITY_*.md'
+      - '.github/workflows/ops-scripts-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-ops-scripts:
+    name: Validate Ops Scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Validate ops scripts
+        run: ./scripts/ops/validate_ops_scripts.sh

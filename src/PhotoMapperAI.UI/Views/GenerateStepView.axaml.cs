@@ -1,6 +1,10 @@
+using System;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.Controls.Primitives;
 using PhotoMapperAI.UI.ViewModels;
+using System.Linq;
 
 namespace PhotoMapperAI.UI.Views;
 
@@ -9,6 +13,39 @@ public partial class GenerateStepView : UserControl
     public GenerateStepView()
     {
         InitializeComponent();
+    }
+
+    private void PhotoItem_Click(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Border border && border.DataContext is PhotoPreviewItem item)
+        {
+            // Show the photo preview dialog
+            ShowPhotoPreviewDialog(item);
+        }
+    }
+
+    private async void ShowPhotoPreviewDialog(PhotoPreviewItem item)
+    {
+        try
+        {
+            // Load full-size image for preview
+            if (!string.IsNullOrEmpty(item.FilePath) && System.IO.File.Exists(item.FilePath))
+            {
+                await using var stream = System.IO.File.OpenRead(item.FilePath);
+                item.Thumbnail = new Avalonia.Media.Imaging.Bitmap(stream);
+            }
+        }
+        catch
+        {
+            // Keep thumbnail if full-size fails
+        }
+
+        var dialog = new PhotoPreviewDialog(item);
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is Window window)
+        {
+            await dialog.ShowDialog(window);
+        }
     }
 
     private async void BrowseCsvFile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -76,6 +113,66 @@ public partial class GenerateStepView : UserControl
                     vm.OutputDirectory = folders[0].Path.LocalPath;
                 }
             }
+        }
+    }
+
+    private async void BrowseSizeProfileFile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is GenerateStepViewModel vm)
+        {
+            var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+            if (storage != null)
+            {
+                var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+                {
+                    Title = "Select Size Profile JSON",
+                    AllowMultiple = false,
+                    FileTypeFilter = new[]
+                    {
+                        new FilePickerFileType("JSON Files") { Patterns = new[] { "*.json" } },
+                        new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+                    }
+                });
+
+                if (files.Count > 0)
+                {
+                    vm.SizeProfilePath = files[0].Path.LocalPath;
+                }
+            }
+        }
+    }
+
+    private void FaceModelSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not GenerateStepViewModel vm)
+            return;
+
+        if (sender is ComboBox combo && combo.SelectedItem is string model && !string.IsNullOrWhiteSpace(model))
+        {
+            vm.FaceDetectionModel = model;
+        }
+    }
+
+    private async void CopyRunLog_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not GenerateStepViewModel vm)
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard == null)
+            return;
+
+        var text = string.Join(System.Environment.NewLine, vm.LogLines);
+        await topLevel.Clipboard.SetTextAsync(text);
+
+        vm.ProcessingStatus = "Run log copied to clipboard.";
+    }
+
+    private void CropOffsetSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (DataContext is GenerateStepViewModel vm)
+        {
+            vm.RequestAutoPreviewFromUi();
         }
     }
 }

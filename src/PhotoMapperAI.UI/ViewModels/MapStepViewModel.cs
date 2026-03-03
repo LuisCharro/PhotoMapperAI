@@ -7,15 +7,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
-using PhotoMapperAI.Services.Image;
+using PhotoMapperAI.UI.Configuration;
+using PhotoMapperAI.UI.Execution;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class MapStepViewModel : ViewModelBase
 {
     private const double MinConfidenceThreshold = 0.8;
+    private readonly ExternalMapCliRunner _mapRunner = new();
     private CancellationTokenSource? _cancellationTokenSource;
     private static readonly string[] DefaultLocalNameModels =
     {
@@ -33,13 +36,16 @@ public partial class MapStepViewModel : ViewModelBase
         "minimax-m2:cloud",
         "qwen3-coder:480b-cloud"
     };
-    private static readonly string[] KnownHostedNameModels =
+    private static readonly string[] DefaultPaidNameModels =
     {
-        "openai:gpt-4o-mini",
-        "openai:gpt-4.1-mini",
-        "anthropic:claude-3-5-sonnet",
-        "anthropic:claude-3-5-haiku"
+        "openai:gpt-5-mini",
+        "openai:gpt-5.2",
+        "openai:gpt-5.2-pro",
+        "anthropic:claude-3-5-sonnet"
     };
+
+    private static readonly string[] ConfiguredPaidNameModels =
+        UiModelConfigLoader.Load().MapPaidModels.ToArray();
 
     [ObservableProperty]
     private string _inputCsvPath = string.Empty;
@@ -52,6 +58,14 @@ public partial class MapStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _filenamePattern = string.Empty;
+
+    [ObservableProperty]
+    private FilenamePatternPreset? _selectedFilenamePatternPreset;
+
+    [ObservableProperty]
+    private string _filenamePatternStatus = string.Empty;
+
+    public ObservableCollection<FilenamePatternPreset> FilenamePatternPresets { get; } = new();
 
     [ObservableProperty]
     private string _photoManifestPath = string.Empty;
@@ -127,6 +141,7 @@ public partial class MapStepViewModel : ViewModelBase
     public MapStepViewModel()
     {
         SeedNameModelList();
+        LoadFilenamePatternPresets();
         UpdateProviderKeyInputVisibility();
         _ = RefreshNameModelsAsync(showStatus: false);
     }
@@ -269,9 +284,11 @@ public partial class MapStepViewModel : ViewModelBase
                 ConfidenceThreshold = MinConfidenceThreshold;
             }
 
+            var effectiveNameModel = NameModel;
+
             var preflight = await PreflightChecker.CheckMapAsync(
                 UseAiMapping,
-                NameModel,
+                effectiveNameModel,
                 openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                 anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
             if (!preflight.IsOk)
@@ -287,48 +304,69 @@ public partial class MapStepViewModel : ViewModelBase
                 ModelDiagnosticStatus = warningMessage;
             }
 
-            // Create services
-            var nameMatchingService = NameMatchingServiceFactory.Create(
-                NameModel,
-                confidenceThreshold: ConfidenceThreshold,
-                openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
-            var imageProcessor = new ImageProcessor();
-
-            // Create map command logic
-            var logic = new Commands.MapCommandLogic(nameMatchingService, imageProcessor);
-
-            // Execute mapping
-            var progress = new Progress<(int processed, int total, string current)>(p =>
+            var log = new Progress<string>(line =>
             {
-                var percent = p.total > 0
-                    ? (double)p.processed / p.total * 100.0
-                    : 0.0;
-                Progress = Math.Clamp(percent, 0, 100);
-                ProcessingStatus = $"Processing {p.processed}/{p.total}: {p.current}";
+                AppendLog(line);
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"Matched\s+(\d+)\s*/\s*(\d+)\s*players", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (m.Success)
+                {
+                    PlayersMatched = int.Parse(m.Groups[1].Value);
+                    var total = int.Parse(m.Groups[2].Value);
+                    if (total > 0)
+                    {
+                        PlayersProcessed = total;
+                    }
+                    ProcessingStatus = $"Matched {PlayersMatched}/{PlayersProcessed} players...";
+                }
             });
 
-            var log = new Progress<string>(AppendLog);
+            var uiProgress = new Progress<(int processed, int total, string current)>(state =>
+            {
+                if (state.total <= 0)
+                {
+                    Progress = 0;
+                    return;
+                }
 
-            var result = await logic.ExecuteAsync(
+                PlayersProcessed = state.processed;
+                Progress = Math.Clamp((double)state.processed / state.total * 100.0, 0, 100);
+                var currentLabel = string.IsNullOrWhiteSpace(state.current) ? string.Empty : $" {state.current}";
+                ProcessingStatus = $"Mapping {state.processed}/{state.total} players{currentLabel}";
+            });
+
+            var effectiveOutputDirectory = string.IsNullOrWhiteSpace(OutputDirectory)
+                ? Directory.GetCurrentDirectory()
+                : OutputDirectory;
+            Directory.CreateDirectory(effectiveOutputDirectory);
+
+            var result = await _mapRunner.ExecuteAsync(
+                Directory.GetCurrentDirectory(),
+                effectiveOutputDirectory,
                 InputCsvPath,
                 PhotosDirectory,
-                string.IsNullOrEmpty(FilenamePattern) ? null : FilenamePattern,
+                string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
                 UsePhotoManifest ? PhotoManifestPath : null,
-                string.IsNullOrWhiteSpace(OutputDirectory) ? null : OutputDirectory,
-                NameModel,
+                effectiveNameModel,
                 ConfidenceThreshold,
                 UseAiMapping,
                 UseAiMapping && AiSecondPass,
-                progress,
+                UseAiMapping && AiOnly,
+                string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
+                string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                 _cancellationTokenSource.Token,
-                aiOnly: UseAiMapping && AiOnly,
-                log: log
-            );
+                log,
+                uiProgress);
+
+            if (result.ExitCode != 0)
+            {
+                ProcessingStatus = $"✗ Mapping failed with exit code {result.ExitCode}";
+                IsComplete = false;
+                return;
+            }
 
             PlayersProcessed = result.PlayersProcessed;
             PlayersMatched = result.PlayersMatched;
-            OutputCsvPath = result.OutputPath ?? string.Empty;
+            OutputCsvPath = result.OutputCsvPath ?? string.Empty;
             ProcessingStatus = $"✓ Mapped {PlayersMatched}/{PlayersProcessed} players successfully";
             Progress = 100;
             IsComplete = true;
@@ -421,7 +459,11 @@ public partial class MapStepViewModel : ViewModelBase
 
         foreach (var model in KnownCloudNameModels)
             merged.Add(model);
-        foreach (var model in KnownHostedNameModels)
+        var paidModels = ConfiguredPaidNameModels.Length > 0
+            ? ConfiguredPaidNameModels
+            : DefaultPaidNameModels;
+
+        foreach (var model in paidModels)
             merged.Add(model);
 
         var local = new List<string>();
@@ -446,7 +488,23 @@ public partial class MapStepViewModel : ViewModelBase
 
         local.Sort(StringComparer.OrdinalIgnoreCase);
         freeTier.Sort(StringComparer.OrdinalIgnoreCase);
-        paid.Sort(StringComparer.OrdinalIgnoreCase);
+
+        // Keep configured paid model order (power order) when provided.
+        var paidOrdered = new List<string>();
+        foreach (var model in paidModels)
+        {
+            var found = paid.FirstOrDefault(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(found))
+                paidOrdered.Add(found);
+        }
+
+        foreach (var model in paid)
+        {
+            if (!paidOrdered.Any(x => string.Equals(x, model, StringComparison.OrdinalIgnoreCase)))
+                paidOrdered.Add(model);
+        }
+
+        paid = paidOrdered;
 
         LocalNameModels.Clear();
         foreach (var model in local)
@@ -548,7 +606,104 @@ public partial class MapStepViewModel : ViewModelBase
         if (IsPaidModel(modelName))
             return 2;
         if (IsFreeTierModel(modelName))
-            return 1;
-        return 0;
+            return 0;
+        return 1;
     }
+
+    private void LoadFilenamePatternPresets()
+    {
+        var settings = FilenamePatternSettingsLoader.Load();
+
+        FilenamePatternPresets.Clear();
+        foreach (var preset in settings.Presets)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset
+            {
+                Name = preset.Name,
+                Pattern = preset.Pattern,
+                Description = preset.Description
+            });
+        }
+
+        if (FilenamePatternPresets.Count == 0)
+        {
+            FilenamePatternPresets.Add(new FilenamePatternPreset { Name = "default", Pattern = string.Empty });
+        }
+
+        var active = settings.GetActivePreset();
+        SelectedFilenamePatternPreset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, active.Name, StringComparison.OrdinalIgnoreCase))
+            ?? FilenamePatternPresets[0];
+    }
+
+    [RelayCommand]
+    private void SaveFilenamePatternPreset()
+    {
+        var presetName = SelectedFilenamePatternPreset?.Name;
+        if (string.IsNullOrWhiteSpace(presetName))
+        {
+            presetName = "default";
+        }
+
+        var preset = FilenamePatternPresets.FirstOrDefault(p =>
+            string.Equals(p.Name, presetName, StringComparison.OrdinalIgnoreCase));
+
+        if (preset == null)
+        {
+            preset = new FilenamePatternPreset { Name = presetName };
+            FilenamePatternPresets.Add(preset);
+        }
+
+        preset.Pattern = FilenamePattern;
+
+        var settings = new FilenamePatternSettings
+        {
+            ActivePresetName = presetName,
+            Presets = FilenamePatternPresets
+                .Select(p => new FilenamePatternPreset
+                {
+                    Name = p.Name,
+                    Pattern = p.Pattern,
+                    Description = p.Description
+                })
+                .ToList()
+        };
+
+        FilenamePatternSettingsLoader.SaveToLocal(settings);
+        FilenamePatternStatus = $"Saved preset '{presetName}' to appsettings.local.json";
+        SelectedFilenamePatternPreset = preset;
+    }
+
+    [RelayCommand]
+    private void NewFilenamePatternPreset()
+    {
+        var baseName = "new_pattern";
+        var counter = 1;
+        var newName = $"{baseName}_{counter}";
+
+        while (FilenamePatternPresets.Any(p => string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            counter++;
+            newName = $"{baseName}_{counter}";
+        }
+
+        var newPreset = new FilenamePatternPreset
+        {
+            Name = newName,
+            Pattern = FilenamePattern
+        };
+
+        FilenamePatternPresets.Add(newPreset);
+        SelectedFilenamePatternPreset = newPreset;
+        FilenamePatternStatus = $"Created new preset '{newName}'. Click 'Save' to persist.";
+    }
+
+    partial void OnSelectedFilenamePatternPresetChanged(FilenamePatternPreset? value)
+    {
+        if (value != null)
+        {
+            FilenamePattern = value.Pattern;
+        }
+    }
+
 }

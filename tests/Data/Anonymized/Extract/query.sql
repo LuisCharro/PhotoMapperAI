@@ -3,6 +3,6 @@ SELECT
     TeamId,
     FamilyName,
     SurName,
-    ExternalId
+    External_Player_ID
 FROM Players
 WHERE TeamId = @TeamId;

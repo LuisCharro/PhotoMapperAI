@@ -1,6 +1,6 @@
 # PhotoMapperAI
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-production--ready-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -8,7 +8,7 @@ AI-powered tool for mapping sports player photos to database systems. Available 
 
 ## Problem Solved
 
-Sports organizations receive photo sets from external sources (e.g., FIFA) with limited metadata (typically just `PlayerID_FamilyName_Surname.png`). Integrating these into internal database systems requires:
+Sports organizations receive photo sets from external sources (e.g., competition) with limited metadata (typically just `PlayerID_FamilyName_Surname.png`). Integrating these into internal database systems requires:
 
 1. **Data Extraction:** Export player data from internal database to CSV format
 2. **Name Matching:** Map external photos to internal player records using AI
@@ -42,7 +42,7 @@ For local inference stability on laptops, the tool enforces a local-model policy
 ```bash
 PhotoMapperAI extract -inputSqlPath path/to/playersByTeam.sql -teamId 10 -outputName SpainTeam.csv
 ```
-Runs a user-provided SQL query to export player data from the internal database to CSV format. Includes placeholder columns for `Fifa_Player_ID` and `Valid_Mapping`.
+Runs a user-provided SQL query to export player data from the internal database to CSV format. Includes placeholder columns for `External_Player_ID` and `Valid_Mapping`.
 
 ### Step 2: Map Photos to Players
 ```bash
@@ -64,8 +64,8 @@ PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/
 - Runs deterministic global name matching for unresolved players
 - Uses AI fallback only for unresolved/ambiguous cases
 - Validates matches with confidence threshold (default: 0.8)
-- Updates CSV with `Fifa_Player_ID` and `Valid_Mapping` columns
-- See [`docs/NAME_MAPPING_PIPELINE.md`](docs/NAME_MAPPING_PIPELINE.md) for the full mapping algorithm and tuning knobs
+- Updates CSV with `External_Player_ID` and `Valid_Mapping` columns
+- See [`docs/guides/NAME_MAPPING_PIPELINE.md`](docs/guides/NAME_MAPPING_PIPELINE.md) for the full mapping algorithm and tuning knobs
 
 ### Step 3: Generate Portraits (with Face Detection)
 ```bash
@@ -81,7 +81,7 @@ PhotoMapperAI generatePhotos \
   -inputCsvPath path/to/SpainTeam.csv \
   -processedPhotosOutputPath portraits/SpainTeam \
   -format jpg \
-  -faceDetection llava:7b,qwen3-vl
+  -faceDetection llava:7b
 
 # Using center crop (fastest, no AI)
 PhotoMapperAI generatePhotos \
@@ -103,14 +103,14 @@ PhotoMapperAI generatePhotos \
 - **Automatic fallback:** Use comma-separated models (e.g., `llava:7b,qwen3-vl`) for reliability
 - Detects faces and eyes in full-body photos
 - Calculates portrait crop area based on eye position (or face center as fallback)
-- Outputs portrait photos named with **PlayerId** (internal system ID, not ExternalId)
+- Outputs portrait photos named with **PlayerId** (internal system ID, not External_Player_ID)
 
 > **Note:** Portrait crop behavior:
 > - **With AI face detection:** Crops around eyes/face for optimal framing (head + neck + bit of chest)
 > - **Center mode (no AI):** Crops from upper portion of image (top 22% of height) assuming full-body sports photos. This captures head + neck + bit of chest for proper portrait composition.
 > - All portraits are resized to exact dimensions (default: 200x300 pixels)
 >
-> **See:** [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.
+> **See:** [`docs/guides/FACE_DETECTION_GUIDE.md`](docs/guides/FACE_DETECTION_GUIDE.md) for detailed model comparison and best practices.
 
 ## Tech Stack
 
@@ -138,20 +138,45 @@ PhotoMapperAI benchmark-compare \
 If you keep private test data outside this repo (for example in `PhotoMapperAI_ExternalData`), use:
 
 1. Config template: `samples/external_validation.config.template.json`
-2. Runner script: `scripts/run_external_validation.py`
+2. Legacy-parity config template (team-specific CSVs): `samples/external_validation.realdata_parity.template.json`
+3. Runner script: `scripts/run_external_validation.py`
 
-Example:
+Examples:
 
 ```bash
 python3 scripts/run_external_validation.py --config samples/external_validation.config.template.json
+
+# Legacy-ID parity mode (recommended for comparing against old expected portraits)
+python3 scripts/run_external_validation.py --config samples/external_validation.realdata_parity.template.json
+
+# Optional machine-readable summary
+python3 scripts/run_external_validation.py \
+  --config samples/external_validation.realdata_parity.template.json \
+  --summary-json /tmp/external-validation-summary.json
 ```
 
 This will:
-- prepare team CSVs (from source players CSV, or synthesize from filenames if needed),
+- prepare team CSVs (team-specific source CSV if configured, otherwise shared source CSV, or synthesize from filenames),
 - run `map`,
 - run `generatephotos`,
 - compare generated portrait IDs against expected portrait IDs,
-- write a report in the configured `outputRoot`.
+- write a report in the configured `outputRoot` (status, ID coverage %, missing/unexpected IDs, avg file-size stats).
+
+Tip: config supports long-run safeguards:
+- `mapTimeoutSec`
+- `generateTimeoutSec`
+- `continueOnError` (continue remaining teams even if one team fails)
+
+### Portrait Set Quality/Parity Comparison
+
+Use this helper to compare expected vs generated portraits (ID coverage + basic size stats):
+
+```bash
+python3 scripts/compare_portrait_sets.py \
+  --expectedDir /path/to/expected/portraits/Spain \
+  --generatedDir /path/to/Validation_Run/Spain/Generated \
+  --outputJson /tmp/spain-portrait-compare.json
+```
 
 ### Validation Suite Runner (Overwrite + All/Single Preset)
 
@@ -276,12 +301,16 @@ PhotoMapperAI/
 │       │   ├── MainWindowViewModel.cs
 │       │   ├── ExtractStepViewModel.cs
 │       │   ├── MapStepViewModel.cs
-│       │   └── GenerateStepViewModel.cs
+│       │   ├── GenerateStepViewModel.cs
+│       │   └── BatchAutomationViewModel.cs
 │       ├── Views/                # Avalonia XAML views
 │       │   ├── MainWindow.axaml
 │       │   ├── ExtractStepView.axaml
 │       │   ├── MapStepView.axaml
-│       │   └── GenerateStepView.axaml
+│       │   ├── GenerateStepView.axaml
+│       │   └── BatchAutomationView.axaml
+│       ├── Models/               # UI-specific models
+│       │   └── BatchTeamItem.cs
 │       ├── App.axaml             # Application resources
 │       ├── Program.cs            # GUI entry point
 │       └── ViewLocator.cs        # ViewModel-to-View mapping
@@ -293,9 +322,12 @@ PhotoMapperAI/
 │       ├── Benchmarks/
 │       └── Data/
 ├── docs/
-│   ├── ARCHITECTURE_DECISIONS.md
-│   ├── TESTING_STRATEGY.md
-│   └── MODEL_BENCHMARKS.md
+│   ├── README.md               # Documentation index
+│   ├── architecture/           # Architecture decisions
+│   ├── guides/                 # User guides and references
+│   ├── planning/               # Project planning
+│   ├── reports/                # Validation reports
+│   └── testing/                # Testing documentation
 ├── data/                        # Sample data (gitignored)
 └── samples/                     # Example configs and templates
 ```
@@ -316,15 +348,19 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 
 **Features:**
 - Visual step-by-step workflow (Extract → Map → Generate)
+- **Batch Automation view** for processing multiple teams in one run
 - File browser dialogs for easy file selection
 - Real-time progress indicators
 - All CLI parameters with friendly UI controls
 - Session save/load for continuing work later
+- **AI model selection tiers** (Free Tier, Local, Paid)
+- **Model refresh and check** functionality
+- **Filename pattern presets** with save/load
 
 **Known Issues (GUI):**
-- Session save/load currently uses default app data path (no file picker yet)
+- None currently
 
-**Documentation:** See [`GUIDE.md`](GUIDE.md) for complete GUI documentation.
+**Documentation:** See [`docs/guides/GUIDE.md`](docs/guides/GUIDE.md) for complete GUI documentation.
 
 ### Command-Line Interface (For Automation & Batch Processing)
 
@@ -358,7 +394,7 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 
 - **OpenCV** (optional, for faster face detection)
   - Included via NuGet: `OpenCvSharp4`
-  - Model files must be downloaded manually (see [`docs/OPENCV_MODELS.md`](docs/OPENCV_MODELS.md))
+  - Model files must be downloaded manually (see [`docs/guides/OPENCV_MODELS.md`](docs/guides/OPENCV_MODELS.md))
   - Configure paths in `appsettings.json` (copy from `appsettings.template.json`)
 
 ### Building
@@ -366,6 +402,71 @@ dotnet run --project src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj
 ```bash
 dotnet build
 ```
+
+## Distributing to Users
+
+PhotoMapperAI can be distributed to users as a standalone executable without requiring them to install .NET.
+
+### Using Makefile (Command Line)
+
+Use the Makefile targets to publish self-contained, single-file executables:
+
+```bash
+# Publish for all platforms
+make publish-all
+
+# Or publish for specific platforms
+make publish-mac      # macOS (Apple Silicon)
+make publish-win     # Windows
+make publish-linux   # Linux
+
+# CLI-only versions
+make publish-cli-mac
+make publish-cli-win
+make publish-cli-linux
+```
+
+### Using VS Code Tasks (One-Click Publishing)
+
+If you're using Visual Studio Code, you can publish with one click:
+
+1. Press **`Ctrl+Shift+P`** (or `Cmd+Shift+P` on macOS)
+2. Type **"Tasks: Run Task"**
+3. Select one of:
+   - **publish-windows** - Publishes both CLI and GUI for Windows x64
+   - **publish-macos** - Publishes both CLI and GUI for macOS ARM64
+   - **publish-linux** - Publishes both CLI and GUI for Linux x64
+
+Each task publishes both the CLI and GUI applications to the same folder.
+
+### Output
+
+Published files are created in the `publish/` folder:
+
+```
+publish/
+├── PhotoMapperAI-macOS/      # macOS UI app (~56MB single file)
+├── PhotoMapperAI-Windows/   # Windows UI app
+├── PhotoMapperAI-Linux/     # Linux UI app
+├── PhotoMapperAI-CLI-macOS/  # macOS CLI tool
+├── PhotoMapperAI-CLI-Windows/
+└── PhotoMapperAI-CLI-Linux/
+```
+
+### Distribution Steps
+
+1. **Build** the executable for the target platform
+2. **Zip** the `publish/PhotoMapperAI-*` folder
+3. **Share** the zip file with users
+
+### Running Distributed App
+
+Users simply:
+1. Unzip the folder
+2. Make executable: `chmod +x PhotoMapperAI.UI` (macOS/Linux)
+3. Run: `./PhotoMapperAI.UI`
+
+No .NET installation required!
 
 ### Usage
 
@@ -386,8 +487,8 @@ dotnet run -- extract -inputSqlPath data.sql -outputName team.csv
 # 1. Automatic pattern detection
 dotnet run -- map -inputCsvPath team.csv -photosDir ./photos
 
-# 2. User-specified pattern
-dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -filenamePattern "{id}_{family}_{sur}.png"
+# 2. User-specified pattern (new placeholders)
+dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -filenamePattern "{first}_{last}_{id}.jpg"
 
 # 3. Photo manifest
 dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest manifest.json
@@ -399,7 +500,7 @@ dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest mani
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
 
 # Ollama Vision with fallback (recommended for best results)
-dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b,qwen3-vl
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b
 
 # Qwen3-VL only (best for challenging angles)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
@@ -412,6 +513,21 @@ dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath .
 
 # Portrait only (reuse existing detections)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
+
+# Size profile (first variant) - uses size_profiles.json next to appsettings.json
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -sizeProfile size_profiles.json
+
+# Size profile (all variants)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -sizeProfile size_profiles.json -allSizes
+
+# Placeholder image (when player has no photo)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -placeholderImage ./placeholder-200x300.jpg
+
+# Size profile with placeholders (uses placeholderPath from each variant)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -sizeProfile size_profiles.json -allSizes
+
+# Output profile alias (uses PHOTOMAPPER_OUTPUT_TEST/PROD env when set)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -outputProfile test
 ```
 
 #### Benchmark
@@ -455,7 +571,7 @@ Test Data (local, not in repo):
 
 ## Current Status
 
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-02-22
 
 ### Feature Status
 
@@ -463,32 +579,52 @@ Test Data (local, not in repo):
 |---------|--------|-------|
 | Database extraction (CSV) | ✅ Production Ready | Works with any SQL database |
 | Name matching (AI) | ✅ Production Ready | 90% accuracy with Ollama LLMs |
-| Photo mapping | ✅ Production Ready | 49/49 FIFA photos successfully mapped |
+| Photo mapping | ✅ Production Ready | 49/49 competition photos successfully mapped |
 | Face detection (OpenCV) | ✅ Fixed | Model files added, fallback working |
 | Face detection (Ollama Vision) | ✅ Working | qwen3-vl and llava:7b supported |
 | Portrait generation | ✅ Fixed | Correct 200x300 dimensions |
-| Desktop GUI (Avalonia) | 🚧 In Progress | Core workflow works; see GUI known issues |
+| Desktop GUI (Avalonia) | ✅ Production Ready | Full workflow with batch automation |
+| Batch Automation | ✅ Production Ready | Process multiple teams in one run |
 | PowerShell scripts | ✅ Complete | Windows support available |
 
 ### Known Issues
 
-No critical CLI issues currently.
+No critical issues currently.
 
-GUI known issues:
-- Session save/load currently uses default app data path (no file picker yet).
+### Filename Pattern Placeholders
+
+Use these placeholders in filename patterns:
+
+| Placeholder | Meaning |
+|-------------|---------|
+| `{id}` | Player ID (External_Player_ID) |
+| `{first}` | First name |
+| `{last}` | Last name |
+
+**Examples:**
+```
+{first}_{last}_{id}.jpg    →  Dani_Carvajal_250024448.jpg
+{id}_{first}_{last}.png    →  250024448_Dani_Carvajal.png
+{first}-{last}-{id}.jpg    →  Dani-Carvajal-250024448.jpg
+```
+
+Legacy placeholders `{sur}` (first name) and `{family}` (last name) are still supported for backward compatibility.
 
 ### Planned Improvements
 
-See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) for detailed enhancement plans.
+See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md) for detailed enhancement plans.
 
 **Completed:**
 - ✅ **Face-Based Crop Dimensions** - Crop size based on detected face (2x width, 3x height)
 - ✅ **Portrait Photo Detection** - Skip cropping for photos that are already portraits
 - ✅ **Eye Position Centering** - Eyes positioned at 35% from top for standard composition
+- ✅ **Batch Automation View** - Process multiple teams in one run with combined Extract→Map→Generate workflow
+- ✅ **Filename Pattern Presets** - Save and reuse filename patterns with `{first}`, `{last}`, `{id}` placeholders
+- ✅ **AI Model Selection Tiers** - Organized model selection (Free Tier, Local, Paid)
+- ✅ **Model Refresh/Check** - Verify model availability before processing
 
 **Pending:**
 - ⏳ **Haar Cascade Eye Detection** - Created but has native library issues on macOS
-- ⏳ **Multiple Output Sizes** - Generate multiple portrait sizes in one run
 - ⏳ **Debug Visualization** - Save intermediate images with detected regions highlighted
 
 ### Recent Commits (feature/phase1-implementation)
@@ -499,15 +635,13 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 
 ### Documentation
 
-- [`PROGRESS.md`](PROGRESS.md) - Development progress and tasks
-- [`TEST_SESSION.md`](TEST_SESSION.md) - Test session logs and findings
-- [`PHASE3_VALIDATION_REPORT.md`](PHASE3_VALIDATION_REPORT.md) - Detailed Phase 3 validation
+- [`PENDING_FEATURES.md`](PENDING_FEATURES.md) - Planned and pending features
 - [`RELEASE_NOTES.md`](RELEASE_NOTES.md) - v1.0.0 release notes and features
 - [`CHANGELOG.md`](CHANGELOG.md) - Version history and detailed changes
-- [`docs/`](docs/) - Technical documentation
+- [`docs/`](docs/) - Technical documentation (see [docs/README.md](docs/README.md) for index)
 
 
-**To use local test data:** See [`docs/TEST_CONFIGURATION.md`](docs/TEST_CONFIGURATION.md) for detailed setup instructions. Use the provided template (`test-config.template.json`) and configure it with your local paths.
+**To use local test data:** See [`docs/testing/TEST_CONFIGURATION.md`](docs/testing/TEST_CONFIGURATION.md) for detailed setup instructions. Use the provided template (`test-config.template.json`) and configure it with your local paths.
 
 **Important:**
 - Never commit real player data or personal database connection strings
@@ -523,15 +657,15 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 
 1. **Automatic Detection:** Try common regex patterns
    ```csharp
-   // Pattern examples:
-   // {id}_{family}_{sur}.png
-   // {sur}-{family}-{id}.jpg
-   // {family}, {sur} - {id}.png
+   // Pattern examples (auto-detected):
+   // {first}_{last}_{id}.jpg      → Dani_Carvajal_250024448.jpg
+   // {id}_{first}_{last}.png      → 250024448_Dani_Carvajal.png
+   // {first}-{last}-{id}.jpg      → Dani-Carvajal-250024448.jpg
    ```
 
 2. **User-Specified Pattern:** Template-based parsing
    ```bash
-   -filenamePattern "{id}_{family}_{sur}.png"
+   -filenamePattern "{first}_{last}_{id}.jpg"
    ```
 
 3. **Photo Manifest:** JSON file for complex cases
@@ -543,6 +677,8 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
      }
    }
    ```
+
+**Pattern Presets:** The GUI includes a preset system for saving and reusing filename patterns. Patterns are stored in `appsettings.local.json`.
 
 ## Benchmarking & Model Comparison
 
@@ -556,7 +692,7 @@ See [`docs/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/PORTRAIT_IMPROVEMENTS_PLAN.md) f
 | llama3.2:3b | 85% | 520 | Speed-critical |
 
 Operational note for MAP command:
-- For hosted OpenAI mapping, see `/Users/luis/Repos/PhotoMapperAI/docs/NAME_MAPPING_PIPELINE.md` (`OpenAI gpt-4.1 Cost/Quality Snapshot`).
+- For hosted OpenAI mapping, see [`docs/guides/NAME_MAPPING_PIPELINE.md`](docs/guides/NAME_MAPPING_PIPELINE.md) (`OpenAI gpt-4.1 Cost/Quality Snapshot`).
 - Latest validated Denmark run shows deterministic+AI flow (`-a -ap`, no `--aiOnly`) reached better quality and much lower token cost than `--aiOnly`.
 
 ### Face Detection Approaches
@@ -612,10 +748,13 @@ Operational note for MAP command:
 | `-processedPhotosOutputPath` | Output path for portraits | Yes | - |
 | `-photosDir` | Directory containing source photos | Yes | - |
 | `-format` | Image format (jpg/png) | No | jpg |
-| `-faceDetection` | Face detection model (see below) | No | llava:7b,qwen3-vl |
+| `-faceDetection` | Face detection model (see below) | No | llava:7b |
 | `-portraitOnly` | Skip face detection, use existing | No | false |
 | `-faceWidth` | Portrait width in pixels | No | 200 |
 | `-faceHeight` | Portrait height in pixels | No | 300 |
+| `-sizeProfile` | Path to size profile JSON | No | - |
+| `-allSizes` | With `-sizeProfile`, generate all variants into subfolders | No | false |
+| `-outputProfile` | Output profile alias (`test`/`prod`) | No | - |
 
 **Face Detection Models:**
 | Model | Description |
@@ -650,7 +789,7 @@ Areas for contribution:
 
 ### Common Issues
 
-If you encounter problems, check [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) for:
+If you encounter problems, check [`docs/guides/EDGE_CASES.md`](docs/guides/EDGE_CASES.md) for:
 
 - **Name matching issues:** Transliteration differences, name order variations, nicknames
 - **Photo file problems:** No photo found, multiple photos, unsupported formats
@@ -672,10 +811,10 @@ If you encounter problems, check [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) for:
 ### Getting Help
 
 For more detailed troubleshooting:
-- See [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) - Comprehensive edge cases guide
-- See [`docs/NAME_MAPPING_PIPELINE.md`](docs/NAME_MAPPING_PIPELINE.md) - Name mapping strategy and decision flow
-- See [`docs/FACE_DETECTION_GUIDE.md`](docs/FACE_DETECTION_GUIDE.md) - Face detection model guide
-- See [`docs/ANONYMIZED_VALIDATION.md`](docs/ANONYMIZED_VALIDATION.md) - In-repo anonymized CLI validation (extract + map)
+- See [`docs/guides/EDGE_CASES.md`](docs/guides/EDGE_CASES.md) - Comprehensive edge cases guide
+- See [`docs/guides/NAME_MAPPING_PIPELINE.md`](docs/guides/NAME_MAPPING_PIPELINE.md) - Name mapping strategy and decision flow
+- See [`docs/guides/FACE_DETECTION_GUIDE.md`](docs/guides/FACE_DETECTION_GUIDE.md) - Face detection model guide
+- See [`docs/testing/ANONYMIZED_VALIDATION.md`](docs/testing/ANONYMIZED_VALIDATION.md) - In-repo anonymized CLI validation (extract + map)
 - See [`samples/sql-examples/README.md`](samples/sql-examples/README.md) - SQL query adaptation guide
 - Report issues: https://github.com/LuisCharro/PhotoMapperAI/issues
 

@@ -154,13 +154,13 @@ public class PlayerRecordTests
     }
 
     [Fact]
-    public void Constructor_Defaults_ExternalIdNull()
+    public void Constructor_Defaults_External_Player_IDNull()
     {
         // Arrange & Act
         var record = new PlayerRecord();
 
         // Assert
-        Assert.Null(record.ExternalId);
+        Assert.Null(record.External_Player_ID);
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public class PlayerRecordTests
             TeamId = 456,
             FamilyName = "Smith",
             SurName = "John",
-            ExternalId = "789",
+            External_Player_ID = "789",
             ValidMapping = true,
             Confidence = 0.95
         };
@@ -227,7 +227,7 @@ public class PlayerRecordTests
         Assert.Equal(456, record.TeamId);
         Assert.Equal("Smith", record.FamilyName);
         Assert.Equal("John", record.SurName);
-        Assert.Equal("789", record.ExternalId);
+        Assert.Equal("789", record.External_Player_ID);
         Assert.True(record.ValidMapping);
         Assert.Equal(0.95, record.Confidence);
     }

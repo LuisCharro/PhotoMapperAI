@@ -1,6 +1,5 @@
 using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.Image;
-using System.Text.RegularExpressions;
 
 namespace PhotoMapperAI.Services.AI;
 
@@ -54,18 +53,6 @@ public class OllamaFaceDetectionService : IFaceDetectionService
 
                 // Build prompt for face detection
                 var prompt = BuildFaceDetectionPrompt(width, height);
-
-                // Get image base64 for vision input
-                var imageBytes = await File.ReadAllBytesAsync(imagePath);
-                var extension = Path.GetExtension(imagePath).TrimStart('.');
-                var mimeType = extension.ToLower() switch
-                {
-                    "jpg" or "jpeg" => "image/jpeg",
-                    "png" => "image/png",
-                    "bmp" => "image/bmp",
-                    _ => "image/jpeg"
-                };
-                var base64Image = Convert.ToBase64String(imageBytes);
 
                 // Call Ollama Vision API with timeout
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -221,35 +208,28 @@ public class OllamaFaceDetectionService : IFaceDetectionService
     /// </summary>
     private static string BuildFaceDetectionPrompt(int imageWidth, int imageHeight)
     {
-        return $@"You are a face and eye detection expert for sports player photos.
+        return $@"Task: detect one human face in a sports full-body photo.
 
-Analyze the image and detect:
-1. Is there a face? (true/false)
-2. Are both eyes visible? (true/false)
-3. Face rectangle (x, y, width, height) in pixels
-4. Left eye position (x, y) in pixels (if visible)
-5. Right eye position (x, y) in pixels (if visible)
-6. Face center point (x, y) in pixels
-7. Confidence score (0.0 to 1.0)
+Important rules:
+- Return ONLY a single JSON object. No markdown, no prose.
+- Use NORMALIZED coordinates in range [0,1] (not pixels).
+- faceRect must tightly cover the face only (not torso/body).
+- If uncertain, set faceDetected=false.
+- If both eyes are not clearly visible, set bothEyesDetected=false and omit eye points.
 
-Image dimensions: {imageWidth}x{imageHeight} pixels.
+Image size for reference: {imageWidth}x{imageHeight}.
 
-Return your answer as a JSON object with:
-{{
-""faceDetected"": true/false,
-""bothEyesDetected"": true/false,
-""faceRect"": {{""x"": 0, ""y"": 0, ""width"": 0, ""height"": 0}},
-""leftEye"": {{""x"": 0, ""y"": 0}},
-""rightEye"": {{""x"": 0, ""y"": 0}},
-""faceCenter"": {{""x"": 0, ""y"": 0}},
-""confidence"": 0.0
+Expected JSON keys:
+faceDetected (boolean)
+bothEyesDetected (boolean)
+faceRect (object with x,y,width,height in [0,1])
+leftEye (object x,y in [0,1], optional)
+rightEye (object x,y in [0,1], optional)
+faceCenter (object x,y in [0,1], optional)
+confidence (number 0..1)
 
-If no face detected, return:
-{{
-""faceDetected"": false,
-""bothEyesDetected"": false,
-""confidence"": 0.0
-}}";
+If no reliable face is visible:
+{{""faceDetected"":false,""bothEyesDetected"":false,""confidence"":0.0}}";
     }
 
     /// <summary>
@@ -277,7 +257,15 @@ If no face detected, return:
                 };
             }
 
-            var jsonString = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
+            var jsonString = response.Substring(jsonStart, jsonEnd - jsonStart + 1).Trim();
+            if (jsonString.StartsWith("```", StringComparison.Ordinal))
+            {
+                jsonString = jsonString
+                    .Replace("```json", string.Empty, StringComparison.OrdinalIgnoreCase)
+                    .Replace("```", string.Empty, StringComparison.OrdinalIgnoreCase)
+                    .Trim();
+            }
+
             var data = System.Text.Json.JsonSerializer.Deserialize<VisionResponse>(jsonString);
 
             if (data == null)
@@ -335,6 +323,21 @@ If no face detected, return:
                 );
             }
 
+            if (!ValidateLandmarks(landmarks, imageWidth, imageHeight, out var validationError))
+            {
+                return new FaceLandmarks
+                {
+                    FaceDetected = false,
+                    ModelUsed = "OllamaVision",
+                    FaceConfidence = 0.0,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "validation_error", validationError },
+                        { "raw_response", response }
+                    }
+                };
+            }
+
             return landmarks;
         }
         catch (Exception ex)
@@ -352,6 +355,71 @@ If no face detected, return:
             };
         }
     }
+
+    private static bool ValidateLandmarks(FaceLandmarks landmarks, int imageWidth, int imageHeight, out string error)
+    {
+        error = string.Empty;
+
+        if (!landmarks.FaceDetected)
+        {
+            return true;
+        }
+
+        if (landmarks.FaceRect == null)
+        {
+            error = "face_detected_without_face_rect";
+            return false;
+        }
+
+        var rect = landmarks.FaceRect;
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            error = "invalid_face_rect_dimensions";
+            return false;
+        }
+
+        if (rect.X < 0 || rect.Y < 0 || rect.X + rect.Width > imageWidth || rect.Y + rect.Height > imageHeight)
+        {
+            error = "face_rect_out_of_bounds";
+            return false;
+        }
+
+        var widthRatio = (double)rect.Width / imageWidth;
+        var heightRatio = (double)rect.Height / imageHeight;
+
+        // For this project input (full-body photos), realistic face boxes are expected to be small-to-medium.
+        if (widthRatio < 0.03 || widthRatio > 0.60 || heightRatio < 0.03 || heightRatio > 0.60)
+        {
+            error = $"unrealistic_face_ratio_w{widthRatio:F3}_h{heightRatio:F3}";
+            return false;
+        }
+
+        if (landmarks.LeftEye != null && !PointInside(landmarks.LeftEye, rect))
+        {
+            error = "left_eye_outside_face_rect";
+            return false;
+        }
+
+        if (landmarks.RightEye != null && !PointInside(landmarks.RightEye, rect))
+        {
+            error = "right_eye_outside_face_rect";
+            return false;
+        }
+
+        if (landmarks.LeftEye != null && landmarks.RightEye != null && landmarks.LeftEye.X >= landmarks.RightEye.X)
+        {
+            error = "eye_order_invalid";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool PointInside(PhotoMapperAI.Models.Point p, PhotoMapperAI.Models.Rectangle rect)
+        => p.X >= rect.X
+            && p.X <= rect.X + rect.Width
+            && p.Y >= rect.Y
+            && p.Y <= rect.Y + rect.Height;
 
     private static int ScaleCoord(double value, int dimension)
     {

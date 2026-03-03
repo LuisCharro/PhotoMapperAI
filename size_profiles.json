@@ -1,0 +1,9 @@
+{
+  "name": "default",
+  "variants": [
+    { "key": "small", "width": 34, "height": 50, "outputSubfolder": "small", "placeholderPath": "./placeholders/placeholder-34x50.jpg" },
+    { "key": "medium", "width": 67, "height": 100, "outputSubfolder": "medium", "placeholderPath": "./placeholders/placeholder-67x100.jpg" },
+    { "key": "large", "width": 100, "height": 150, "outputSubfolder": "large", "placeholderPath": "./placeholders/placeholder-100x150.jpg" },
+    { "key": "200x300", "width": 200, "height": 300, "outputSubfolder": "200x300", "placeholderPath": "./placeholders/placeholder-200x300.jpg" }
+  ]
+}

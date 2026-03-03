@@ -5,94 +5,226 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
              x:Class="PhotoMapperAI.UI.Views.GenerateStepView"
-             x:DataType="vm:GenerateStepViewModel">
+             x:DataType="vm:GenerateStepViewModel"
+             Background="{DynamicResource BackgroundBrush}">
 
   <Design.DataContext>
     <vm:GenerateStepViewModel/>
   </Design.DataContext>
 
-  <ScrollViewer>
-    <StackPanel Margin="24" Spacing="20">
+  <Grid>
+    <ScrollViewer>
+    <StackPanel Margin="16" Spacing="12">
       <!-- Header -->
       <TextBlock Text="Step 3: Generate Portrait Photos" 
-                 FontSize="24" FontWeight="Bold" 
-                 Foreground="#1976D2"/>
+                 FontSize="20" FontWeight="Bold" 
+                 Foreground="{DynamicResource PrimaryBrush}"/>
       <TextBlock Text="Generate portrait photos from full-body images using AI face detection. Output files will be named by PlayerId."
-                 FontSize="14" Foreground="#666" TextWrapping="Wrap"/>
+                 FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
 
-      <Separator Margin="0,8"/>
+      <Separator Margin="0,4" Background="{DynamicResource DividerBrush}"/>
 
-      <!-- CSV File Selection -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📄 Input CSV File" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Select the CSV file with photo mappings from Step 2"
-                     FontSize="12" Foreground="#666"/>
+      <!-- STEP 1: Source Data -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="1" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Source Data" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+
+          <TextBlock Text="Players CSV file (from Step 2 - Map Players)"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding InputCsvPath}" 
                      Watermark="Path to CSV file..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowseCsvFile_Click"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
             <Button Grid.Column="2" Content="Clear"
                     Command="{Binding ClearInputCsvCommand}"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
           </Grid>
-        </StackPanel>
-      </Border>
 
-      <!-- Photos Directory -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📁 Source Photos Directory" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Directory containing the original player photos"
-                     FontSize="12" Foreground="#666"/>
+          <TextBlock Text="Source photos directory" 
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding PhotosDirectory}" 
                      Watermark="Path to photos directory..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowsePhotosDirectory_Click"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
             <Button Grid.Column="2" Content="Clear"
                     Command="{Binding ClearPhotosDirectoryCommand}"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
           </Grid>
+
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+            <Button Content="Load Photo Grid"
+                    Command="{Binding LoadPhotoGridCommand}"
+                    IsEnabled="{Binding !IsLoadingPhotoGrid}"
+                    Padding="12,6"/>
+            <ProgressBar IsIndeterminate="True"
+                         Width="60"
+                         Height="4"
+                         IsVisible="{Binding IsLoadingPhotoGrid}"
+                         VerticalAlignment="Center"/>
+          </StackPanel>
+          <TextBlock Text="{Binding PreviewStatus}"
+                     FontSize="11"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
+                     TextWrapping="Wrap"/>
+
+          <ScrollViewer MaxHeight="300" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding PhotoPreviewItems}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="{DynamicResource CardBrush}" 
+                          CornerRadius="6" 
+                          Padding="8" 
+                          Margin="4"
+                          BorderBrush="{DynamicResource BorderBrush}"
+                          BorderThickness="1"
+                          Width="160"
+                          PointerPressed="PhotoItem_Click"
+                          Cursor="Hand">
+                    <StackPanel Spacing="4">
+                      <Image Source="{Binding Thumbnail}"
+                             Height="80"
+                             Stretch="Uniform"
+                             HorizontalAlignment="Center"/>
+                      <TextBlock Text="{Binding FileName}"
+                                 FontSize="9"
+                                 Foreground="{DynamicResource SecondaryTextBrush}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{Binding FileName}"/>
+                      <Border Background="{Binding HasValidMapping, Converter={StaticResource BoolToStatusBackgroundConverter}}"
+                              CornerRadius="3" Padding="4,2">
+                        <TextBlock Text="{Binding StatusText}"
+                                   FontSize="9"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"/>
+                      </Border>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
         </StackPanel>
       </Border>
 
-      <!-- Output Directory -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="📂 Output Directory" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Directory where portrait photos will be saved"
-                     FontSize="12" Foreground="#666"/>
+      <!-- STEP 2: Output Destination -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="2" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Output Destination" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+
+          <TextBlock Text="Output directory for generated portraits"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" 
                      Watermark="Path to output directory..."
-                     IsReadOnly="True" Height="36"/>
+                     IsReadOnly="True" Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
             <Button Grid.Column="1" Content="Browse" 
                     Click="BrowseOutputDirectory_Click"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
             <Button Grid.Column="2" Content="Clear"
                     Command="{Binding ClearOutputDirectoryCommand}"
-                    Margin="8,0,0,0" Padding="16,8"/>
+                    Margin="6,0,0,0" Padding="12,6"/>
           </Grid>
+
+          <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,0">
+            <TextBlock Grid.Column="0" Text="Output Profile: " VerticalAlignment="Center"
+                       FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding OutputProfiles}"
+                      SelectedItem="{Binding OutputProfile}"
+                      Width="140" Height="28" HorizontalAlignment="Left"/>
+          </Grid>
+          <TextBlock Text="Profiles: none (use path directly), test, prod - configured in appsettings.json"
+                     FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"/>
         </StackPanel>
       </Border>
 
-      <!-- Face Detection Model -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="12">
-          <TextBlock Text="🤖 Face Detection Model" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock Text="Select AI model for face detection (LLM models require Ollama)"
-                     FontSize="12" Foreground="#666"/>
-          <ComboBox ItemsSource="{Binding FaceDetectionModels}" 
-                    SelectedItem="{Binding FaceDetectionModel}"
-                    HorizontalAlignment="Stretch" Height="36"/>
+      <!-- STEP 3: Face Detection Model -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="3" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Face Detection Model" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+
+          <TextBlock Text="OpenCV is recommended (fastest). Ollama vision models are slower but may work for difficult cases."
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+
+          <TabControl SelectedIndex="{Binding SelectedFaceModelTierIndex}">
+            <TabItem Header="Recommended">
+              <StackPanel Spacing="6" Margin="0,6,0,0">
+                <TextBlock Text="Fast and stable for portrait generation."
+                           FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <ComboBox ItemsSource="{Binding RecommendedFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="320" Height="28"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Local Vision (Ollama)">
+              <StackPanel Spacing="6" Margin="0,6,0,0">
+                <TextBlock Text="Runs locally through Ollama (slower, higher CPU/RAM)."
+                           FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <ComboBox ItemsSource="{Binding LocalVisionFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="320" Height="28"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Advanced">
+              <StackPanel Spacing="6" Margin="0,6,0,0">
+                <TextBlock Text="Fallback/troubleshooting detectors."
+                           FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <ComboBox ItemsSource="{Binding AdvancedFaceDetectionModels}"
+                          SelectedItem="{Binding FaceDetectionModel, Mode=OneWay}"
+                          SelectionChanged="FaceModelSelectionChanged"
+                          HorizontalAlignment="Left" Width="320" Height="28"/>
+              </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Paid (coming soon)">
+              <StackPanel Spacing="6" Margin="0,6,0,0">
+                <TextBlock Text="Paid API-based face detection providers are not wired yet."
+                           FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                <ComboBox ItemsSource="{Binding PaidFaceDetectionModels}"
+                          IsEnabled="False"
+                          HorizontalAlignment="Left" Width="320" Height="28"/>
+              </StackPanel>
+            </TabItem>
+          </TabControl>
+
           <CheckBox Content="Download missing OpenCV DNN files"
-                    IsChecked="{Binding DownloadOpenCvModels}"/>
+                    IsChecked="{Binding DownloadOpenCvModels}" FontSize="11"/>
+
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Button Content="Check Model"
                     Command="{Binding CheckFaceModelCommand}"
@@ -103,133 +235,382 @@
                          Height="4"
                          IsVisible="{Binding IsCheckingModel}"/>
           </StackPanel>
+
           <TextBlock Text="{Binding ModelDiagnosticStatus}"
-                     FontSize="12"
-                     Foreground="#666"
+                     FontSize="11"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
                      TextWrapping="Wrap"
                      IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
         </StackPanel>
       </Border>
 
-      <!-- Portrait Settings -->
-      <Grid ColumnDefinitions="*,*,*" Margin="0,8">
-        <!-- Width -->
-        <Border Grid.Column="0" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="0,0,8,0">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Width (px)" FontSize="14" FontWeight="SemiBold"/>
-            <NumericUpDown Value="{Binding PortraitWidth}" 
-                          Minimum="50" Maximum="1000"
-                          HorizontalAlignment="Stretch" Height="36"/>
+      <!-- STEP 4: Output Size -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="4" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Output Size" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
           </StackPanel>
-        </Border>
 
-        <!-- Height -->
-        <Border Grid.Column="1" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="4,0">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Height (px)" FontSize="14" FontWeight="SemiBold"/>
-            <NumericUpDown Value="{Binding PortraitHeight}" 
-                          Minimum="50" Maximum="1500"
-                          HorizontalAlignment="Stretch" Height="36"/>
-          </StackPanel>
-        </Border>
+          <TextBlock Text="Choose between a size profile (multiple sizes) or manual single size"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
 
-        <!-- Format -->
-        <Border Grid.Column="2" Background="#F5F5F5" CornerRadius="8" Padding="16" Margin="8,0,0,0">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Format" FontSize="14" FontWeight="SemiBold"/>
-            <ComboBox ItemsSource="{Binding ImageFormats}" 
-                      SelectedItem="{Binding ImageFormat}"
-                      HorizontalAlignment="Stretch" Height="36"/>
-          </StackPanel>
-        </Border>
-      </Grid>
+          <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Option A: Size Profile (Recommended for multiple sizes)" 
+                         FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Text="Generate multiple portrait sizes in one run (e.g., 34x50, 67x100, 100x150, 200x300)"
+                         FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SizeProfilePath}"
+                         Watermark="Path to size profile JSON..."
+                         IsReadOnly="True" Height="28" FontSize="11"
+                         Background="{DynamicResource InputBackgroundBrush}"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+                <Button Grid.Column="1" Content="Browse"
+                        Click="BrowseSizeProfileFile_Click"
+                        Margin="6,0,0,0" Padding="10,5" FontSize="11"/>
+                <Button Grid.Column="2" Content="Clear"
+                        Command="{Binding ClearSizeProfilePathCommand}"
+                        Margin="6,0,0,0" Padding="10,5" FontSize="11"/>
+              </Grid>
+              <CheckBox Content="Generate all profile sizes"
+                        IsChecked="{Binding AllSizes}"
+                        IsEnabled="{Binding CanUseAllSizes}"
+                        FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"
+                        ToolTip.Tip="When enabled, generates portraits for all sizes defined in the profile"/>
+              <CheckBox Content="Use placeholder images when player has no photo"
+                        IsChecked="{Binding UsePlaceholderImages}"
+                        IsEnabled="{Binding CanUseAllSizes}"
+                        FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            </StackPanel>
+          </Border>
 
-      <!-- Portrait Only Option -->
-      <CheckBox Content="Portrait Only (skip face detection, use existing results)" 
-                IsChecked="{Binding PortraitOnly}"
-                Margin="0,8"/>
+          <TextBlock Text="— or —" HorizontalAlignment="Center" 
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
 
-      <!-- Preview -->
-      <Border Background="#F5F5F5" CornerRadius="8" Padding="16">
-        <StackPanel Spacing="10">
-          <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="🖼️ Preview Source Image" FontSize="16" FontWeight="SemiBold"/>
-            <Button Content="Load Preview"
-                    Command="{Binding LoadPreviewImageCommand}"
-                    Padding="12,6"/>
-          </StackPanel>
-          <TextBlock Text="{Binding PreviewStatus}"
-                     FontSize="12"
-                     Foreground="#666"
-                     TextWrapping="Wrap"/>
-          <Image Source="{Binding PreviewImage}"
-                 Height="180"
-                 Stretch="Uniform"/>
+          <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Option B: Manual Single Size" 
+                         FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Text="When no size profile is selected, use these dimensions" 
+                         FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <Grid ColumnDefinitions="*,*,*" Margin="0,4,0,0">
+                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,6,0">
+                  <TextBlock Text="Width (px)" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                  <NumericUpDown Value="{Binding PortraitWidth}" 
+                                Minimum="50" Maximum="1000"
+                                IsEnabled="{Binding ManualSizeControlsEnabled}"
+                                HorizontalAlignment="Stretch" Height="28"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4" Margin="3,0">
+                  <TextBlock Text="Height (px)" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                  <NumericUpDown Value="{Binding PortraitHeight}" 
+                                Minimum="50" Maximum="1500"
+                                IsEnabled="{Binding ManualSizeControlsEnabled}"
+                                HorizontalAlignment="Stretch" Height="28"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="4" Margin="6,0,0,0">
+                  <TextBlock Text="Format" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                  <ComboBox ItemsSource="{Binding ImageFormats}" 
+                            SelectedItem="{Binding ImageFormat}"
+                            HorizontalAlignment="Stretch" Height="28"/>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </Border>
 
-      <!-- Execute / Cancel Buttons -->
-      <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+      <!-- STEP 5: Refinement Options -->
+      <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+              <TextBlock Text="5" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
+            </Border>
+            <TextBlock Text="Refinement (Optional)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+            <Border Grid.Column="0" Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+              <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" RowSpacing="8" ColumnSpacing="12">
+                <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
+                  <TextBlock Text="Preview &amp; Crop Offsets" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                  <TextBlock Text="Adjust face position in cropped portraits"
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+
+                  <ComboBox ItemsSource="{Binding CropOffsetPresets}"
+                            SelectedItem="{Binding SelectedCropOffsetPreset}"
+                            Height="28">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Create Preset"
+                            Command="{Binding NewCropOffsetPresetCommand}"
+                            Padding="10,5" FontSize="10"
+                            ToolTip.Tip="Create a new preset with current offsets"/>
+                    <Button Content="Update Preset"
+                            Command="{Binding SaveCropOffsetPresetCommand}"
+                            Padding="10,5" FontSize="10"/>
+                  </StackPanel>
+
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="Horizontal offset (%)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                      <Slider Grid.Column="0" Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
+                              Value="{Binding CropOffsetXPercent, Mode=TwoWay}"
+                              ValueChanged="CropOffsetSlider_ValueChanged"/>
+                      <TextBlock Grid.Column="1" Text="{Binding CropOffsetXPercent, StringFormat='{}{0:0}%'}"
+                                 Width="40" VerticalAlignment="Center" FontSize="10"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    </Grid>
+                  </StackPanel>
+
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="Vertical offset (%)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                      <Slider Grid.Column="0" Minimum="-20" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True"
+                              Value="{Binding CropOffsetYPercent, Mode=TwoWay}"
+                              ValueChanged="CropOffsetSlider_ValueChanged"/>
+                      <TextBlock Grid.Column="1" Text="{Binding CropOffsetYPercent, StringFormat='{}{0:0}%'}"
+                                 Width="40" VerticalAlignment="Center" FontSize="10"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    </Grid>
+                  </StackPanel>
+
+                  <TextBlock Text="{Binding CropOffsetStatus}"
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6">
+                  <TextBlock Text="Custom Dimensions" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                  <CheckBox Content="Use custom dimensions (overrides profile)"
+                            IsChecked="{Binding UseCustomPreviewDimensions}"
+                            FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"
+                            ToolTip.Tip="When enabled, use custom width/height instead of profile dimensions"/>
+
+                  <ComboBox ItemsSource="{Binding PreviewDimensionPresets}"
+                            SelectedItem="{Binding SelectedPreviewDimensionPreset}"
+                            Height="28"
+                            IsEnabled="{Binding UseCustomPreviewDimensions}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Create Preset"
+                            Command="{Binding NewPreviewDimensionPresetCommand}"
+                            Padding="10,5" FontSize="10"
+                            IsEnabled="{Binding UseCustomPreviewDimensions}"
+                            ToolTip.Tip="Create a new preset with current dimensions"/>
+                    <Button Content="Update Preset"
+                            Command="{Binding SavePreviewDimensionPresetCommand}"
+                            Padding="10,5" FontSize="10"
+                            IsEnabled="{Binding UseCustomPreviewDimensions}"/>
+                  </StackPanel>
+
+                  <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0"
+                        IsEnabled="{Binding UseCustomPreviewDimensions}">
+                    <TextBlock Grid.Column="0" Text="Width:" VerticalAlignment="Center" FontSize="10"
+                               Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
+                    <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomWidthCommand}"
+                            Width="24" Height="24" Padding="0" FontSize="12"/>
+                    <TextBlock Grid.Column="2" Text="{Binding PreviewCustomWidth}" Width="40"
+                               VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    <Button Grid.Column="3" Content="+" Command="{Binding IncrementCustomWidthCommand}"
+                            Width="24" Height="24" Padding="0" FontSize="12"/>
+                    <TextBlock Grid.Column="4" Text="px" VerticalAlignment="Center" FontSize="10"
+                               Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,0"/>
+                  </Grid>
+
+                  <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,2,0,0"
+                        IsEnabled="{Binding UseCustomPreviewDimensions}">
+                    <TextBlock Grid.Column="0" Text="Height:" VerticalAlignment="Center" FontSize="10"
+                               Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
+                    <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomHeightCommand}"
+                            Width="24" Height="24" Padding="0" FontSize="12"/>
+                    <TextBlock Grid.Column="2" Text="{Binding PreviewCustomHeight}" Width="40"
+                               VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    <Button Grid.Column="3" Content="+" Command="{Binding IncrementCustomHeightCommand}"
+                            Width="24" Height="24" Padding="0" FontSize="12"/>
+                    <TextBlock Grid.Column="4" Text="px" VerticalAlignment="Center" FontSize="10"
+                               Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,0"/>
+                  </Grid>
+
+                  <TextBlock Text="{Binding PreviewDimensionStatus}"
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6">
+                  <Button Content="Preview"
+                          Command="{Binding GeneratePreviewCommand}"
+                          IsEnabled="{Binding !IsPreviewing}"
+                          Padding="10,5" FontSize="10"/>
+                  <CheckBox Content="Auto preview on change"
+                            IsChecked="{Binding AutoPreviewEnabled}"
+                            FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Preview Result" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Text="{Binding PreviewPlayerLabel}"
+                           FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap"/>
+                <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="6" Padding="6"
+                        MinHeight="150" VerticalAlignment="Stretch" HorizontalAlignment="Center">
+                  <Image Source="{Binding PreviewImage}"
+                         MaxHeight="180"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="{Binding PreviewStatus}"
+                           FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Advanced Options (Collapsed) -->
+      <Expander Header="Advanced Options" IsExpanded="False"
+                Background="{DynamicResource SurfaceBrush}"
+                HorizontalAlignment="Stretch">
+        <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="12" Margin="0,6,0,0"
+                HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8" HorizontalAlignment="Stretch">
+            <CheckBox Content="Portrait Only (skip face detection, use existing results)" 
+                      IsChecked="{Binding PortraitOnly}"
+                      FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+            <TextBlock Text="Single Player Filter" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,0"/>
+            <TextBlock Text="Process only a specific player by ID (PlayerId or External_Player_ID from CSV)"
+                       FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+            <TextBox Text="{Binding OnlyPlayerId}"
+                     Watermark="Enter Player ID to process only that player..."
+                     Height="28"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+            <CheckBox Content="Write debug artifact JSON per variant"
+                      IsChecked="{Binding WriteDebugArtifacts}"
+                      FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,0"/>
+          </StackPanel>
+        </Border>
+      </Expander>
+
+      <!-- STEP 6: Execute -->
+      <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
         <Button Content="▶ Generate Portraits" 
                 Command="{Binding ExecuteGenerateCommand}"
                 IsEnabled="{Binding !IsProcessing}"
-                Background="#4CAF50" Foreground="White"
-                FontSize="16" Padding="24,12"/>
+                Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}"
+                FontSize="14" Padding="20,8"/>
         <Button Content="■ Cancel"
                 Command="{Binding CancelGenerateCommand}"
                 IsVisible="{Binding IsProcessing}"
-                Background="#F44336" Foreground="White"
-                FontSize="16" Padding="24,12"/>
+                Background="{DynamicResource ErrorBrush}" Foreground="{DynamicResource HeaderTextBrush}"
+                FontSize="14" Padding="20,8"/>
       </StackPanel>
 
       <!-- Progress -->
-      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+      <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="12" 
               IsVisible="{Binding IsProcessing}">
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="6">
           <TextBlock Text="{Binding ProcessingStatus}" 
-                     FontSize="14" TextWrapping="Wrap"/>
+                     FontSize="13" TextWrapping="Wrap"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
           <ProgressBar Value="{Binding Progress}" 
                        Maximum="100"
-                       Height="8"/>
+                       Height="6"/>
         </StackPanel>
       </Border>
 
       <!-- Status -->
-      <Border Background="#E3F2FD" CornerRadius="8" Padding="16" 
+      <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="12" 
               IsVisible="{Binding ProcessingStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Text="{Binding ProcessingStatus}" 
-                   FontSize="14" TextWrapping="Wrap"/>
+                   FontSize="13" TextWrapping="Wrap"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
       </Border>
 
-      <!-- Run Log -->
-      <Expander Header="Run Log" IsExpanded="False">
-        <Border Background="#FAFAFA" CornerRadius="8" Padding="12" Margin="0,8,0,0">
-          <ScrollViewer Height="160">
-            <ItemsControl ItemsSource="{Binding LogLines}">
+      <!-- Mapping Issues -->
+      <Expander Header="{Binding GenerateIssueTitle}" IsExpanded="True" HorizontalAlignment="Stretch"
+                Background="{DynamicResource SurfaceBrush}"
+                IsVisible="{Binding HasGenerateIssues}">
+        <Border Background="{DynamicResource CardBrush}" CornerRadius="8" Padding="10" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="3*,Auto" Margin="0,0,0,4">
+              <TextBlock Grid.Column="0" Text="Issue" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+              <TextBlock Grid.Column="1" Text="Count" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="8,0"/>
+            </Grid>
+            <ItemsControl ItemsSource="{Binding GenerateIssueItems}" HorizontalAlignment="Stretch">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"/>
+                  <Grid ColumnDefinitions="3*,Auto" Margin="0,2">
+                    <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Message}" FontSize="11" Margin="8,0"
+                               Foreground="{Binding IsCritical, Converter={StaticResource BoolToTextBrushConverter}}"/>
+                  </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-          </ScrollViewer>
+          </StackPanel>
+        </Border>
+      </Expander>
+
+      <!-- Run Log -->
+      <Expander Header="Run Log" IsExpanded="False" HorizontalAlignment="Stretch"
+                Background="{DynamicResource SurfaceBrush}">
+        <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="8" Padding="10" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+            <Button Content="Copy Log" Click="CopyRunLog_Click" HorizontalAlignment="Left" Padding="10,5"/>
+            <ScrollViewer Height="120" HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding LogLines}" HorizontalAlignment="Stretch">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <SelectableTextBlock Text="{Binding}" FontSize="12" TextWrapping="NoWrap"
+                                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
         </Border>
       </Expander>
 
       <!-- Success indicator -->
-      <Border Background="#E8F5E9" CornerRadius="8" Padding="16"
+      <Border Background="{DynamicResource SuccessBackgroundBrush}" CornerRadius="8" Padding="12"
               IsVisible="{Binding IsComplete}">
-        <StackPanel Spacing="8">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="✓" FontSize="20" Foreground="#4CAF50"/>
+        <StackPanel Spacing="6">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="✓" FontSize="18" Foreground="{DynamicResource SuccessBrush}"/>
             <TextBlock Text="{Binding PortraitsGenerated, StringFormat='Successfully generated {0} portraits'}"
-                       FontSize="14" Foreground="#2E7D32"/>
+                       FontSize="13" Foreground="{DynamicResource SuccessDarkBrush}"/>
           </StackPanel>
           <TextBlock Text="{Binding PortraitsFailed, StringFormat='Failed: {0}'}"
-                     FontSize="12" Foreground="#666"
+                     FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"
                      IsVisible="{Binding PortraitsFailed}"/>
         </StackPanel>
       </Border>
     </StackPanel>
   </ScrollViewer>
+  </Grid>
 </UserControl>
