@@ -16,6 +16,20 @@ internal static class NameComparisonPromptBuilder
         "jr","junior","sr","ii","iii","iv"
     };
 
+    private static readonly Dictionary<string, string> SpellingNormalizations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Spanish/Portuguese s/z variations - map all variants to the z version
+        ["fernandes"] = "fernandez",
+        ["rodrigues"] = "rodriguez",
+        ["gonsales"] = "gonzalez",
+        ["sanches"] = "sanchez",
+        ["garcias"] = "garcia",
+
+        // Other common variants
+        ["lope"] = "lopez",
+        ["martine"] = "martinez"
+    };
+
     public static string Build(string name1, string name2)
     {
         var core1 = ToCoreTokens(name1);
@@ -114,7 +128,10 @@ Remember: If you are not SURE based on strong token evidence, return low confide
             if (p.All(char.IsDigit))
                 continue;
 
-            tokens.Add(p);
+            // Normalize spelling variants (case-insensitive lookup)
+            var normalized = SpellingNormalizations.TryGetValue(p, out var norm) ? norm : p;
+
+            tokens.Add(normalized);
         }
 
         return tokens;
