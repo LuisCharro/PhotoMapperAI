@@ -672,6 +672,14 @@ public class MapCommandLogic
             minPreselectScore,
             maxGapFromTop);
 
+        // Deduplicate candidates by DisplayName to avoid artificial ambiguity
+        // when multiple photos exist for the same player (e.g., Netherlands has 56 photos for 27 players).
+        // Keep the highest-scoring entry for each unique DisplayName.
+        ranked = ranked
+            .GroupBy(r => r.Candidate.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(r => r.Score).First())
+            .ToList();
+
         if (ranked.Count == 0)
             return new AiProposalAttempt(
                 Proposal: null,
