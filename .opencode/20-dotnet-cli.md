@@ -1,0 +1,1 @@
+../.kilocode/rules/20-dotnet-cli.md

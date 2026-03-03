@@ -1,0 +1,1 @@
+../.kilocode/rules/50-commits-prs.md
