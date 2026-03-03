@@ -157,10 +157,10 @@ public class FilenameParserTests : IDisposable
 
     #endregion
 
-    #region ParseAutoDetect - Pattern 6: {family}_{sur}_{id}.ext (variation)
+    #region ParseAutoDetect - Pattern 6: {first}_{last}_{id}.ext (competition format)
 
     [Fact]
-    public void ParseAutoDetect_Pattern6_FamilySurId_ParsesCorrectly()
+    public void ParseAutoDetect_Pattern6_FirstLastId_ParsesCorrectly()
     {
         // Arrange & Act
         var result = FilenameParser.ParseAutoDetect("Fernandez_Pedro_147.png");
@@ -168,8 +168,8 @@ public class FilenameParserTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal("147", result.External_Player_ID);
-        Assert.Equal("Fernandez", result.FamilyName);
-        Assert.Equal("Pedro", result.SurName);
+        Assert.Equal("Pedro", result.FamilyName);
+        Assert.Equal("Fernandez", result.SurName);
     }
 
     #endregion
@@ -250,20 +250,18 @@ public class FilenameParserTests : IDisposable
     #region ParseAutoDetect - Pattern Priority
 
     [Fact]
-    public void ParseAutoDetect_MultiplePatternsMatch_ReturnsFirstMatch()
+    public void ParseAutoDetect_Pattern6_SelectedWhenFirstTokenIsNotNumeric()
     {
         // Arrange & Act
-        // This filename could match Pattern 1 and Pattern 6
+        // "Smith_John_123" does not match Pattern 1 (first token is not numeric),
+        // so Pattern 6 ({first}_{last}_{id}) is selected.
         var result = FilenameParser.ParseAutoDetect("Smith_John_123.jpg");
 
         // Assert
         Assert.NotNull(result);
-        // Pattern 1: {id}_{family}_{sur}
-        // Pattern 6: {family}_{sur}_{id}
-        // Pattern 1 comes first, so "123" should be parsed as id
         Assert.Equal("123", result.External_Player_ID);
-        Assert.Equal("Smith", result.FamilyName);
-        Assert.Equal("John", result.SurName);
+        Assert.Equal("John", result.FamilyName);
+        Assert.Equal("Smith", result.SurName);
     }
 
     #endregion
