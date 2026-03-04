@@ -111,42 +111,61 @@
 
           <!-- AI Configuration (visible when enabled) -->
           <StackPanel IsVisible="{Binding UseAiMapping}" Spacing="8" Margin="0,4,0,0">
-            
-            <!-- Model Selection Tabs -->
+             
+            <!-- Model Selection - 3 Horizontal Containers -->
             <TextBlock Text="AI Model" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
-            <TabControl SelectedIndex="{Binding SelectedModelTierIndex}"
-                        Background="{DynamicResource BackgroundBrush}">
-              <TabItem Header="Free Tier (Cloud)">
-                <StackPanel Spacing="6" Margin="8,6,8,8">
-                  <TextBlock Text="Cloud models with free-tier access (quota limits apply)."
-                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                  <ComboBox ItemsSource="{Binding FreeTierNameModels}"
-                            SelectedItem="{Binding NameModel, Mode=OneWay}"
-                            SelectionChanged="NameModelSelectionChanged"
-                            HorizontalAlignment="Stretch" Height="32"/>
-                </StackPanel>
-              </TabItem>
-              <TabItem Header="Local (Ollama)">
-                <StackPanel Spacing="6" Margin="8,6,8,8">
-                  <TextBlock Text="Runs locally via Ollama (requires Ollama installed and model pulled)."
-                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                  <ComboBox ItemsSource="{Binding LocalNameModels}"
-                            SelectedItem="{Binding NameModel, Mode=OneWay}"
-                            SelectionChanged="NameModelSelectionChanged"
-                            HorizontalAlignment="Stretch" Height="32"/>
-                </StackPanel>
-              </TabItem>
-              <TabItem Header="Paid API">
-                <StackPanel Spacing="6" Margin="8,6,8,8">
-                  <TextBlock Text="Paid API models (requires API key below)."
-                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                  <ComboBox ItemsSource="{Binding PaidNameModels}"
-                            SelectedItem="{Binding NameModel, Mode=OneWay}"
-                            SelectionChanged="NameModelSelectionChanged"
-                            HorizontalAlignment="Stretch" Height="32"/>
-                </StackPanel>
-              </TabItem>
-            </TabControl>
+            
+            <!-- Free Tier (Cloud) Container -->
+            <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <CheckBox Grid.Column="0" Content="Free (Cloud)"
+                          IsChecked="{Binding IsFreeTierSelected}"
+                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox Grid.Column="1" 
+                          ItemsSource="{Binding FreeTierNameModels}"
+                          SelectedItem="{Binding NameModel}"
+                          HorizontalAlignment="Stretch" Height="32"
+                          IsEnabled="{Binding IsFreeTierSelected}"/>
+              </Grid>
+            </Border>
+
+            <!-- Local (Ollama) Container -->
+            <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <CheckBox Grid.Column="0" Content="Local (Ollama)"
+                          IsChecked="{Binding IsLocalSelected}"
+                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox Grid.Column="1" 
+                          ItemsSource="{Binding LocalNameModels}"
+                          SelectedItem="{Binding NameModel}"
+                          HorizontalAlignment="Stretch" Height="32"
+                          IsEnabled="{Binding IsLocalSelected}"/>
+              </Grid>
+            </Border>
+
+            <!-- Paid API Container -->
+            <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="Auto,*">
+                  <CheckBox Grid.Column="0" Content="Paid API"
+                            IsChecked="{Binding IsPaidSelected}"
+                            VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ComboBox Grid.Column="1" 
+                            ItemsSource="{Binding PaidNameModels}"
+                            SelectedItem="{Binding NameModel}"
+                            HorizontalAlignment="Stretch" Height="32"
+                            IsEnabled="{Binding IsPaidSelected}"/>
+                </Grid>
+                <!-- Unified API Key for all paid providers -->
+                <TextBox Text="{Binding ApiKey}"
+                         Watermark="API key for selected provider (OpenAI, Anthropic, Z.AI, or MiniMax)"
+                         PasswordChar="•"
+                         IsVisible="{Binding ShowPaidApiKeyInput}"
+                         Height="32"
+                         Background="{DynamicResource InputBackgroundBrush}"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
+              </StackPanel>
+            </Border>
 
             <!-- Model Actions -->
             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -167,36 +186,6 @@
                        Foreground="{DynamicResource SecondaryTextBrush}"
                        TextWrapping="Wrap"
                        IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-
-            <!-- API Keys (visible for paid models) -->
-            <TextBox Text="{Binding OpenAiApiKey}"
-                     Watermark="OpenAI API key (not saved to disk)"
-                     PasswordChar="•"
-                     IsVisible="{Binding ShowOpenAiApiKeyInput}"
-                     Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <TextBox Text="{Binding AnthropicApiKey}"
-                     Watermark="Anthropic API key (not saved to disk)"
-                     PasswordChar="•"
-                     IsVisible="{Binding ShowAnthropicApiKeyInput}"
-                     Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <TextBox Text="{Binding ZaiApiKey}"
-                     Watermark="Z.AI API key (not saved to disk)"
-                     PasswordChar="•"
-                     IsVisible="{Binding ShowZaiApiKeyInput}"
-                     Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <TextBox Text="{Binding MiniMaxApiKey}"
-                     Watermark="MiniMax API key (not saved to disk)"
-                     PasswordChar="•"
-                     IsVisible="{Binding ShowMiniMaxApiKeyInput}"
-                     Height="32"
-                     Background="{DynamicResource InputBackgroundBrush}"
-                     Foreground="{DynamicResource PrimaryTextBrush}"/>
 
             <!-- AI Options -->
             <CheckBox Content="Run AI second pass on remaining unmatched players"

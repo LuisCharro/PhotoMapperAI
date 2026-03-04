@@ -128,32 +128,25 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private bool _aiSecondPass = true;
 
+    // Unified API key for all paid providers
     [ObservableProperty]
-    private string _openAiApiKey = string.Empty;
+    private string _apiKey = string.Empty;
 
     [ObservableProperty]
-    private string _anthropicApiKey = string.Empty;
-
-    [ObservableProperty]
-    private string _zaiApiKey = string.Empty;
-
-    [ObservableProperty]
-    private string _miniMaxApiKey = string.Empty;
-
-    [ObservableProperty]
-    private bool _showOpenAiApiKeyInput;
-
-    [ObservableProperty]
-    private bool _showAnthropicApiKeyInput;
-
-    [ObservableProperty]
-    private bool _showZaiApiKeyInput;
-
-    [ObservableProperty]
-    private bool _showMiniMaxApiKeyInput;
+    private bool _showPaidApiKeyInput;
 
     [ObservableProperty]
     private int _selectedModelTierIndex;
+
+    // Tier selection for new UI (radio-button style, mutually exclusive)
+    [ObservableProperty]
+    private bool _isFreeTierSelected;
+
+    [ObservableProperty]
+    private bool _isLocalSelected;
+
+    [ObservableProperty]
+    private bool _isPaidSelected;
 
     [ObservableProperty]
     private bool _isCheckingModel;
@@ -360,43 +353,16 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
         try
         {
-            if (IsOpenAiModel(NameMatchingModel))
+            // Unified API key check for all paid providers
+            if (IsPaidModel(NameMatchingModel))
             {
-                var keyPresent = !string.IsNullOrWhiteSpace(OpenAiApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+                string providerName = GetProviderName(NameMatchingModel);
+                string envVarName = GetProviderEnvVar(NameMatchingModel);
+                var keyPresent = !string.IsNullOrWhiteSpace(ApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envVarName));
                 ModelDiagnosticStatus = keyPresent
-                    ? "✓ OpenAI API key available (GUI field or OPENAI_API_KEY)."
-                    : "✗ OpenAI API key is missing (GUI field or OPENAI_API_KEY).";
-                return;
-            }
-
-            if (IsAnthropicModel(NameMatchingModel))
-            {
-                var keyPresent = !string.IsNullOrWhiteSpace(AnthropicApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
-                ModelDiagnosticStatus = keyPresent
-                    ? "✓ Anthropic API key available (GUI field or ANTHROPIC_API_KEY)."
-                    : "✗ Anthropic API key is missing (GUI field or ANTHROPIC_API_KEY).";
-                return;
-            }
-
-            if (IsZaiModel(NameMatchingModel))
-            {
-                var keyPresent = !string.IsNullOrWhiteSpace(ZaiApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ZAI_API_KEY"));
-                ModelDiagnosticStatus = keyPresent
-                    ? "✓ Z.AI API key available (GUI field or ZAI_API_KEY)."
-                    : "✗ Z.AI API key is missing (GUI field or ZAI_API_KEY).";
-                return;
-            }
-
-            if (IsMiniMaxModel(NameMatchingModel))
-            {
-                var keyPresent = !string.IsNullOrWhiteSpace(MiniMaxApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MINIMAX_API_KEY"));
-                ModelDiagnosticStatus = keyPresent
-                    ? "✓ MiniMax API key available (GUI field or MINIMAX_API_KEY)."
-                    : "✗ MiniMax API key is missing (GUI field or MINIMAX_API_KEY).";
+                    ? $"✓ {providerName} API key available (GUI field or {envVarName})."
+                    : $"✗ {providerName} API key is missing (GUI field or {envVarName}).";
                 return;
             }
 
@@ -548,10 +514,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     UseAiMapping,
                     AiSecondPass,
                     AiOnly,
-                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
-                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
-                    minimaxApiKey: string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey,
+                    openAiApiKey: IsOpenAiModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    anthropicApiKey: IsAnthropicModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    zaiApiKey: IsZaiModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    minimaxApiKey: IsMiniMaxModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                     CancellationToken.None,
                     log: null);
 
@@ -1358,30 +1324,18 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 AppendLog($"[MAP] {team.TeamName}:   - Name Model: {effectiveNameModel}");
                 AppendLog($"[MAP] {team.TeamName}:   - Confidence Threshold: {NameMatchingThreshold:F2}");
                 
-                var hasOpenAiKey = !string.IsNullOrWhiteSpace(OpenAiApiKey);
-                var hasAnthropicKey = !string.IsNullOrWhiteSpace(AnthropicApiKey);
-                var hasZaiKey = !string.IsNullOrWhiteSpace(ZaiApiKey);
-                if (effectiveNameModel.StartsWith("openai:", StringComparison.OrdinalIgnoreCase))
-                {
-                    AppendLog($"[MAP] {team.TeamName}:   - OpenAI API Key: {(hasOpenAiKey ? "✓ Provided" : "✗ Missing")}");
-                }
-                else if (effectiveNameModel.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
-                         effectiveNameModel.StartsWith("claude:", StringComparison.OrdinalIgnoreCase))
-                {
-                    AppendLog($"[MAP] {team.TeamName}:   - Anthropic API Key: {(hasAnthropicKey ? "✓ Provided" : "✗ Missing")}");
-                }
-                else if (effectiveNameModel.StartsWith("zai:", StringComparison.OrdinalIgnoreCase))
-                {
-                    AppendLog($"[MAP] {team.TeamName}:   - Z.AI API Key: {(hasZaiKey ? "✓ Provided" : "✗ Missing")}");
-                }
+                // Unified API key check for logging
+                var hasApiKey = !string.IsNullOrWhiteSpace(ApiKey);
+                string providerName = GetProviderName(effectiveNameModel);
+                AppendLog($"[MAP] {team.TeamName}:   - {providerName} API Key: {(hasApiKey ? "✓ Provided" : "✗ Missing")}");
 
                 var preflight = await PreflightChecker.CheckMapAsync(
                     UseAiMapping,
                     effectiveNameModel,
-                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
-                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
-                    minimaxApiKey: string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey);
+                    openAiApiKey: IsOpenAiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null);
                 if (!preflight.IsOk)
                 {
                     throw new InvalidOperationException(preflight.BuildMessage());
@@ -1408,10 +1362,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     useAi: UseAiMapping,
                     aiSecondPass: effectiveAiSecondPass,
                     aiOnly: effectiveAiOnly,
-                    openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
-                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
-                    minimaxApiKey: string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey,
+                    openAiApiKey: IsOpenAiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                    minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                     cancellationToken,
                     new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
 
@@ -1781,10 +1735,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     private void UpdateProviderKeyInputVisibility()
     {
-        ShowOpenAiApiKeyInput = IsOpenAiModel(NameMatchingModel);
-        ShowAnthropicApiKeyInput = IsAnthropicModel(NameMatchingModel);
-        ShowZaiApiKeyInput = IsZaiModel(NameMatchingModel);
-        ShowMiniMaxApiKeyInput = IsMiniMaxModel(NameMatchingModel);
+        // Unified API key input visibility for all paid providers
+        ShowPaidApiKeyInput = IsPaidModel(NameMatchingModel);
     }
 
     private void ResetErrorSummary()
@@ -2085,8 +2037,32 @@ public partial class BatchAutomationViewModel : ViewModelBase
             modelName.EndsWith("/free", StringComparison.OrdinalIgnoreCase) ||
             modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
 
+    private static bool IsLocalModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           !modelName.Contains(':') &&
+           !IsCloudModel(modelName) &&
+           !modelName.EndsWith(":free", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsPaidModel(string modelName)
         => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName) || IsMiniMaxModel(modelName);
+
+    private static string GetProviderName(string modelName)
+    {
+        if (IsOpenAiModel(modelName)) return "OpenAI";
+        if (IsAnthropicModel(modelName)) return "Anthropic";
+        if (IsZaiModel(modelName)) return "Z.AI";
+        if (IsMiniMaxModel(modelName)) return "MiniMax";
+        return "Unknown";
+    }
+
+    private static string GetProviderEnvVar(string modelName)
+    {
+        if (IsOpenAiModel(modelName)) return "OPENAI_API_KEY";
+        if (IsAnthropicModel(modelName)) return "ANTHROPIC_API_KEY";
+        if (IsZaiModel(modelName)) return "ZAI_API_KEY";
+        if (IsMiniMaxModel(modelName)) return "MINIMAX_API_KEY";
+        return string.Empty;
+    }
 
     private static bool IsOpenAiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
@@ -2109,6 +2085,55 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         UpdateProviderKeyInputVisibility();
         SelectedModelTierIndex = GetTierIndexForModel(value);
+    }
+
+    // Handle tier selection - mutually exclusive (radio-button style)
+    partial void OnIsFreeTierSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _isLocalSelected = false;
+            _isPaidSelected = false;
+            OnPropertyChanged(nameof(IsLocalSelected));
+            OnPropertyChanged(nameof(IsPaidSelected));
+            // Set a default free tier model if none selected
+            if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsFreeTierModel(NameMatchingModel))
+            {
+                NameMatchingModel = FreeTierNameModels.FirstOrDefault() ?? string.Empty;
+            }
+        }
+    }
+
+    partial void OnIsLocalSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _isFreeTierSelected = false;
+            _isPaidSelected = false;
+            OnPropertyChanged(nameof(IsFreeTierSelected));
+            OnPropertyChanged(nameof(IsPaidSelected));
+            // Set a default local model if none selected
+            if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsLocalModel(NameMatchingModel))
+            {
+                NameMatchingModel = LocalNameModels.FirstOrDefault() ?? string.Empty;
+            }
+        }
+    }
+
+    partial void OnIsPaidSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _isFreeTierSelected = false;
+            _isLocalSelected = false;
+            OnPropertyChanged(nameof(IsFreeTierSelected));
+            OnPropertyChanged(nameof(IsLocalSelected));
+            // Set a default paid model if none selected
+            if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsPaidModel(NameMatchingModel))
+            {
+                NameMatchingModel = PaidNameModels.FirstOrDefault() ?? string.Empty;
+            }
+        }
     }
 
     partial void OnSelectedModelTierIndexChanged(int value)

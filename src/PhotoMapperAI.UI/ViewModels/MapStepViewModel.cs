@@ -92,28 +92,10 @@ public partial class MapStepViewModel : ViewModelBase
     private bool _aiSecondPass = true;
 
     [ObservableProperty]
-    private string _openAiApiKey = string.Empty;
+    private string _apiKey = string.Empty;
 
     [ObservableProperty]
-    private string _anthropicApiKey = string.Empty;
-
-    [ObservableProperty]
-    private string _zaiApiKey = string.Empty;
-
-    [ObservableProperty]
-    private string _miniMaxApiKey = string.Empty;
-
-    [ObservableProperty]
-    private bool _showOpenAiApiKeyInput;
-
-    [ObservableProperty]
-    private bool _showAnthropicApiKeyInput;
-
-    [ObservableProperty]
-    private bool _showZaiApiKeyInput;
-
-    [ObservableProperty]
-    private bool _showMiniMaxApiKeyInput;
+    private bool _showPaidApiKeyInput;
 
     [ObservableProperty]
     private bool _isProcessing;
@@ -147,6 +129,16 @@ public partial class MapStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _selectedModelTierIndex;
+
+    // Tier selection for new UI (radio-button style, mutually exclusive)
+    [ObservableProperty]
+    private bool _isFreeTierSelected;
+
+    [ObservableProperty]
+    private bool _isLocalSelected;
+
+    [ObservableProperty]
+    private bool _isPaidSelected;
 
     public ObservableCollection<string> LogLines { get; } = new();
 
@@ -221,43 +213,24 @@ public partial class MapStepViewModel : ViewModelBase
 
         try
         {
-            if (IsOpenAiModel(NameModel))
+            if (IsPaidModel(NameModel))
             {
-                var keyPresent = !string.IsNullOrWhiteSpace(OpenAiApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+                // Get the appropriate environment variable name based on model
+                string envVarName = IsOpenAiModel(NameModel) ? "OPENAI_API_KEY"
+                    : IsAnthropicModel(NameModel) ? "ANTHROPIC_API_KEY"
+                    : IsZaiModel(NameModel) ? "ZAI_API_KEY"
+                    : "MINIMAX_API_KEY";
+                
+                var keyPresent = !string.IsNullOrWhiteSpace(ApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envVarName));
+                string providerName = IsOpenAiModel(NameModel) ? "OpenAI"
+                    : IsAnthropicModel(NameModel) ? "Anthropic"
+                    : IsZaiModel(NameModel) ? "Z.AI"
+                    : "MiniMax";
+                
                 ModelDiagnosticStatus = keyPresent
-                    ? "✓ OpenAI API key available. OpenAI model can be used."
-                    : "✗ OpenAI API key is missing (GUI field or OPENAI_API_KEY).";
-                return;
-            }
-
-            if (IsAnthropicModel(NameModel))
-            {
-                var keyPresent = !string.IsNullOrWhiteSpace(AnthropicApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));
-                ModelDiagnosticStatus = keyPresent
-                    ? "✓ Anthropic API key available. Anthropic model can be used."
-                    : "✗ Anthropic API key is missing (GUI field or ANTHROPIC_API_KEY).";
-                return;
-            }
-
-            if (IsZaiModel(NameModel))
-            {
-                var keyPresent = !string.IsNullOrWhiteSpace(ZaiApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ZAI_API_KEY"));
-                ModelDiagnosticStatus = keyPresent
-                    ? "✓ Z.AI API key available. Z.AI model can be used."
-                    : "✗ Z.AI API key is missing (GUI field or ZAI_API_KEY).";
-                return;
-            }
-
-            if (IsMiniMaxModel(NameModel))
-            {
-                var keyPresent = !string.IsNullOrWhiteSpace(MiniMaxApiKey) ||
-                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MINIMAX_API_KEY"));
-                ModelDiagnosticStatus = keyPresent
-                    ? "✓ MiniMax API key available. MiniMax model can be used."
-                    : "✗ MiniMax API key is missing (GUI field or MINIMAX_API_KEY).";
+                    ? $"✓ {providerName} API key available. {providerName} model can be used."
+                    : $"✗ {providerName} API key is missing (GUI field or {envVarName}).";
                 return;
             }
 
@@ -332,24 +305,22 @@ public partial class MapStepViewModel : ViewModelBase
             AppendLog($"  - Name Model: {effectiveNameModel}");
             AppendLog($"  - Confidence Threshold: {ConfidenceThreshold:F2}");
             
-            var hasOpenAiKey = !string.IsNullOrWhiteSpace(OpenAiApiKey);
-            var hasAnthropicKey = !string.IsNullOrWhiteSpace(AnthropicApiKey);
-            if (effectiveNameModel.StartsWith("openai:", StringComparison.OrdinalIgnoreCase))
+            // Determine which API key to use based on model
+            string? usedApiKey = null;
+            if (IsPaidModel(effectiveNameModel))
             {
-                AppendLog($"  - OpenAI API Key: {(hasOpenAiKey ? "✓ Provided" : "✗ Missing")}");
-            }
-            else if (effectiveNameModel.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
-                     effectiveNameModel.StartsWith("claude:", StringComparison.OrdinalIgnoreCase))
-            {
-                AppendLog($"  - Anthropic API Key: {(hasAnthropicKey ? "✓ Provided" : "✗ Missing")}");
+                usedApiKey = string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey;
+                AppendLog($"  - API Key: {(usedApiKey != null ? "✓ Provided" : "✗ Missing")}");
             }
             AppendLog("");
 
             var preflight = await PreflightChecker.CheckMapAsync(
                 UseAiMapping,
                 effectiveNameModel,
-                openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
+                openAiApiKey: IsOpenAiModel(effectiveNameModel) ? usedApiKey : null,
+                anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? usedApiKey : null,
+                zaiApiKey: IsZaiModel(effectiveNameModel) ? usedApiKey : null,
+                minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? usedApiKey : null);
             if (!preflight.IsOk)
             {
                 ProcessingStatus = preflight.BuildMessage();
@@ -410,10 +381,10 @@ public partial class MapStepViewModel : ViewModelBase
                 UseAiMapping,
                 UseAiMapping && AiSecondPass,
                 UseAiMapping && AiOnly,
-                string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
-                string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
-                string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey,
+                IsOpenAiModel(effectiveNameModel) ? usedApiKey : null,
+                IsAnthropicModel(effectiveNameModel) ? usedApiKey : null,
+                IsZaiModel(effectiveNameModel) ? usedApiKey : null,
+                IsMiniMaxModel(effectiveNameModel) ? usedApiKey : null,
                 _cancellationTokenSource.Token,
                 log,
                 uiProgress);
@@ -612,6 +583,12 @@ public partial class MapStepViewModel : ViewModelBase
             modelName.EndsWith("/free", StringComparison.OrdinalIgnoreCase) ||
             modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
 
+    private static bool IsLocalModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           !modelName.Contains(':') &&
+           !IsCloudModel(modelName) &&
+           !modelName.EndsWith(":free", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsPaidModel(string modelName)
         => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName) || IsMiniMaxModel(modelName);
 
@@ -636,6 +613,55 @@ public partial class MapStepViewModel : ViewModelBase
     {
         UpdateProviderKeyInputVisibility();
         SelectedModelTierIndex = GetTierIndexForModel(value);
+    }
+
+    // Handle tier selection - mutually exclusive (radio-button style)
+    partial void OnIsFreeTierSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _isLocalSelected = false;
+            _isPaidSelected = false;
+            OnPropertyChanged(nameof(IsLocalSelected));
+            OnPropertyChanged(nameof(IsPaidSelected));
+            // Set a default free tier model if none selected
+            if (string.IsNullOrWhiteSpace(NameModel) || !IsFreeTierModel(NameModel))
+            {
+                NameModel = FreeTierNameModels.FirstOrDefault() ?? string.Empty;
+            }
+        }
+    }
+
+    partial void OnIsLocalSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _isFreeTierSelected = false;
+            _isPaidSelected = false;
+            OnPropertyChanged(nameof(IsFreeTierSelected));
+            OnPropertyChanged(nameof(IsPaidSelected));
+            // Set a default local model if none selected
+            if (string.IsNullOrWhiteSpace(NameModel) || !IsLocalModel(NameModel))
+            {
+                NameModel = LocalNameModels.FirstOrDefault() ?? string.Empty;
+            }
+        }
+    }
+
+    partial void OnIsPaidSelectedChanged(bool value)
+    {
+        if (value)
+        {
+            _isFreeTierSelected = false;
+            _isLocalSelected = false;
+            OnPropertyChanged(nameof(IsFreeTierSelected));
+            OnPropertyChanged(nameof(IsLocalSelected));
+            // Set a default paid model if none selected
+            if (string.IsNullOrWhiteSpace(NameModel) || !IsPaidModel(NameModel))
+            {
+                NameModel = PaidNameModels.FirstOrDefault() ?? string.Empty;
+            }
+        }
     }
 
     partial void OnUseAiMappingChanged(bool value)
@@ -696,10 +722,7 @@ public partial class MapStepViewModel : ViewModelBase
 
     private void UpdateProviderKeyInputVisibility()
     {
-        ShowOpenAiApiKeyInput = IsOpenAiModel(NameModel);
-        ShowAnthropicApiKeyInput = IsAnthropicModel(NameModel);
-        ShowZaiApiKeyInput = IsZaiModel(NameModel);
-        ShowMiniMaxApiKeyInput = IsMiniMaxModel(NameModel);
+        ShowPaidApiKeyInput = IsPaidModel(NameModel);
     }
 
     private static int GetTierIndexForModel(string modelName)
