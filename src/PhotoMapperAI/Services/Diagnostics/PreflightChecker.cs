@@ -81,7 +81,8 @@ public static class PreflightChecker
         bool useAi,
         string nameModel,
         string? openAiApiKey = null,
-        string? anthropicApiKey = null)
+        string? anthropicApiKey = null,
+        string? zaiApiKey = null)
     {
         var result = new PreflightResult();
 
@@ -94,6 +95,14 @@ public static class PreflightChecker
             var key = openAiApiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
             if (string.IsNullOrWhiteSpace(key))
                 result.Errors.Add("OPENAI_API_KEY is missing for OpenAI name model.");
+            return result;
+        }
+
+        if (provider == "zai")
+        {
+            var key = zaiApiKey ?? Environment.GetEnvironmentVariable("ZAI_API_KEY");
+            if (string.IsNullOrWhiteSpace(key))
+                result.Errors.Add("ZAI_API_KEY is missing for Z.AI name model.");
             return result;
         }
 
@@ -308,7 +317,8 @@ public static class PreflightChecker
             "ollama",
             "openai",
             "anthropic",
-            "claude"
+            "claude",
+            "zai"
         };
 
         if (!knownProviders.Contains(possibleProvider))

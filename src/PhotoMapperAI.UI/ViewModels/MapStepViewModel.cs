@@ -41,7 +41,10 @@ public partial class MapStepViewModel : ViewModelBase
         "openai:gpt-5-mini",
         "openai:gpt-5.2",
         "openai:gpt-5.2-pro",
-        "anthropic:claude-3-5-sonnet"
+        "anthropic:claude-3-5-sonnet",
+        "zai:glm-4.5",
+        "zai:glm-4-flash",
+        "zai:glm-4"
     };
 
     private static readonly string[] ConfiguredPaidNameModels =
@@ -92,10 +95,16 @@ public partial class MapStepViewModel : ViewModelBase
     private string _anthropicApiKey = string.Empty;
 
     [ObservableProperty]
+    private string _zaiApiKey = string.Empty;
+
+    [ObservableProperty]
     private bool _showOpenAiApiKeyInput;
 
     [ObservableProperty]
     private bool _showAnthropicApiKeyInput;
+
+    [ObservableProperty]
+    private bool _showZaiApiKeyInput;
 
     [ObservableProperty]
     private bool _isProcessing;
@@ -220,6 +229,16 @@ public partial class MapStepViewModel : ViewModelBase
                 ModelDiagnosticStatus = keyPresent
                     ? "✓ Anthropic API key available. Anthropic model can be used."
                     : "✗ Anthropic API key is missing (GUI field or ANTHROPIC_API_KEY).";
+                return;
+            }
+
+            if (IsZaiModel(NameModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(ZaiApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ZAI_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ Z.AI API key available. Z.AI model can be used."
+                    : "✗ Z.AI API key is missing (GUI field or ZAI_API_KEY).";
                 return;
             }
 
@@ -374,6 +393,7 @@ public partial class MapStepViewModel : ViewModelBase
                 UseAiMapping && AiOnly,
                 string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                 string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
+                string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
                 _cancellationTokenSource.Token,
                 log,
                 uiProgress);
@@ -573,7 +593,7 @@ public partial class MapStepViewModel : ViewModelBase
             modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsPaidModel(string modelName)
-        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName);
+        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName);
 
     private static bool IsOpenAiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
@@ -583,6 +603,10 @@ public partial class MapStepViewModel : ViewModelBase
         => !string.IsNullOrWhiteSpace(modelName) &&
            (modelName.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
             modelName.StartsWith("claude:", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsZaiModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.StartsWith("zai:", StringComparison.OrdinalIgnoreCase);
 
     partial void OnNameModelChanged(string value)
     {
@@ -650,6 +674,7 @@ public partial class MapStepViewModel : ViewModelBase
     {
         ShowOpenAiApiKeyInput = IsOpenAiModel(NameModel);
         ShowAnthropicApiKeyInput = IsAnthropicModel(NameModel);
+        ShowZaiApiKeyInput = IsZaiModel(NameModel);
     }
 
     private static int GetTierIndexForModel(string modelName)

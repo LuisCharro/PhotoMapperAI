@@ -55,7 +55,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
         "openai:gpt-5-mini",
         "openai:gpt-5.2",
         "openai:gpt-5.2-pro",
-        "anthropic:claude-3-5-sonnet"
+        "anthropic:claude-3-5-sonnet",
+        "zai:glm-4.5",
+        "zai:glm-4-flash",
+        "zai:glm-4"
     };
 
     private static readonly string[] ConfiguredPaidNameModels =
@@ -129,10 +132,16 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private string _anthropicApiKey = string.Empty;
 
     [ObservableProperty]
+    private string _zaiApiKey = string.Empty;
+
+    [ObservableProperty]
     private bool _showOpenAiApiKeyInput;
 
     [ObservableProperty]
     private bool _showAnthropicApiKeyInput;
+
+    [ObservableProperty]
+    private bool _showZaiApiKeyInput;
 
     [ObservableProperty]
     private int _selectedModelTierIndex;
@@ -362,6 +371,16 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 return;
             }
 
+            if (IsZaiModel(NameMatchingModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(ZaiApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ZAI_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ Z.AI API key available (GUI field or ZAI_API_KEY)."
+                    : "✗ Z.AI API key is missing (GUI field or ZAI_API_KEY).";
+                return;
+            }
+
             var client = new OllamaClient();
             var available = await client.IsAvailableAsync();
             if (!available)
@@ -512,6 +531,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     AiOnly,
                     openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                     anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
+                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
                     CancellationToken.None,
                     log: null);
 
@@ -1320,6 +1340,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 
                 var hasOpenAiKey = !string.IsNullOrWhiteSpace(OpenAiApiKey);
                 var hasAnthropicKey = !string.IsNullOrWhiteSpace(AnthropicApiKey);
+                var hasZaiKey = !string.IsNullOrWhiteSpace(ZaiApiKey);
                 if (effectiveNameModel.StartsWith("openai:", StringComparison.OrdinalIgnoreCase))
                 {
                     AppendLog($"[MAP] {team.TeamName}:   - OpenAI API Key: {(hasOpenAiKey ? "✓ Provided" : "✗ Missing")}");
@@ -1329,12 +1350,17 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 {
                     AppendLog($"[MAP] {team.TeamName}:   - Anthropic API Key: {(hasAnthropicKey ? "✓ Provided" : "✗ Missing")}");
                 }
+                else if (effectiveNameModel.StartsWith("zai:", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendLog($"[MAP] {team.TeamName}:   - Z.AI API Key: {(hasZaiKey ? "✓ Provided" : "✗ Missing")}");
+                }
 
                 var preflight = await PreflightChecker.CheckMapAsync(
                     UseAiMapping,
                     effectiveNameModel,
                     openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
-                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey);
+                    anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
+                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey);
                 if (!preflight.IsOk)
                 {
                     throw new InvalidOperationException(preflight.BuildMessage());
@@ -1363,6 +1389,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     aiOnly: effectiveAiOnly,
                     openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                     anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
+                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
                     cancellationToken,
                     new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
 
@@ -1734,6 +1761,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         ShowOpenAiApiKeyInput = IsOpenAiModel(NameMatchingModel);
         ShowAnthropicApiKeyInput = IsAnthropicModel(NameMatchingModel);
+        ShowZaiApiKeyInput = IsZaiModel(NameMatchingModel);
     }
 
     private void ResetErrorSummary()
@@ -2035,7 +2063,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsPaidModel(string modelName)
-        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName);
+        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName);
 
     private static bool IsOpenAiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
@@ -2045,6 +2073,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
         => !string.IsNullOrWhiteSpace(modelName) &&
            (modelName.StartsWith("anthropic:", StringComparison.OrdinalIgnoreCase) ||
             modelName.StartsWith("claude:", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsZaiModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.StartsWith("zai:", StringComparison.OrdinalIgnoreCase);
 
     partial void OnNameMatchingModelChanged(string value)
     {

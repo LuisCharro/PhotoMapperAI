@@ -12,12 +12,15 @@ public static class NameMatchingServiceFactory
     /// - "ollama:qwen2.5:7b"
     /// - "openai:gpt-5-mini"
     /// - "anthropic:claude-3-5-sonnet"
+    /// - "zai:glm-4.5"
+    /// - "zai:glm-4-flash"
     /// </summary>
     public static INameMatchingService Create(
         string modelIdentifier,
         double confidenceThreshold = 0.9,
         string? openAiApiKey = null,
-        string? anthropicApiKey = null)
+        string? anthropicApiKey = null,
+        string? zaiApiKey = null)
     {
         if (string.IsNullOrWhiteSpace(modelIdentifier))
             throw new ArgumentException("Name matching model cannot be empty.", nameof(modelIdentifier));
@@ -36,6 +39,10 @@ public static class NameMatchingServiceFactory
                 modelName: modelName,
                 confidenceThreshold: confidenceThreshold,
                 apiKey: anthropicApiKey),
+            "zai" => new ZAINameMatchingService(
+                modelName: modelName,
+                confidenceThreshold: confidenceThreshold,
+                apiKey: zaiApiKey),
             _ => throw new ArgumentException($"Unknown name matching provider: {provider}")
         };
     }
@@ -54,7 +61,8 @@ public static class NameMatchingServiceFactory
             "ollama",
             "openai",
             "anthropic",
-            "claude"
+            "claude",
+            "zai"
         };
 
         if (!knownProviders.Contains(possibleProvider))

@@ -183,6 +183,13 @@
                      Height="32"
                      Background="{DynamicResource InputBackgroundBrush}"
                      Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <TextBox Text="{Binding ZaiApiKey}"
+                     Watermark="Z.AI API key (not saved to disk)"
+                     PasswordChar="•"
+                     IsVisible="{Binding ShowZaiApiKeyInput}"
+                     Height="32"
+                     Background="{DynamicResource InputBackgroundBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"/>
 
             <!-- AI Options -->
             <CheckBox Content="Run AI second pass on remaining unmatched players"
