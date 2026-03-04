@@ -14,13 +14,16 @@ public static class NameMatchingServiceFactory
     /// - "anthropic:claude-3-5-sonnet"
     /// - "zai:glm-4.5"
     /// - "zai:glm-4-flash"
+    /// - "minimax:MiniMax-M2.5"
+    /// - "minimax:MiniMax-M2.1"
     /// </summary>
     public static INameMatchingService Create(
         string modelIdentifier,
         double confidenceThreshold = 0.9,
         string? openAiApiKey = null,
         string? anthropicApiKey = null,
-        string? zaiApiKey = null)
+        string? zaiApiKey = null,
+        string? minimaxApiKey = null)
     {
         if (string.IsNullOrWhiteSpace(modelIdentifier))
             throw new ArgumentException("Name matching model cannot be empty.", nameof(modelIdentifier));
@@ -43,6 +46,10 @@ public static class NameMatchingServiceFactory
                 modelName: modelName,
                 confidenceThreshold: confidenceThreshold,
                 apiKey: zaiApiKey),
+            "minimax" => new MiniMaxNameMatchingService(
+                modelName: modelName,
+                confidenceThreshold: confidenceThreshold,
+                apiKey: minimaxApiKey),
             _ => throw new ArgumentException($"Unknown name matching provider: {provider}")
         };
     }
@@ -62,7 +69,8 @@ public static class NameMatchingServiceFactory
             "openai",
             "anthropic",
             "claude",
-            "zai"
+            "zai",
+            "minimax"
         };
 
         if (!knownProviders.Contains(possibleProvider))

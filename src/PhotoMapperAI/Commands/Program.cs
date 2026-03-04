@@ -215,6 +215,9 @@ public class MapCommand
     [Option(ShortName = "zak", LongName = "zaiApiKey", Description = "Z.AI API key override (optional, in-memory only for this command run)")]
     public string? ZaiApiKey { get; set; }
 
+    [Option(ShortName = "mmk", LongName = "minimaxApiKey", Description = "MiniMax API key override (optional, in-memory only for this command run)")]
+    public string? MiniMaxApiKey { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         if (AiOnly && !UseAi)
@@ -234,7 +237,8 @@ public class MapCommand
             NameModel,
             openAiApiKey: OpenAiApiKey,
             anthropicApiKey: AnthropicApiKey,
-            zaiApiKey: ZaiApiKey);
+            zaiApiKey: ZaiApiKey,
+            minimaxApiKey: MiniMaxApiKey);
         if (!preflight.IsOk)
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -256,7 +260,8 @@ public class MapCommand
             confidenceThreshold: ConfidenceThreshold,
             openAiApiKey: OpenAiApiKey,
             anthropicApiKey: AnthropicApiKey,
-            zaiApiKey: ZaiApiKey
+            zaiApiKey: ZaiApiKey,
+            minimaxApiKey: MiniMaxApiKey
         );
 
         // Create image processor

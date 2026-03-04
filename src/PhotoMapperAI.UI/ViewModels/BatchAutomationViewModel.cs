@@ -58,7 +58,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
         "anthropic:claude-3-5-sonnet",
         "zai:glm-4.5",
         "zai:glm-4-flash",
-        "zai:glm-4"
+        "zai:glm-4",
+        "minimax:MiniMax-M2.5",
+        "minimax:MiniMax-M2.1",
+        "minimax:MiniMax-M2"
     };
 
     private static readonly string[] ConfiguredPaidNameModels =
@@ -135,6 +138,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private string _zaiApiKey = string.Empty;
 
     [ObservableProperty]
+    private string _miniMaxApiKey = string.Empty;
+
+    [ObservableProperty]
     private bool _showOpenAiApiKeyInput;
 
     [ObservableProperty]
@@ -142,6 +148,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _showZaiApiKeyInput;
+
+    [ObservableProperty]
+    private bool _showMiniMaxApiKeyInput;
 
     [ObservableProperty]
     private int _selectedModelTierIndex;
@@ -381,6 +390,16 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 return;
             }
 
+            if (IsMiniMaxModel(NameMatchingModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(MiniMaxApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MINIMAX_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ MiniMax API key available (GUI field or MINIMAX_API_KEY)."
+                    : "✗ MiniMax API key is missing (GUI field or MINIMAX_API_KEY).";
+                return;
+            }
+
             var client = new OllamaClient();
             var available = await client.IsAvailableAsync();
             if (!available)
@@ -532,6 +551,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                     anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                     zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
+                    minimaxApiKey: string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey,
                     CancellationToken.None,
                     log: null);
 
@@ -1360,7 +1380,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     effectiveNameModel,
                     openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                     anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
-                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey);
+                    zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
+                    minimaxApiKey: string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey);
                 if (!preflight.IsOk)
                 {
                     throw new InvalidOperationException(preflight.BuildMessage());
@@ -1390,6 +1411,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     openAiApiKey: string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                     anthropicApiKey: string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                     zaiApiKey: string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
+                    minimaxApiKey: string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey,
                     cancellationToken,
                     new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
 
@@ -1762,6 +1784,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         ShowOpenAiApiKeyInput = IsOpenAiModel(NameMatchingModel);
         ShowAnthropicApiKeyInput = IsAnthropicModel(NameMatchingModel);
         ShowZaiApiKeyInput = IsZaiModel(NameMatchingModel);
+        ShowMiniMaxApiKeyInput = IsMiniMaxModel(NameMatchingModel);
     }
 
     private void ResetErrorSummary()
@@ -2063,7 +2086,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsPaidModel(string modelName)
-        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName);
+        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName) || IsMiniMaxModel(modelName);
 
     private static bool IsOpenAiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
@@ -2077,6 +2100,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private static bool IsZaiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
            modelName.StartsWith("zai:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMiniMaxModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.StartsWith("minimax:", StringComparison.OrdinalIgnoreCase);
 
     partial void OnNameMatchingModelChanged(string value)
     {

@@ -44,7 +44,10 @@ public partial class MapStepViewModel : ViewModelBase
         "anthropic:claude-3-5-sonnet",
         "zai:glm-4.5",
         "zai:glm-4-flash",
-        "zai:glm-4"
+        "zai:glm-4",
+        "minimax:MiniMax-M2.5",
+        "minimax:MiniMax-M2.1",
+        "minimax:MiniMax-M2"
     };
 
     private static readonly string[] ConfiguredPaidNameModels =
@@ -98,6 +101,9 @@ public partial class MapStepViewModel : ViewModelBase
     private string _zaiApiKey = string.Empty;
 
     [ObservableProperty]
+    private string _miniMaxApiKey = string.Empty;
+
+    [ObservableProperty]
     private bool _showOpenAiApiKeyInput;
 
     [ObservableProperty]
@@ -105,6 +111,9 @@ public partial class MapStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _showZaiApiKeyInput;
+
+    [ObservableProperty]
+    private bool _showMiniMaxApiKeyInput;
 
     [ObservableProperty]
     private bool _isProcessing;
@@ -239,6 +248,16 @@ public partial class MapStepViewModel : ViewModelBase
                 ModelDiagnosticStatus = keyPresent
                     ? "✓ Z.AI API key available. Z.AI model can be used."
                     : "✗ Z.AI API key is missing (GUI field or ZAI_API_KEY).";
+                return;
+            }
+
+            if (IsMiniMaxModel(NameModel))
+            {
+                var keyPresent = !string.IsNullOrWhiteSpace(MiniMaxApiKey) ||
+                                 !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MINIMAX_API_KEY"));
+                ModelDiagnosticStatus = keyPresent
+                    ? "✓ MiniMax API key available. MiniMax model can be used."
+                    : "✗ MiniMax API key is missing (GUI field or MINIMAX_API_KEY).";
                 return;
             }
 
@@ -394,6 +413,7 @@ public partial class MapStepViewModel : ViewModelBase
                 string.IsNullOrWhiteSpace(OpenAiApiKey) ? null : OpenAiApiKey,
                 string.IsNullOrWhiteSpace(AnthropicApiKey) ? null : AnthropicApiKey,
                 string.IsNullOrWhiteSpace(ZaiApiKey) ? null : ZaiApiKey,
+                string.IsNullOrWhiteSpace(MiniMaxApiKey) ? null : MiniMaxApiKey,
                 _cancellationTokenSource.Token,
                 log,
                 uiProgress);
@@ -593,7 +613,7 @@ public partial class MapStepViewModel : ViewModelBase
             modelName.Contains(":free", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsPaidModel(string modelName)
-        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName);
+        => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName) || IsMiniMaxModel(modelName);
 
     private static bool IsOpenAiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
@@ -607,6 +627,10 @@ public partial class MapStepViewModel : ViewModelBase
     private static bool IsZaiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
            modelName.StartsWith("zai:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMiniMaxModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.StartsWith("minimax:", StringComparison.OrdinalIgnoreCase);
 
     partial void OnNameModelChanged(string value)
     {
@@ -675,6 +699,7 @@ public partial class MapStepViewModel : ViewModelBase
         ShowOpenAiApiKeyInput = IsOpenAiModel(NameModel);
         ShowAnthropicApiKeyInput = IsAnthropicModel(NameModel);
         ShowZaiApiKeyInput = IsZaiModel(NameModel);
+        ShowMiniMaxApiKeyInput = IsMiniMaxModel(NameModel);
     }
 
     private static int GetTierIndexForModel(string modelName)

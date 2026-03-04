@@ -229,6 +229,13 @@
                          Height="32"
                          Background="{DynamicResource InputBackgroundBrush}"
                          Foreground="{DynamicResource PrimaryTextBrush}"/>
+                <TextBox Text="{Binding MiniMaxApiKey}"
+                         Watermark="MiniMax API key (not saved to disk)"
+                         PasswordChar="•"
+                         IsVisible="{Binding ShowMiniMaxApiKeyInput}"
+                         Height="32"
+                         Background="{DynamicResource InputBackgroundBrush}"
+                         Foreground="{DynamicResource PrimaryTextBrush}"/>
               </StackPanel>
             </Border>
 

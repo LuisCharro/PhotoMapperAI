@@ -32,6 +32,7 @@ public sealed class ExternalMapCliRunner
         string? openAiApiKey,
         string? anthropicApiKey,
         string? zaiApiKey,
+        string? minimaxApiKey,
         CancellationToken cancellationToken,
         IProgress<string>? log,
         IProgress<(int processed, int total, string current)>? uiProgress = null)
@@ -43,7 +44,8 @@ public sealed class ExternalMapCliRunner
             confidenceThreshold: confidenceThreshold,
             openAiApiKey: openAiApiKey,
             anthropicApiKey: anthropicApiKey,
-            zaiApiKey: zaiApiKey);
+            zaiApiKey: zaiApiKey,
+            minimaxApiKey: minimaxApiKey);
         var imageProcessor = new ImageProcessor();
         var logic = new MapCommandLogic(nameMatchingService, imageProcessor);
 

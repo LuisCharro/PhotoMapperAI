@@ -82,7 +82,8 @@ public static class PreflightChecker
         string nameModel,
         string? openAiApiKey = null,
         string? anthropicApiKey = null,
-        string? zaiApiKey = null)
+        string? zaiApiKey = null,
+        string? minimaxApiKey = null)
     {
         var result = new PreflightResult();
 
@@ -111,6 +112,14 @@ public static class PreflightChecker
             var key = anthropicApiKey ?? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
             if (string.IsNullOrWhiteSpace(key))
                 result.Errors.Add("ANTHROPIC_API_KEY is missing for Anthropic name model.");
+            return result;
+        }
+
+        if (provider == "minimax")
+        {
+            var key = minimaxApiKey ?? Environment.GetEnvironmentVariable("MINIMAX_API_KEY");
+            if (string.IsNullOrWhiteSpace(key))
+                result.Errors.Add("MINIMAX_API_KEY is missing for MiniMax name model.");
             return result;
         }
 
@@ -318,7 +327,8 @@ public static class PreflightChecker
             "openai",
             "anthropic",
             "claude",
-            "zai"
+            "zai",
+            "minimax"
         };
 
         if (!knownProviders.Contains(possibleProvider))
