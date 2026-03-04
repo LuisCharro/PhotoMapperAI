@@ -8,7 +8,7 @@ namespace PhotoMapperAI.Services.AI;
 
 /// <summary>
 /// MiniMax name matching service using the Anthropic-compatible API.
-/// MiniMax provides GLM models via API with Anthropic-compatible interface.
+/// For Coding Plan subscribers, use: https://api.minimax.io/anthropic/v1/messages
 /// </summary>
 public class MiniMaxNameMatchingService : INameMatchingService
 {
@@ -28,9 +28,20 @@ public class MiniMaxNameMatchingService : INameMatchingService
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("MINIMAX_API_KEY is missing. MiniMax provider is not configured.");
 
-        _baseUrl = string.IsNullOrWhiteSpace(baseUrl)
-            ? (Environment.GetEnvironmentVariable("MINIMAX_BASE_URL")?.TrimEnd('/') ?? "https://api.minimax.io/v1")
-            : baseUrl.TrimEnd('/');
+        // For Coding Plan, use Anthropic-compatible endpoint
+        // Fallback to pay-per-use endpoint if explicitly configured
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+        {
+            _baseUrl = baseUrl.TrimEnd('/');
+        }
+        else
+        {
+            var envBaseUrl = Environment.GetEnvironmentVariable("MINIMAX_BASE_URL");
+            _baseUrl = string.IsNullOrWhiteSpace(envBaseUrl)
+                ? "https://api.minimax.io/anthropic/v1"  // Anthropic-compatible API (for Coding Plan)
+                : envBaseUrl.TrimEnd('/');
+        }
+        
         _modelName = modelName;
         _confidenceThreshold = confidenceThreshold;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
@@ -64,21 +75,23 @@ public class MiniMaxNameMatchingService : INameMatchingService
             };
         }
 
+        // Use Anthropic-compatible API format for Coding Plan
         var requestBody = new
         {
             model = _modelName,
+            max_tokens = 1024,
             messages = new[]
             {
-                new { role = "user", content = prompt }
+                new { role = "user", content = new[] { new { type = "text", text = prompt } } }
             },
-            temperature = 0.0
+            temperature = 1.0  // Required for Anthropic API (range (0.0, 1.0])
         };
 
         try
         {
             var json = JsonSerializer.Serialize(requestBody);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            using var response = await _httpClient.PostAsync($"{_baseUrl}/chat/completions", content);
+            using var response = await _httpClient.PostAsync($"{_baseUrl}/messages", content);
             var responseBody = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -89,14 +102,17 @@ public class MiniMaxNameMatchingService : INameMatchingService
                     BuildMetadata());
             }
 
-            var data = JsonSerializer.Deserialize<MiniMaxResponse>(responseBody, _jsonOptions);
-            var text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+            var data = JsonSerializer.Deserialize<AnthropicResponse>(responseBody, _jsonOptions);
+            
+            // Extract text content from Anthropic response format
+            var text = ExtractTextContent(data);
+            
             var metadata = BuildMetadata();
             if (data?.Usage != null)
             {
-                metadata["usage_prompt_tokens"] = data.Usage.PromptTokens.ToString();
-                metadata["usage_completion_tokens"] = data.Usage.CompletionTokens.ToString();
-                metadata["usage_total_tokens"] = data.Usage.TotalTokens.ToString();
+                metadata["usage_input_tokens"] = data.Usage.InputTokens.ToString();
+                metadata["usage_output_tokens"] = data.Usage.OutputTokens.ToString();
+                metadata["usage_total_tokens"] = (data.Usage.InputTokens + data.Usage.OutputTokens).ToString();
             }
 
             return NameComparisonResultParser.Parse(text, _confidenceThreshold, metadata, _jsonOptions);
@@ -156,8 +172,23 @@ public class MiniMaxNameMatchingService : INameMatchingService
     private Dictionary<string, string> BuildMetadata() => new()
     {
         { "provider", "minimax" },
-        { "model", _modelName }
+        { "model", _modelName },
+        { "api_endpoint", _baseUrl }
     };
+
+    private static string ExtractTextContent(AnthropicResponse? response)
+    {
+        if (response?.Content == null)
+            return string.Empty;
+
+        foreach (var block in response.Content)
+        {
+            if (block.Type == "text" && !string.IsNullOrWhiteSpace(block.Text))
+                return block.Text;
+        }
+
+        return string.Empty;
+    }
 
     private static string Compact(string? text)
     {
@@ -167,37 +198,50 @@ public class MiniMaxNameMatchingService : INameMatchingService
         return text.Replace('\n', ' ').Replace('\r', ' ').Trim();
     }
 
-    private class MiniMaxResponse
+    // Anthropic-compatible response classes
+    private class AnthropicResponse
     {
-        [JsonPropertyName("choices")]
-        public List<MiniMaxChoice>? Choices { get; set; }
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("role")]
+        public string? Role { get; set; }
+
+        [JsonPropertyName("content")]
+        public List<AnthropicContentBlock>? Content { get; set; }
+
+        [JsonPropertyName("model")]
+        public string? Model { get; set; }
+
+        [JsonPropertyName("stop_reason")]
+        public string? StopReason { get; set; }
 
         [JsonPropertyName("usage")]
-        public MiniMaxUsage? Usage { get; set; }
+        public AnthropicUsage? Usage { get; set; }
     }
 
-    private class MiniMaxChoice
+    private class AnthropicContentBlock
     {
-        [JsonPropertyName("message")]
-        public MiniMaxMessage? Message { get; set; }
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
+
+        [JsonPropertyName("thinking")]
+        public string? Thinking { get; set; }
     }
 
-    private class MiniMaxMessage
+    private class AnthropicUsage
     {
-        [JsonPropertyName("content")]
-        public string? Content { get; set; }
-    }
+        [JsonPropertyName("input_tokens")]
+        public int InputTokens { get; set; }
 
-    private class MiniMaxUsage
-    {
-        [JsonPropertyName("prompt_tokens")]
-        public int PromptTokens { get; set; }
-
-        [JsonPropertyName("completion_tokens")]
-        public int CompletionTokens { get; set; }
-
-        [JsonPropertyName("total_tokens")]
-        public int TotalTokens { get; set; }
+        [JsonPropertyName("output_tokens")]
+        public int OutputTokens { get; set; }
     }
 
 }

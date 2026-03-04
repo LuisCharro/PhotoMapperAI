@@ -45,7 +45,10 @@ public partial class MapStepViewModel : ViewModelBase
         "zai:glm-4.5",
         "zai:glm-4-flash",
         "zai:glm-4",
-        "minimax:MiniMax-M2.5",
+        // MiniMax models (Coding Plan - use Anthropic-compatible API)
+        "minimax:MiniMax-M2.5-highspeed",  // ~100 tps - fastest option
+        "minimax:MiniMax-M2.5",             // ~60 tps
+        "minimax:MiniMax-M2.1-highspeed",
         "minimax:MiniMax-M2.1",
         "minimax:MiniMax-M2"
     };
