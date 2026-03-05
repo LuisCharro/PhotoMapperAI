@@ -1456,6 +1456,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
                     UpdateTeamProperty(team, t => t.PlayersMapped = mapResult.PlayersMatched);
                     teamResult.PlayersMapped = mapResult.PlayersMatched;
+                    teamResult.PlayersMappedDirectId = mapResult.PlayersMappedDirectId;
+                    teamResult.PlayersMappedDeterministic = mapResult.PlayersMappedDeterministic;
+                    teamResult.PlayersMappedFirstRound = mapResult.PlayersMappedFirstRound;
+                    teamResult.PlayersMappedAiPass1 = mapResult.PlayersMappedAiPass1;
+                    teamResult.PlayersMappedAiPass2 = mapResult.PlayersMappedAiPass2;
+                    teamResult.PlayersMappedAiTotal = mapResult.PlayersMappedAiTotal;
                     AppendLog($"[MAP] {team.TeamName}: Mapped {mapResult.PlayersMatched} players.");
 
                     // Use the mapped CSV for generation (contains External_Player_ID)

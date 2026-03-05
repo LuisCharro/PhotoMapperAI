@@ -97,6 +97,7 @@ public static class NameComparisonPromptBuilder
         ["jimmy"] = "james",
         ["jim"] = "james",
         ["chris"] = "christopher",
+        ["chico"] = "francisco",
         // Cristiano Ronaldo (mononymous player) - maps "cristiano" token to "ronaldo" for matching
         // WARNING: May cause false positives for players named "Cristiano [Surname]"
         ["cristiano"] = "ronaldo",
@@ -371,8 +372,7 @@ Return exactly one result per comparison with the same index provided in the inp
             if (p.All(char.IsDigit))
                 continue;
 
-            // Normalize spelling variants (case-insensitive lookup)
-            var normalized = SpellingNormalizations.TryGetValue(p, out var norm) ? norm : p;
+            var normalized = NormalizeToken(p);
 
             tokens.Add(normalized);
         }
@@ -395,6 +395,19 @@ Return exactly one result per comparison with the same index provided in the inp
         }
 
         return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
+    }
+
+    private static string NormalizeToken(string token)
+    {
+        var current = token;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (seen.Add(current) && SpellingNormalizations.TryGetValue(current, out var next))
+        {
+            current = next;
+        }
+
+        return current;
     }
 }
 

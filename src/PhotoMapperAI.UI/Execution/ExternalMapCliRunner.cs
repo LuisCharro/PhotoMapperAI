@@ -14,6 +14,12 @@ public sealed class ExternalMapCliRunner
         public int ExitCode { get; set; }
         public int PlayersProcessed { get; set; }
         public int PlayersMatched { get; set; }
+        public int PlayersMappedDirectId { get; set; }
+        public int PlayersMappedDeterministic { get; set; }
+        public int PlayersMappedFirstRound { get; set; }
+        public int PlayersMappedAiPass1 { get; set; }
+        public int PlayersMappedAiPass2 { get; set; }
+        public int PlayersMappedAiTotal { get; set; }
         public int ManualEditsPreserved { get; set; }
         public string OutputCsvPath { get; set; } = string.Empty;
     }
@@ -71,6 +77,12 @@ public sealed class ExternalMapCliRunner
             ExitCode = 0,
             PlayersProcessed = result.PlayersProcessed,
             PlayersMatched = result.PlayersMatched,
+            PlayersMappedDirectId = result.DirectIdMatches,
+            PlayersMappedDeterministic = result.StringMatches,
+            PlayersMappedFirstRound = result.FirstRoundMatches,
+            PlayersMappedAiPass1 = result.AiFirstPassMatches,
+            PlayersMappedAiPass2 = result.AiSecondPassMatches,
+            PlayersMappedAiTotal = result.AiMatches,
             ManualEditsPreserved = result.ManualEditsPreserved,
             OutputCsvPath = result.OutputPath
         };

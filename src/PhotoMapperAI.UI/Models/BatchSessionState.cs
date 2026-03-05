@@ -96,6 +96,12 @@ public class BatchTeamResult
     public string? StatusMessage { get; set; }
     public int PlayersExtracted { get; set; }
     public int PlayersMapped { get; set; }
+    public int PlayersMappedDirectId { get; set; }
+    public int PlayersMappedDeterministic { get; set; }
+    public int PlayersMappedFirstRound { get; set; }
+    public int PlayersMappedAiPass1 { get; set; }
+    public int PlayersMappedAiPass2 { get; set; }
+    public int PlayersMappedAiTotal { get; set; }
     public int PhotosGenerated { get; set; }
     public string? CsvPath { get; set; }
     public string? MappedCsvPath { get; set; }
