@@ -240,6 +240,54 @@ public class DatabaseExtractor
     }
 
     /// <summary>
+    /// Reads player data from an existing mapped CSV file, preserving all values
+    /// including manually edited ValidMapping and Confidence fields.
+    /// </summary>
+    /// <param name="csvPath">Path to mapped CSV file</param>
+    /// <returns>Dictionary of PlayerId to PlayerRecord with preserved values</returns>
+    public static async Task<Dictionary<int, PlayerRecord>> ReadExistingMappedCsvAsync(string csvPath)
+    {
+        return await Task.Run(() =>
+        {
+            var result = new Dictionary<int, PlayerRecord>();
+
+            if (!File.Exists(csvPath))
+            {
+                return result;
+            }
+
+            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            {
+                HasHeaderRecord = true,
+                Delimiter = ",",
+                IgnoreBlankLines = true
+            };
+
+            using var reader = new StreamReader(csvPath);
+            using var csv = new CsvReader(reader, config);
+
+            foreach (var record in csv.GetRecords<PlayerRecordCsvExtended>())
+            {
+                var player = new PlayerRecord
+                {
+                    PlayerId = record.PlayerId,
+                    TeamId = record.TeamId,
+                    FamilyName = record.FamilyName ?? string.Empty,
+                    SurName = record.SurName ?? string.Empty,
+                    External_Player_ID = record.External_Player_ID,
+                    // Preserve the exact values from the existing mapped file
+                    ValidMapping = record.ValidMapping,
+                    Confidence = record.Confidence
+                };
+
+                result[player.PlayerId] = player;
+            }
+
+            return result;
+        });
+    }
+
+    /// <summary>
     /// Writes player records to CSV file.
     /// </summary>
     public static async Task WriteCsvAsync(List<PlayerRecord> players, string outputCsvPath)
@@ -345,6 +393,21 @@ public class DatabaseExtractor
         public string? SurName { get; set; }
         [Name("External_Player_ID", "ExternalId")]
         public string? External_Player_ID { get; set; }
+    }
+
+    /// <summary>
+    /// Extended CSV record format for reading existing mapped files with all fields.
+    /// </summary>
+    private class PlayerRecordCsvExtended
+    {
+        public int PlayerId { get; set; }
+        public int TeamId { get; set; }
+        public string? FamilyName { get; set; }
+        public string? SurName { get; set; }
+        [Name("External_Player_ID", "ExternalId")]
+        public string? External_Player_ID { get; set; }
+        public bool ValidMapping { get; set; }
+        public double Confidence { get; set; }
     }
 
     private static string? GetOptionalString(System.Data.SqlClient.SqlDataReader reader, params string[] columnNames)

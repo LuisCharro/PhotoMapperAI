@@ -16,6 +16,7 @@ public class MapResult
     public int DirectIdMatches { get; set; }
     public int StringMatches { get; set; }
     public int AiMatches { get; set; }
+    public int ManualEditsPreserved { get; set; }
     public string OutputPath { get; set; } = string.Empty;
 }
 
@@ -293,13 +294,62 @@ public class MapCommandLogic
             }
             log?.Report($"✓ Left unmapped: {unmappedCount}");
 
-            // Step 5: Write updated CSV
+            // Step 5: Write updated CSV (with intelligent merge to preserve manual edits)
             var outputFileName = BuildMappedFileName(inputCsvPath);
             var baseOutputDir = string.IsNullOrWhiteSpace(outputDirectory)
                 ? Directory.GetCurrentDirectory()
                 : outputDirectory;
             Directory.CreateDirectory(baseOutputDir);
             var outputPath = Path.Combine(baseOutputDir, outputFileName);
+
+            // Load existing mapped CSV if it exists (to preserve manual edits)
+            var existingMappings = await Services.Database.DatabaseExtractor.ReadExistingMappedCsvAsync(outputPath);
+            int preservedCount = 0;
+            if (existingMappings.Count > 0)
+            {
+                LogLine($"Found existing mapped file with {existingMappings.Count} records - preserving manual edits for unmatched players");
+                
+                // Merge logic: for each player in the new result
+                // - If new mapping found (External_Player_ID is set) → use new mapping
+                // - If no new mapping found BUT exists in old mapped file → preserve existing data
+                var preservedPlayerNames = new List<string>();
+                foreach (var player in players)
+                {
+                    // Check if this player has NO new mapping
+                    if (string.IsNullOrEmpty(player.External_Player_ID))
+                    {
+                        // Check if there's existing mapped data from manual edits
+                        if (existingMappings.TryGetValue(player.PlayerId, out var existingPlayer))
+                        {
+                            // Preserve the existing mapping data (manual edits)
+                            player.External_Player_ID = existingPlayer.External_Player_ID;
+                            player.ValidMapping = existingPlayer.ValidMapping;
+                            player.Confidence = existingPlayer.Confidence;
+                            preservedCount++;
+                            preservedPlayerNames.Add(player.FullName);
+                        }
+                    }
+                }
+                
+                if (preservedCount > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"✓ Preserved manual edits for {preservedCount} unmatched players");
+                    Console.ResetColor();
+                    log?.Report($"✓ Preserved manual edits for {preservedCount} unmatched players");
+                    
+                    // Log the player names that had their edits preserved (limit to first 10 for readability)
+                    var namesToLog = preservedPlayerNames.Take(10).ToList();
+                    var namesText = string.Join(", ", namesToLog);
+                    if (preservedPlayerNames.Count > 10)
+                    {
+                        namesText += $" ... and {preservedPlayerNames.Count - 10} more";
+                    }
+                    LogLine($"  → Preserved players: {namesText}");
+                    log?.Report($"  → Preserved players: {namesText}");
+                }
+            }
+
             LogLine(string.Empty);
             LogLine($"Writing results to: {outputPath}");
             await Services.Database.DatabaseExtractor.WriteCsvAsync(players, outputPath);
@@ -316,6 +366,7 @@ public class MapCommandLogic
                 DirectIdMatches = directIdMatches,
                 StringMatches = stringMatches,
                 AiMatches = aiMatches,
+                ManualEditsPreserved = preservedCount,
                 OutputPath = outputPath
             };
         }
@@ -935,6 +986,10 @@ public class MapCommandLogic
         if (IsNearIdentical(left.Normalized, right.Normalized))
             return 0.95;
 
+        // Check for substring/nickname matching (e.g., "rodrigo" ↔ "rodri", "jose" ↔ "joselu")
+        // This handles nicknames and diminutives without hardcoded rules
+        var substringBoost = CheckSubstringMatch(left.Tokens, right.Tokens);
+
         var intersectionCount = left.TokenSet.Intersect(right.TokenSet).Count();
         var unionCount = left.TokenSet.Count + right.TokenSet.Count - intersectionCount;
         var minTokenCount = Math.Min(left.TokenSet.Count, right.TokenSet.Count);
@@ -1001,6 +1056,12 @@ public class MapCommandLogic
             score = Math.Min(score, 0.79);
         }
 
+        // Apply substring match boost if found (nicknames like "rodri" for "rodrigo")
+        if (substringBoost > 0 && score < substringBoost)
+        {
+            score = Math.Max(score, substringBoost);
+        }
+
         return Math.Clamp(score, 0.0, 1.0);
     }
 
@@ -1060,6 +1121,43 @@ public class MapCommandLogic
         }
 
         return total / smaller.Length;
+    }
+
+    /// <summary>
+    /// Checks if any token from one set is a substring of any token from the other set.
+    /// This handles nicknames and diminutives like "Rodri" for "Rodrigo".
+    /// Returns a boost score (0.90+) if a substring match is found, 0 otherwise.
+    /// </summary>
+    private static double CheckSubstringMatch(string[] tokens1, string[] tokens2)
+    {
+        const int MinLength = 4;
+        const double MinRatio = 0.5;
+
+        foreach (var token1 in tokens1)
+        {
+            if (token1.Length < MinLength)
+                continue;
+
+            foreach (var token2 in tokens2)
+            {
+                if (token2.Length < MinLength)
+                    continue;
+
+                // Check if one token contains the other (substring match)
+                // and the shorter is at least 50% of the longer
+                if (token1.Contains(token2) && token2.Length >= token1.Length * MinRatio)
+                {
+                    return 0.90; // High confidence for substring match
+                }
+
+                if (token2.Contains(token1) && token1.Length >= token2.Length * MinRatio)
+                {
+                    return 0.90; // High confidence for substring match
+                }
+            }
+        }
+
+        return 0;
     }
 
     private static int GetCommonPrefixLength(string left, string right)

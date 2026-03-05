@@ -14,6 +14,7 @@ public sealed class ExternalMapCliRunner
         public int ExitCode { get; set; }
         public int PlayersProcessed { get; set; }
         public int PlayersMatched { get; set; }
+        public int ManualEditsPreserved { get; set; }
         public string OutputCsvPath { get; set; } = string.Empty;
     }
 
@@ -70,6 +71,7 @@ public sealed class ExternalMapCliRunner
             ExitCode = 0,
             PlayersProcessed = result.PlayersProcessed,
             PlayersMatched = result.PlayersMatched,
+            ManualEditsPreserved = result.ManualEditsPreserved,
             OutputCsvPath = result.OutputPath
         };
     }
