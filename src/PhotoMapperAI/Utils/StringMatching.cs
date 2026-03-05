@@ -83,8 +83,8 @@ public static class StringMatching
         // Treat common separators as spaces before normalization.
         name = name.Replace('-', ' ').Replace('_', ' ');
 
-        // Apply European character transliteration first (before accent removal)
-        name = NormalizeEuropeanCharacters(name);
+        // Apply all character normalizations (extensible for world competitions)
+        name = NormalizeCharacters(name);
 
         // Remove accents
         var normalized = name.Normalize(NormalizationForm.FormKD);
@@ -122,6 +122,26 @@ public static class StringMatching
         normalized = CollapseVowelsRegex.Replace(normalized, "$1");
 
         return normalized;
+    }
+
+    /// <summary>
+    /// Applies all character normalizations for international name matching.
+    /// This is the main entry point for region-specific character normalization.
+    /// Add new normalizers here as needed for world competitions.
+    /// </summary>
+    private static string NormalizeCharacters(string input)
+    {
+        var result = input;
+        
+        // Apply region-specific normalizations (add more as needed for world competitions)
+        result = NormalizeEuropeanCharacters(result);
+        
+        // Future expansions:
+        // result = NormalizeAsianCharacters(result);    // CJK, Hangul, etc.
+        // result = NormalizeAfricanCharacters(result);  // African languages
+        // result = NormalizeMiddleEastCharacters(result); // Arabic, Hebrew, etc.
+        
+        return result;
     }
 
     /// <summary>
@@ -234,6 +254,28 @@ public static class StringMatching
         // Strategy 5: Contains check
         if (norm1.Contains(norm2) || norm2.Contains(norm1))
             return 0.95;
+
+        // Strategy 5b: Token substring matching (handles nicknames like "Rodri" for "Rodrigo")
+        // If one token is a significant substring of another (min length 4, covers 50%+ of longer token)
+        var allTokens1 = norm1.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var allTokens2 = norm2.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
+        foreach (var token1 in allTokens1)
+        {
+            foreach (var token2 in allTokens2)
+            {
+                // Skip short tokens
+                if (token1.Length < 4 || token2.Length < 4)
+                    continue;
+                    
+                // Check if one token contains the other significantly
+                if (token1.Contains(token2) && token2.Length >= token1.Length * 0.5)
+                    return 0.90; // High confidence for nickname/substring match
+                    
+                if (token2.Contains(token1) && token1.Length >= token2.Length * 0.5)
+                    return 0.90;
+            }
+        }
 
         // Strategy 6: Levenshtein similarity
         var similarity = CalculateSimilarity(norm1, norm2);
