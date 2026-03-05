@@ -243,6 +243,19 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private string _outputProfile = "none";
 
+    // Skip Existing Steps
+    [ObservableProperty]
+    private bool _skipExistingSteps;
+
+    [ObservableProperty]
+    private bool _skipExtractStep;
+
+    [ObservableProperty]
+    private bool _skipMapStep;
+
+    [ObservableProperty]
+    private bool _skipGenerateStep;
+
     // Photo Filename Parsing
     [ObservableProperty]
     private string _filenamePattern = string.Empty;
@@ -1258,11 +1271,36 @@ public partial class BatchAutomationViewModel : ViewModelBase
         try
         {
             // Step 1: Extract players
-            UpdateTeamStatus(team, BatchTeamStatus.Extracting, "Extracting players...");
-            AppendLog($"[EXTRACT] {team.TeamName}: Extracting players...");
-
-            if (File.Exists(PlayersSqlPath))
+            // Check if we can skip this step
+            var extractSkipped = false;
+            if (SkipExistingSteps || SkipExtractStep)
             {
+                if (File.Exists(csvPath))
+                {
+                    // Read existing CSV to get player count
+                    var existingPlayers = await _databaseExtractor.ReadCsvAsync(csvPath);
+                    var playerCount = existingPlayers.Count;
+                    UpdateTeamProperty(team, t => t.PlayersExtracted = playerCount);
+                    UpdateTeamProperty(team, t => t.CsvPath = csvPath);
+                    teamResult.PlayersExtracted = playerCount;
+                    teamResult.CsvPath = csvPath;
+                    var skipReason = SkipExistingSteps ? "SkipExistingSteps enabled" : "SkipExtractStep enabled";
+                    AppendLog($"[EXTRACT] {team.TeamName}: ⏭ SKIPPED ({skipReason}) - using existing CSV with {playerCount} players from {csvPath}");
+                    extractSkipped = true;
+                }
+                else if (SkipExistingSteps || SkipExtractStep)
+                {
+                    AppendLog($"[EXTRACT] {team.TeamName}: CSV skip requested but file not found: {csvPath} - will extract");
+                }
+            }
+
+            if (!extractSkipped)
+            {
+                UpdateTeamStatus(team, BatchTeamStatus.Extracting, "Extracting players...");
+                AppendLog($"[EXTRACT] {team.TeamName}: Extracting players...");
+
+                if (File.Exists(PlayersSqlPath))
+                {
                 var playersSql = await File.ReadAllTextAsync(PlayersSqlPath, cancellationToken);
                 playersSql = playersSql.Replace("{TeamId}", team.TeamId.ToString());
                 
@@ -1279,13 +1317,14 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 teamResult.PlayersExtracted = playerCount;
                 teamResult.CsvPath = csvPath;
                 AppendLog($"[EXTRACT] {team.TeamName}: Extracted {playerCount} players.");
-            }
-            else
-            {
-                throw new FileNotFoundException($"Players SQL file not found: {PlayersSqlPath}");
+                }
+                else
+                {
+                    throw new FileNotFoundException($"Players SQL file not found: {PlayersSqlPath}");
+                }
             }
 
-            // Check if photo directory exists (after extraction)
+            // Check if photo directory exists (after extraction or skip)
             if (!Directory.Exists(teamPhotoDir))
             {
                 AppendLog($"[SKIP] {team.TeamName}: Photo directory not found: {teamPhotoDir}");
@@ -1299,190 +1338,279 @@ public partial class BatchAutomationViewModel : ViewModelBase
             }
 
             // Step 2: Map players
-            UpdateTeamStatus(team, BatchTeamStatus.Mapping, "Mapping players...");
-            AppendLog($"[MAP] {team.TeamName}: Mapping players...");
-
-            try
+            // Check if we can skip this step
+            var mappedCsvPath = Path.Combine(teamCsvDir, $"mapped_{team.TeamName}.csv");
+            var mapSkipped = false;
+            if (SkipExistingSteps || SkipMapStep)
             {
-                var effectiveNameModel = string.IsNullOrWhiteSpace(NameMatchingModel)
-                    ? "qwen2.5:7b"
-                    : NameMatchingModel;
-
-                if (!string.Equals(effectiveNameModel, NameMatchingModel, StringComparison.OrdinalIgnoreCase))
+                if (File.Exists(mappedCsvPath))
                 {
-                    NameMatchingModel = effectiveNameModel;
-                    AppendLog($"[MAP] {team.TeamName}: Name matching model was empty; defaulted to '{effectiveNameModel}'.");
-                }
-
-                if (NameMatchingThreshold < MinConfidenceThreshold)
-                {
-                    NameMatchingThreshold = MinConfidenceThreshold;
-                }
-
-                // Log AI configuration
-                AppendLog($"[MAP] {team.TeamName}: AI Configuration:");
-                AppendLog($"[MAP] {team.TeamName}:   - Use AI Mapping: {UseAiMapping}");
-                AppendLog($"[MAP] {team.TeamName}:   - AI Only Mode: {AiOnly}");
-                AppendLog($"[MAP] {team.TeamName}:   - AI Second Pass: {AiSecondPass}");
-                AppendLog($"[MAP] {team.TeamName}:   - Name Model: {effectiveNameModel}");
-                AppendLog($"[MAP] {team.TeamName}:   - Confidence Threshold: {NameMatchingThreshold:F2}");
-                
-                // Unified API key check for logging
-                var hasApiKey = !string.IsNullOrWhiteSpace(ApiKey);
-                string providerName = GetProviderName(effectiveNameModel);
-                AppendLog($"[MAP] {team.TeamName}:   - {providerName} API Key: {(hasApiKey ? "✓ Provided" : "✗ Missing")}");
-
-                var preflight = await PreflightChecker.CheckMapAsync(
-                    UseAiMapping,
-                    effectiveNameModel,
-                    openAiApiKey: IsOpenAiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
-                    anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
-                    zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
-                    minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null);
-                if (!preflight.IsOk)
-                {
-                    throw new InvalidOperationException(preflight.BuildMessage());
-                }
-
-                var warningMessage = preflight.BuildWarningMessage();
-                if (!string.IsNullOrWhiteSpace(warningMessage))
-                {
-                    AppendLog($"[MAP] {team.TeamName}: {warningMessage}");
-                }
-
-                var effectiveAiSecondPass = UseAiMapping && AiSecondPass;
-                var effectiveAiOnly = UseAiMapping && AiOnly;
-
-                var mapResult = await _mapRunner.ExecuteAsync(
-                    Directory.GetCurrentDirectory(),
-                    teamCsvDir,
-                    csvPath,
-                    teamPhotoDir,
-                    filenamePattern: string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
-                    photoManifest: UsePhotoManifest ? PhotoManifestPath : null,
-                    nameModel: effectiveNameModel,
-                    confidenceThreshold: NameMatchingThreshold,
-                    useAi: UseAiMapping,
-                    aiSecondPass: effectiveAiSecondPass,
-                    aiOnly: effectiveAiOnly,
-                    openAiApiKey: IsOpenAiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
-                    anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
-                    zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
-                    minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
-                    cancellationToken,
-                    new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
-
-                if (mapResult.ExitCode != 0)
-                {
-                    throw new Exception($"Map failed with exit code {mapResult.ExitCode}");
-                }
-
-                UpdateTeamProperty(team, t => t.PlayersMapped = mapResult.PlayersMatched);
-                teamResult.PlayersMapped = mapResult.PlayersMatched;
-                AppendLog($"[MAP] {team.TeamName}: Mapped {mapResult.PlayersMatched} players.");
-
-                // Use the mapped CSV for generation (contains External_Player_ID)
-                var mappedCsvPath = mapResult.OutputCsvPath;
-                if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
-                {
-                    mappedCsvPath = csvPath; // Fallback to original if mapped not found
-                }
-                teamResult.MappedCsvPath = mappedCsvPath;
-
-                // Collect unmapped player names for issue summary
-                try
-                {
+                    // Read existing mapped CSV to get match count
                     var mappedPlayers = await _databaseExtractor.ReadCsvAsync(mappedCsvPath);
+                    var mappedCount = mappedPlayers.Count(p => p.ValidMapping);
+                    UpdateTeamProperty(team, t => t.PlayersMapped = mappedCount);
+                    teamResult.PlayersMapped = mappedCount;
+                    teamResult.MappedCsvPath = mappedCsvPath;
+                    
+                    // Collect unmapped player names
                     var unmappedNames = mappedPlayers
                         .Where(p => !p.ValidMapping)
                         .Select(p => string.IsNullOrWhiteSpace(p.FullName) ? $"ID:{p.PlayerId}" : p.FullName)
                         .ToList();
                     UpdateTeamProperty(team, t => t.UnmappedPlayerNames = unmappedNames);
                     teamResult.UnmappedPlayerNames = unmappedNames;
+                    
+                    var mapSkipReason = SkipExistingSteps ? "SkipExistingSteps enabled" : "SkipMapStep enabled";
+                    AppendLog($"[MAP] {team.TeamName}: ⏭ SKIPPED ({mapSkipReason}) - using existing mapped CSV with {mappedCount} matches from {mappedCsvPath}");
                     if (unmappedNames.Count > 0)
                     {
-                        AppendLog($"[MAP] {team.TeamName}: Unmapped players: {string.Join(", ", unmappedNames)}");
+                        AppendLog($"[MAP] {team.TeamName}:   Unmapped players (from previous run): {string.Join(", ", unmappedNames)}");
                     }
+                    mapSkipped = true;
                 }
-                catch (Exception readEx)
+                else if (SkipExistingSteps || SkipMapStep)
                 {
-                    AppendLog($"[MAP] {team.TeamName}: Could not read mapped CSV for details: {readEx.Message}");
+                    AppendLog($"[MAP] {team.TeamName}: Map skip requested but mapped file not found: {mappedCsvPath} - will map");
                 }
             }
+
+            if (!mapSkipped)
+            {
+                UpdateTeamStatus(team, BatchTeamStatus.Mapping, "Mapping players...");
+                AppendLog($"[MAP] {team.TeamName}: Mapping players...");
+
+                try
+                {
+                    var effectiveNameModel = string.IsNullOrWhiteSpace(NameMatchingModel)
+                        ? "qwen2.5:7b"
+                        : NameMatchingModel;
+
+                    if (!string.Equals(effectiveNameModel, NameMatchingModel, StringComparison.OrdinalIgnoreCase))
+                    {
+                        NameMatchingModel = effectiveNameModel;
+                        AppendLog($"[MAP] {team.TeamName}: Name matching model was empty; defaulted to '{effectiveNameModel}'.");
+                    }
+
+                    if (NameMatchingThreshold < MinConfidenceThreshold)
+                    {
+                        NameMatchingThreshold = MinConfidenceThreshold;
+                    }
+
+                    // Log AI configuration
+                    AppendLog($"[MAP] {team.TeamName}: AI Configuration:");
+                    AppendLog($"[MAP] {team.TeamName}:   - Use AI Mapping: {UseAiMapping}");
+                    AppendLog($"[MAP] {team.TeamName}:   - AI Only Mode: {AiOnly}");
+                    AppendLog($"[MAP] {team.TeamName}:   - AI Second Pass: {AiSecondPass}");
+                    AppendLog($"[MAP] {team.TeamName}:   - Name Model: {effectiveNameModel}");
+                    AppendLog($"[MAP] {team.TeamName}:   - Confidence Threshold: {NameMatchingThreshold:F2}");
+                    
+                    // Unified API key check for logging
+                    var hasApiKey = !string.IsNullOrWhiteSpace(ApiKey);
+                    string providerName = GetProviderName(effectiveNameModel);
+                    AppendLog($"[MAP] {team.TeamName}:   - {providerName} API Key: {(hasApiKey ? "✓ Provided" : "✗ Missing")}");
+
+                    var preflight = await PreflightChecker.CheckMapAsync(
+                        UseAiMapping,
+                        effectiveNameModel,
+                        openAiApiKey: IsOpenAiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                        anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                        zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                        minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null);
+                    if (!preflight.IsOk)
+                    {
+                        throw new InvalidOperationException(preflight.BuildMessage());
+                    }
+
+                    var warningMessage = preflight.BuildWarningMessage();
+                    if (!string.IsNullOrWhiteSpace(warningMessage))
+                    {
+                        AppendLog($"[MAP] {team.TeamName}: {warningMessage}");
+                    }
+
+                    var effectiveAiSecondPass = UseAiMapping && AiSecondPass;
+                    var effectiveAiOnly = UseAiMapping && AiOnly;
+
+                    var mapResult = await _mapRunner.ExecuteAsync(
+                        Directory.GetCurrentDirectory(),
+                        teamCsvDir,
+                        csvPath,
+                        teamPhotoDir,
+                        filenamePattern: string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
+                        photoManifest: UsePhotoManifest ? PhotoManifestPath : null,
+                        nameModel: effectiveNameModel,
+                        confidenceThreshold: NameMatchingThreshold,
+                        useAi: UseAiMapping,
+                        aiSecondPass: effectiveAiSecondPass,
+                        aiOnly: effectiveAiOnly,
+                        openAiApiKey: IsOpenAiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                        anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                        zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                        minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
+                        cancellationToken,
+                        new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
+
+                    if (mapResult.ExitCode != 0)
+                    {
+                        throw new Exception($"Map failed with exit code {mapResult.ExitCode}");
+                    }
+
+                    UpdateTeamProperty(team, t => t.PlayersMapped = mapResult.PlayersMatched);
+                    teamResult.PlayersMapped = mapResult.PlayersMatched;
+                    AppendLog($"[MAP] {team.TeamName}: Mapped {mapResult.PlayersMatched} players.");
+
+                    // Use the mapped CSV for generation (contains External_Player_ID)
+                    mappedCsvPath = mapResult.OutputCsvPath;
+                    if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
+                    {
+                        mappedCsvPath = csvPath; // Fallback to original if mapped not found
+                    }
+                    teamResult.MappedCsvPath = mappedCsvPath;
+
+                    // Collect unmapped player names for issue summary
+                    try
+                    {
+                        var mappedPlayers = await _databaseExtractor.ReadCsvAsync(mappedCsvPath);
+                        var unmappedNames = mappedPlayers
+                            .Where(p => !p.ValidMapping)
+                            .Select(p => string.IsNullOrWhiteSpace(p.FullName) ? $"ID:{p.PlayerId}" : p.FullName)
+                            .ToList();
+                        UpdateTeamProperty(team, t => t.UnmappedPlayerNames = unmappedNames);
+                        teamResult.UnmappedPlayerNames = unmappedNames;
+                        if (unmappedNames.Count > 0)
+                        {
+                            AppendLog($"[MAP] {team.TeamName}: Unmapped players: {string.Join(", ", unmappedNames)}");
+                        }
+                    }
+                    catch (Exception readEx)
+                    {
+                        AppendLog($"[MAP] {team.TeamName}: Could not read mapped CSV for details: {readEx.Message}");
+                    }
+                }
             catch (Exception ex)
             {
                 AppendLog($"[ERROR] {team.TeamName}: Map step failed - {ex.Message}");
                 throw;
             }
+            } // End of map skip block
 
             // Step 3: Generate photos
-            UpdateTeamStatus(team, BatchTeamStatus.Generating, "Generating photos...");
-            AppendLog($"[GENERATE] {team.TeamName}: Generating photos...");
-
-            try
+            // Check if we can skip this step
+            var generateSkipped = false;
+            if (SkipExistingSteps || SkipGenerateStep)
             {
-                var cropOffset = new CropOffsetPreset
+                if (Directory.Exists(teamOutputDir))
                 {
-                    Name = SelectedCropOffsetPreset?.Name ?? "batch",
-                    HorizontalPercent = CropOffsetX,
-                    VerticalPercent = CropOffsetY
-                };
-
-                var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-                var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-                var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
-                var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
-                var allSizes = wantsAllSizes;
-
-                var effectiveWidth = wantsCustomDimensions ? PreviewCustomWidth : DefaultWidth;
-                var effectiveHeight = wantsCustomDimensions ? PreviewCustomHeight : DefaultHeight;
-
-                var generateResult = await _generateRunner.ExecuteAsync(
-                    Directory.GetCurrentDirectory(),
-                    teamResult.MappedCsvPath ?? csvPath,  // Use mapped CSV with External_Player_ID
-                    teamPhotoDir,
-                    teamOutputDir,
-                    ImageFormat,
-                    FaceDetectionModel,
-                    false,
-                    effectiveWidth,
-                    effectiveHeight,
-                    sizeProfilePath,
-                    allSizes,
-                    false,
-                    DownloadOpenCvModels,
-                    null,
-                    null,
-                    cropOffset,
-                    cancellationToken,
-                    new Progress<string>(msg => AppendLog($"[GENERATE] {team.TeamName}: {msg}")));
-
-                if (generateResult.ExitCode != 0)
-                {
-                    throw new Exception($"Generate failed with exit code {generateResult.ExitCode}");
+                    var existingPhotos = Directory.GetFiles(teamOutputDir, "*.*")
+                        .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                    f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                                    f.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    if (existingPhotos.Count > 0)
+                    {
+                        UpdateTeamProperty(team, t => t.PhotosGenerated = existingPhotos.Count);
+                        UpdateTeamProperty(team, t => t.PhotoPath = teamOutputDir);
+                        teamResult.PhotosGenerated = existingPhotos.Count;
+                        teamResult.PhotoPath = teamOutputDir;
+                        
+                        var unmappedCount = GetUnmappedCount(teamResult.PlayersExtracted, teamResult.PlayersMapped);
+                        var completedMessage = unmappedCount > 0
+                            ? $"Completed: {existingPhotos.Count} photos generated (Skipped - existed, Unmapped: {unmappedCount})"
+                            : $"Completed: {existingPhotos.Count} photos generated (Skipped - existed)";
+                        UpdateTeamStatus(team, BatchTeamStatus.Completed, completedMessage);
+                        
+                        var genSkipReason = SkipExistingSteps ? "SkipExistingSteps enabled" : "SkipGenerateStep enabled";
+                        AppendLog($"[GENERATE] {team.TeamName}: ⏭ SKIPPED ({genSkipReason}) - found {existingPhotos.Count} existing photos in {teamOutputDir}");
+                        AppendLog($"[GENERATE] {team.TeamName}:   Output directory contains: {string.Join(", ", existingPhotos.Take(5).Select(Path.GetFileName))}{(existingPhotos.Count > 5 ? $"... and {existingPhotos.Count - 5} more" : "")}");
+                        generateSkipped = true;
+                        
+                        // Add completed result to session
+                        teamResult.Status = "Completed";
+                        teamResult.StatusMessage = completedMessage;
+                        teamResult.CompletedAt = DateTime.UtcNow;
+                        _sessionState.TeamResults.Add(teamResult);
+                    }
+                    else if (SkipExistingSteps || SkipGenerateStep)
+                    {
+                        AppendLog($"[GENERATE] {team.TeamName}: Generate skip requested but no photos found in: {teamOutputDir} - will generate");
+                    }
                 }
-
-                UpdateTeamProperty(team, t => t.PhotosGenerated = generateResult.PortraitsGenerated);
-                UpdateTeamProperty(team, t => t.PhotoPath = teamOutputDir);
-                var unmappedCount = GetUnmappedCount(teamResult.PlayersExtracted, teamResult.PlayersMapped);
-                var completedMessage = unmappedCount > 0
-                    ? $"Completed: {generateResult.PortraitsGenerated} photos generated (Unmapped: {unmappedCount})"
-                    : $"Completed: {generateResult.PortraitsGenerated} photos generated";
-                UpdateTeamStatus(team, BatchTeamStatus.Completed, completedMessage);
-                AppendLog($"[GENERATE] {team.TeamName}: Generated {generateResult.PortraitsGenerated} photos.");
-
-                // Update team result and add to session
-                teamResult.PhotosGenerated = generateResult.PortraitsGenerated;
-                teamResult.PhotoPath = teamOutputDir;
-                teamResult.Status = "Completed";
-                teamResult.StatusMessage = completedMessage;
-                teamResult.CompletedAt = DateTime.UtcNow;
-                _sessionState.TeamResults.Add(teamResult);
+                else if (SkipExistingSteps || SkipGenerateStep)
+                {
+                    AppendLog($"[GENERATE] {team.TeamName}: Generate skip requested but output directory not found: {teamOutputDir} - will generate");
+                }
             }
-            catch (Exception ex)
+
+            if (!generateSkipped)
             {
-                AppendLog($"[ERROR] {team.TeamName}: Generate step failed - {ex.Message}");
-                throw;
+                UpdateTeamStatus(team, BatchTeamStatus.Generating, "Generating photos...");
+                AppendLog($"[GENERATE] {team.TeamName}: Generating photos...");
+
+                try
+                {
+                    var cropOffset = new CropOffsetPreset
+                    {
+                        Name = SelectedCropOffsetPreset?.Name ?? "batch",
+                        HorizontalPercent = CropOffsetX,
+                        VerticalPercent = CropOffsetY
+                    };
+
+                    var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
+                    var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
+                    var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+                    var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+                    var allSizes = wantsAllSizes;
+
+                    var effectiveWidth = wantsCustomDimensions ? PreviewCustomWidth : DefaultWidth;
+                    var effectiveHeight = wantsCustomDimensions ? PreviewCustomHeight : DefaultHeight;
+
+                    var generateResult = await _generateRunner.ExecuteAsync(
+                        Directory.GetCurrentDirectory(),
+                        teamResult.MappedCsvPath ?? csvPath,  // Use mapped CSV with External_Player_ID
+                        teamPhotoDir,
+                        teamOutputDir,
+                        ImageFormat,
+                        FaceDetectionModel,
+                        false,
+                        effectiveWidth,
+                        effectiveHeight,
+                        sizeProfilePath,
+                        allSizes,
+                        false,
+                        DownloadOpenCvModels,
+                        null,
+                        null,
+                        cropOffset,
+                        cancellationToken,
+                        new Progress<string>(msg => AppendLog($"[GENERATE] {team.TeamName}: {msg}")));
+
+                    if (generateResult.ExitCode != 0)
+                    {
+                        throw new Exception($"Generate failed with exit code {generateResult.ExitCode}");
+                    }
+
+                    UpdateTeamProperty(team, t => t.PhotosGenerated = generateResult.PortraitsGenerated);
+                    UpdateTeamProperty(team, t => t.PhotoPath = teamOutputDir);
+                    var unmappedCount = GetUnmappedCount(teamResult.PlayersExtracted, teamResult.PlayersMapped);
+                    var completedMessage = unmappedCount > 0
+                        ? $"Completed: {generateResult.PortraitsGenerated} photos generated (Unmapped: {unmappedCount})"
+                        : $"Completed: {generateResult.PortraitsGenerated} photos generated";
+                    UpdateTeamStatus(team, BatchTeamStatus.Completed, completedMessage);
+                    AppendLog($"[GENERATE] {team.TeamName}: Generated {generateResult.PortraitsGenerated} photos.");
+
+                    // Update team result and add to session
+                    teamResult.PhotosGenerated = generateResult.PortraitsGenerated;
+                    teamResult.PhotoPath = teamOutputDir;
+                    teamResult.Status = "Completed";
+                    teamResult.StatusMessage = completedMessage;
+                    teamResult.CompletedAt = DateTime.UtcNow;
+                    _sessionState.TeamResults.Add(teamResult);
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"[ERROR] {team.TeamName}: Generate step failed - {ex.Message}");
+                    throw;
+                }
             }
         }
         catch (Exception ex)
