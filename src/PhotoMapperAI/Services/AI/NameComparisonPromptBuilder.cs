@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -174,6 +175,25 @@ CONFIDENCE CALIBRATION:
 - **0.00-0.49**: Not a match (clear evidence these are different people)
 
 EXAMPLES:
+✓ MATCH (0.92): ""Zinchenko Oleksandr"" ↔ ""Sintschenko Alexander""
+    → Ukrainian transliteration + given name variant
+
+✓ MATCH (0.96): ""Pepe"" ↔ ""Kepler Laveran Lima Ferreira""
+    → Known Brazilian mononymous player
+
+✓ MATCH (0.89): ""Wubben-Moy Lotte"" ↔ ""Wubben-Moy Carlotte""
+    → Nickname/full name for same person
+
+✓ MATCH (0.94): ""Þorsteinn Halldorsson"" ↔ ""Thorsteinn Halldorsson""
+    → Icelandic character þ = th
+
+✗ NO MATCH (0.15): ""Silva João"" ↔ ""Silva Pedro""
+    → Same surname but clearly different given names
+
+✗ NO MATCH (0.25): ""Martinez"" ↔ ""Rodriguez Martinez""
+    → Insufficient overlap, different family names
+
+EXAMPLES:
 ✓ MATCH (0.92): ""Zinchenko Oleksandr"" ↔ ""Sintschenko Alexander"" 
    → Ukrainian transliteration + given name variant
 
@@ -204,6 +224,67 @@ OUTPUT FORMAT (valid JSON only, no markdown):
   ""matchedSurnameTokens"": [""list"", ""of"", ""matching"", ""surname"", ""tokens""]
 }}";
     }
+
+    public static string BuildBatch(IReadOnlyList<BatchComparison> comparisons)
+    {
+        var items = comparisons.Select(c => new
+        {
+            index = c.Index,
+            name1_raw = c.Name1,
+            name2_raw = c.Name2,
+            name1_core_tokens = ToCoreTokens(c.Name1),
+            name2_core_tokens = ToCoreTokens(c.Name2)
+        }).ToList();
+
+        var inputJson = JsonSerializer.Serialize(new { comparisons = items });
+
+        return
+$@"You are an expert in international football player name matching across different data sources (databases, photo filenames, official rosters). Your task is to determine if two name representations refer to the same person.
+
+CONTEXT:
+These names come from European football competitions (UEFA Euro tournaments). Players are from diverse backgrounds: Ukrainian, Portuguese, Brazilian, Icelandic, Turkish, Albanian, etc. You will encounter:
+- Cyrillic transliterations (Ukrainian/Russian names spelled different ways in Latin script)
+- Mononymous Brazilian/Portuguese players (e.g., ""Pepe"", ""Jorginho"" vs full legal names)
+- Name order variations (""Given Family"" vs ""Family Given"")
+- Nicknames and diminutives (""Lotte"" for ""Carlotte"", ""Zander"" for ""Alexander"")
+- Multiple surnames (Spanish/Portuguese tradition: maternal + paternal)
+- Icelandic patronymics and special characters (þ/th, ð/d)
+- Abbreviated middle names (""Marit B. Lund"" vs ""Marit Bratberg Lund"")
+
+INPUT:
+{inputJson}
+
+APPROACH:
+1. **Phonetic similarity**: Do the names sound similar when pronounced? Consider transliteration equivalents (e.g., Ukrainian ""Yarmolenko"" = ""Jarmolenko"")
+2. **Token matching**: Are key name components (surnames, given names) present in both? Token order may vary.
+3. **Cultural awareness**:
+     - Brazilian players often use single names or nicknames professionally
+     - Spanish/Portuguese players may have 3-4 names (given + maternal + paternal)
+     - Eastern European names have multiple valid transliterations
+     - Scandinavian/Icelandic characters have Latin equivalents
+4. **Partial matches**: One name being a subset of another is common (photo filename vs full database name)
+5. **Deal-breakers**: Completely different surnames with no phonetic relationship = different people
+
+CONFIDENCE CALIBRATION:
+- **0.95-1.00**: Identical or near-identical (all tokens match, trivial spelling difference)
+- **0.85-0.94**: Very strong match (key tokens match, clear transliteration/nickname pattern)
+- **0.75-0.84**: Strong match (most tokens match, some ambiguity in middle names or order)
+- **0.65-0.74**: Moderate match (partial overlap, could be same person but requires verification)
+- **0.50-0.64**: Weak match (some similarity but significant differences)
+- **0.00-0.49**: Not a match (clear evidence these are different people)
+
+TASK:
+Analyze each comparison. Use your knowledge of international naming conventions, phonetics, and cultural patterns to determine if the names refer to the same person. Explain your reasoning briefly.
+
+OUTPUT FORMAT (valid JSON only, no markdown):
+{{
+    ""results"": [
+        {{ ""index"": 0, ""confidence"": 0.0, ""isMatch"": false, ""reason"": ""brief explanation"" }}
+    ]
+}}
+
+Return exactly one result per comparison with the same index provided in the input. Do not omit any index or reorder results. If uncertain, provide your best estimate; do not default to 0.0 unless the names are clearly different.";
+        }
 
     /// <summary>
     /// Normalizes European character variants to ASCII equivalents.
@@ -298,6 +379,8 @@ OUTPUT FORMAT (valid JSON only, no markdown):
 
         return tokens;
     }
+
+    public sealed record BatchComparison(int Index, string Name1, string Name2);
 
     private static string FoldToAsciiLower(string input)
     {

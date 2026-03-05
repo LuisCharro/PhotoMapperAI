@@ -1,6 +1,7 @@
 using PhotoMapperAI.Models;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -134,6 +135,27 @@ public class MiniMaxNameMatchingService : INameMatchingService
         return results;
     }
 
+    public async Task<NameComparisonBatchResult> CompareNamePairsBatchAsync(IReadOnlyList<NameComparisonPair> comparisons)
+    {
+        if (comparisons.Count == 0)
+            return new NameComparisonBatchResult(new List<MatchResult>(), 0, 0, 0, 0);
+
+        var results = new List<MatchResult>(comparisons.Count);
+        var usageCalls = 0;
+        var promptTokens = 0;
+        var completionTokens = 0;
+        var totalTokens = 0;
+
+        foreach (var comparison in comparisons)
+        {
+            var match = await CompareNamesAsync(comparison.Name1, comparison.Name2);
+            results.Add(match);
+            AddUsage(match, ref usageCalls, ref promptTokens, ref completionTokens, ref totalTokens);
+        }
+
+        return new NameComparisonBatchResult(results, usageCalls, promptTokens, completionTokens, totalTokens);
+    }
+
     #region Pre-check helpers
 
     private static List<string> GetTokensFromPrompt(string prompt, string fieldName)
@@ -165,6 +187,36 @@ public class MiniMaxNameMatchingService : INameMatchingService
         var sorted2 = tokens2.OrderBy(t => t).ToList();
 
         return sorted1.SequenceEqual(sorted2);
+    }
+
+    private static void AddUsage(
+        MatchResult match,
+        ref int usageCalls,
+        ref int promptTokens,
+        ref int completionTokens,
+        ref int totalTokens)
+    {
+        if (match.Metadata == null || match.Metadata.Count == 0)
+            return;
+
+        var hasPrompt = TryGetInt(match.Metadata, "usage_prompt_tokens", out var prompt)
+            || TryGetInt(match.Metadata, "usage_input_tokens", out prompt);
+        var hasCompletion = TryGetInt(match.Metadata, "usage_completion_tokens", out var completion)
+            || TryGetInt(match.Metadata, "usage_output_tokens", out completion);
+        var hasTotal = TryGetInt(match.Metadata, "usage_total_tokens", out var total);
+        if (!hasPrompt && !hasCompletion && !hasTotal)
+            return;
+
+        usageCalls++;
+        promptTokens += hasPrompt ? prompt : 0;
+        completionTokens += hasCompletion ? completion : 0;
+        totalTokens += hasTotal ? total : (hasPrompt ? prompt : 0) + (hasCompletion ? completion : 0);
+    }
+
+    private static bool TryGetInt(IDictionary<string, string> metadata, string key, out int value)
+    {
+        value = 0;
+        return metadata.TryGetValue(key, out var raw) && int.TryParse(raw, out value);
     }
 
     #endregion

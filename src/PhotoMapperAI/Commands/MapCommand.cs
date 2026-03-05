@@ -411,6 +411,7 @@ public class MapCommandLogic
     private sealed record NameSignature(string Normalized, string[] Tokens, HashSet<string> TokenSet);
     private sealed record RankedCandidate(PhotoCandidate Candidate, double Score);
     private sealed record MatchProposal(PlayerRecord Player, PhotoCandidate Candidate, double Confidence, string? Reason = null);
+    private sealed record AiComparison(PlayerRecord Player, RankedCandidate Ranked, int Index);
     private sealed record AiPassResult(
         int Applied,
         int PlayersEvaluated,
@@ -594,6 +595,8 @@ public class MapCommandLogic
         if (unmatchedPlayers.Count == 0 || remainingCandidates.Count == 0)
             return new AiPassResult(0, 0, 0, 0, 0, 0, 0);
 
+        const int MaxBatchComparisons = 60;
+
         var snapshot = unmatchedPlayers.ToList();
         var proposals = new List<MatchProposal>(snapshot.Count);
         var aiProgress = new ProgressIndicator(progressLabel, snapshot.Count, useBar: true);
@@ -603,6 +606,80 @@ public class MapCommandLogic
         var promptTokens = 0;
         var completionTokens = 0;
         var totalTokens = 0;
+        var comparisonsByPlayer = new Dictionary<PlayerRecord, List<AiComparison>>();
+        var allComparisons = new List<AiComparison>();
+
+        foreach (var player in snapshot)
+        {
+            var ranked = RankCandidatesForPlayer(
+                player,
+                remainingCandidates,
+                maxCandidates,
+                minPreselectScore,
+                maxGapFromTop);
+
+            ranked = ranked
+                .GroupBy(r => r.Candidate.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.OrderByDescending(r => r.Score).First())
+                .ToList();
+
+            if (ranked.Count == 0)
+                continue;
+
+            if (!comparisonsByPlayer.TryGetValue(player, out var list))
+            {
+                list = new List<AiComparison>(ranked.Count);
+                comparisonsByPlayer[player] = list;
+            }
+
+            foreach (var rankedCandidate in ranked)
+            {
+                var comparison = new AiComparison(player, rankedCandidate, allComparisons.Count);
+                allComparisons.Add(comparison);
+                list.Add(comparison);
+            }
+        }
+
+        var matchResultsByIndex = new Dictionary<int, MatchResult>(allComparisons.Count);
+        if (allComparisons.Count > 0)
+        {
+            foreach (var teamGroup in allComparisons.GroupBy(c => c.Player.TeamId))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var batch = new List<AiComparison>(MaxBatchComparisons);
+                foreach (var comparison in teamGroup)
+                {
+                    batch.Add(comparison);
+                    if (batch.Count >= MaxBatchComparisons)
+                    {
+                        var usage = await ExecuteBatchComparisonsAsync(
+                            batch,
+                            matchResultsByIndex,
+                            cancellationToken);
+                        usageCalls += usage.UsageCalls;
+                        promptTokens += usage.PromptTokens;
+                        completionTokens += usage.CompletionTokens;
+                        totalTokens += usage.TotalTokens;
+                        modelComparisons += batch.Count;
+                        batch.Clear();
+                    }
+                }
+
+                if (batch.Count > 0)
+                {
+                    var usage = await ExecuteBatchComparisonsAsync(
+                        batch,
+                        matchResultsByIndex,
+                        cancellationToken);
+                    usageCalls += usage.UsageCalls;
+                    promptTokens += usage.PromptTokens;
+                    completionTokens += usage.CompletionTokens;
+                    totalTokens += usage.TotalTokens;
+                    modelComparisons += batch.Count;
+                }
+            }
+        }
 
         foreach (var player in snapshot)
         {
@@ -611,20 +688,12 @@ public class MapCommandLogic
             processed++;
             uiProgress?.Report((processed, snapshot.Count, $"AI: {player.FullName}"));
 
-            var attempt = await TryBuildAiProposalAsync(
+            var attempt = BuildAiProposalFromBatch(
                 player,
-                remainingCandidates,
+                comparisonsByPlayer,
+                matchResultsByIndex,
                 confidenceThreshold,
-                maxCandidates,
-                minPreselectScore,
-                maxGapFromTop,
-                ambiguityMargin,
-                cancellationToken);
-            modelComparisons += attempt.Comparisons;
-            usageCalls += attempt.UsageCalls;
-            promptTokens += attempt.PromptTokens;
-            completionTokens += attempt.CompletionTokens;
-            totalTokens += attempt.TotalTokens;
+                ambiguityMargin);
 
             if (aiTrace)
             {
@@ -668,6 +737,171 @@ public class MapCommandLogic
         }
 
         return new AiPassResult(applied, snapshot.Count, modelComparisons, usageCalls, promptTokens, completionTokens, totalTokens);
+    }
+
+    private async Task<NameComparisonBatchResult> ExecuteBatchComparisonsAsync(
+        List<AiComparison> batch,
+        Dictionary<int, MatchResult> matchResultsByIndex,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var pairs = batch
+            .Select(b => new NameComparisonPair(b.Player.FullName, b.Ranked.Candidate.DisplayName))
+            .ToList();
+
+        var batchResult = await _nameMatchingService.CompareNamePairsBatchAsync(pairs);
+        for (var i = 0; i < batch.Count; i++)
+        {
+            var result = i < batchResult.Results.Count ? batchResult.Results[i] : BuildMissingBatchResult();
+            matchResultsByIndex[batch[i].Index] = result;
+        }
+
+        return batchResult;
+    }
+
+    private AiProposalAttempt BuildAiProposalFromBatch(
+        PlayerRecord player,
+        Dictionary<PlayerRecord, List<AiComparison>> comparisonsByPlayer,
+        Dictionary<int, MatchResult> matchResultsByIndex,
+        double confidenceThreshold,
+        double ambiguityMargin)
+    {
+        if (!comparisonsByPlayer.TryGetValue(player, out var comparisons) || comparisons.Count == 0)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: 0,
+                Outcome: "rejected",
+                Reason: "no_ranked_candidates");
+        }
+
+        var ranked = comparisons.Select(c => c.Ranked).ToList();
+        var matches = new List<MatchResult>(comparisons.Count);
+        foreach (var comparison in comparisons)
+        {
+            if (matchResultsByIndex.TryGetValue(comparison.Index, out var match))
+            {
+                matches.Add(match);
+            }
+            else
+            {
+                matches.Add(BuildMissingBatchResult());
+            }
+        }
+
+        return BuildAiProposalFromMatches(
+            player,
+            ranked,
+            matches,
+            confidenceThreshold,
+            ambiguityMargin);
+    }
+
+    private static MatchResult BuildMissingBatchResult()
+    {
+        return new MatchResult
+        {
+            Confidence = 0.0,
+            IsMatch = false,
+            Metadata = new Dictionary<string, string> { { "error", "missing_batch_result" } }
+        };
+    }
+
+    private AiProposalAttempt BuildAiProposalFromMatches(
+        PlayerRecord player,
+        List<RankedCandidate> ranked,
+        List<MatchResult> matches,
+        double confidenceThreshold,
+        double ambiguityMargin)
+    {
+        if (ranked.Count == 0 || matches.Count == 0)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "no_ranked_candidates");
+        }
+
+        RankedCandidate? bestCandidate = null;
+        MatchResult? bestMatch = null;
+        var secondBestConfidence = 0.0;
+
+        for (var i = 0; i < ranked.Count; i++)
+        {
+            var match = i < matches.Count ? matches[i] : BuildMissingBatchResult();
+            var rankedCandidate = ranked[i];
+
+            if (bestMatch == null || match.Confidence > bestMatch.Confidence)
+            {
+                secondBestConfidence = bestMatch?.Confidence ?? secondBestConfidence;
+                bestMatch = match;
+                bestCandidate = rankedCandidate;
+            }
+            else if (match.Confidence > secondBestConfidence)
+            {
+                secondBestConfidence = match.Confidence;
+            }
+        }
+
+        if (bestMatch == null || bestCandidate == null)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "no_model_result");
+        }
+
+        if (bestMatch.Confidence < confidenceThreshold)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "below_threshold",
+                BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+                BestName: bestCandidate.Candidate.DisplayName,
+                BestConfidence: bestMatch.Confidence,
+                SecondBestConfidence: secondBestConfidence,
+                Margin: bestMatch.Confidence - secondBestConfidence);
+        }
+
+        var margin = bestMatch.Confidence - secondBestConfidence;
+        if (ranked.Count > 1 && margin < ambiguityMargin && bestMatch.Confidence < 0.90)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "ambiguous",
+                BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+                BestName: bestCandidate.Candidate.DisplayName,
+                BestConfidence: bestMatch.Confidence,
+                SecondBestConfidence: secondBestConfidence,
+                Margin: margin);
+        }
+
+        var reason = bestMatch.Metadata?.GetValueOrDefault("reason", string.Empty) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            reason = $"ai_confidence={bestMatch.Confidence:0.###};margin={margin:0.###};pre_rank_score={bestCandidate.Score:0.###}";
+        }
+
+        return new AiProposalAttempt(
+            Proposal: new MatchProposal(player, bestCandidate.Candidate, bestMatch.Confidence, reason),
+            Comparisons: ranked.Count,
+            Outcome: "accepted",
+            Reason: "accepted",
+            BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+            BestName: bestCandidate.Candidate.DisplayName,
+            BestConfidence: bestMatch.Confidence,
+            SecondBestConfidence: secondBestConfidence,
+            Margin: margin,
+            SelectedExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+            SelectedName: bestCandidate.Candidate.DisplayName,
+            SelectedConfidence: bestMatch.Confidence);
     }
 
     private bool TryBuildDeterministicProposal(

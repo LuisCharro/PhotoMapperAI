@@ -25,4 +25,11 @@ public interface INameMatchingService
     /// <param name="candidateNames">List of candidate names to match against</param>
     /// <returns>List of match results sorted by confidence</returns>
     Task<List<Models.MatchResult>> CompareNamesBatchAsync(string baseName, List<string> candidateNames);
+
+    /// <summary>
+    /// Batch compare multiple name pairs in a single model call.
+    /// </summary>
+    /// <param name="comparisons">Pairs of names to compare</param>
+    /// <returns>Batch comparison results in the same order as input</returns>
+    Task<Models.NameComparisonBatchResult> CompareNamePairsBatchAsync(IReadOnlyList<Models.NameComparisonPair> comparisons);
 }

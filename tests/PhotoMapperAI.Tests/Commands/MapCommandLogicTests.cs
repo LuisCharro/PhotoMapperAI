@@ -93,6 +93,9 @@ public class MapCommandLogicTests
 
         public Task<List<MatchResult>> CompareNamesBatchAsync(string baseName, List<string> candidateNames)
             => Task.FromResult(new List<MatchResult>());
+
+        public Task<NameComparisonBatchResult> CompareNamePairsBatchAsync(IReadOnlyList<NameComparisonPair> comparisons)
+            => Task.FromResult(new NameComparisonBatchResult(new List<MatchResult>(), 0, 0, 0, 0));
     }
 
     private sealed class TestWorkspace : IDisposable

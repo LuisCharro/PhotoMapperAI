@@ -1,5 +1,6 @@
 using PhotoMapperAI.Models;
 using System.Net.Http.Headers;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -118,6 +119,126 @@ public class ZAINameMatchingService : INameMatchingService
         return results;
     }
 
+    public async Task<NameComparisonBatchResult> CompareNamePairsBatchAsync(IReadOnlyList<NameComparisonPair> comparisons)
+    {
+        if (comparisons.Count == 0)
+            return new NameComparisonBatchResult(new List<MatchResult>(), 0, 0, 0, 0);
+
+        var results = new MatchResult[comparisons.Count];
+        var pending = new List<NameComparisonPromptBuilder.BatchComparison>(comparisons.Count);
+
+        for (var i = 0; i < comparisons.Count; i++)
+        {
+            var comparison = comparisons[i];
+            var tokens1 = NameComparisonPromptBuilder.ToCoreTokens(comparison.Name1);
+            var tokens2 = NameComparisonPromptBuilder.ToCoreTokens(comparison.Name2);
+            if (TokensAreIdentical(tokens1, tokens2))
+            {
+                results[i] = new MatchResult
+                {
+                    IsMatch = true,
+                    Confidence = 0.99,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "provider", "zai" },
+                        { "model", _modelName },
+                        { "precheck_applied", "true" },
+                        { "reason", "Identical token sets (pre-check)" }
+                    }
+                };
+            }
+            else
+            {
+                pending.Add(new NameComparisonPromptBuilder.BatchComparison(i, comparison.Name1, comparison.Name2));
+            }
+        }
+
+        if (pending.Count == 0)
+            return new NameComparisonBatchResult(results.ToList(), 0, 0, 0, 0);
+
+        var prompt = NameComparisonPromptBuilder.BuildBatch(pending);
+        var requestBody = new
+        {
+            model = _modelName,
+            messages = new[]
+            {
+                new { role = "user", content = prompt }
+            },
+            temperature = 0.0
+        };
+
+        try
+        {
+            var json = JsonSerializer.Serialize(requestBody);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var response = await _httpClient.PostAsync($"{_baseUrl}/chat/completions", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return await FallbackToIndividualAsync(results, comparisons, pending, responseBody);
+            }
+
+            var data = JsonSerializer.Deserialize<ZAIResponse>(responseBody, _jsonOptions);
+            var text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+            var metadata = BuildMetadata();
+            if (data?.Usage != null)
+            {
+                metadata["usage_prompt_tokens"] = data.Usage.PromptTokens.ToString();
+                metadata["usage_completion_tokens"] = data.Usage.CompletionTokens.ToString();
+                metadata["usage_total_tokens"] = data.Usage.TotalTokens.ToString();
+            }
+
+            var parsed = NameComparisonBatchResultParser.Parse(
+                text,
+                _confidenceThreshold,
+                metadata,
+                _jsonOptions,
+                out var parseError,
+                out var rawJson);
+
+            if (!string.IsNullOrWhiteSpace(parseError))
+            {
+                return await FallbackToIndividualAsync(results, comparisons, pending, rawJson ?? text);
+            }
+
+            foreach (var item in parsed)
+            {
+                results[item.Key] = item.Value;
+            }
+
+            var usageCalls = 1;
+            var promptTokens = data?.Usage?.PromptTokens ?? 0;
+            var completionTokens = data?.Usage?.CompletionTokens ?? 0;
+            var totalTokens = data?.Usage?.TotalTokens ?? 0;
+
+            var missing = pending.Where(p => results[p.Index] == null).ToList();
+            if (missing.Count > 0)
+            {
+                foreach (var missingItem in missing)
+                {
+                    var comparison = comparisons[missingItem.Index];
+                    var match = await CompareNamesAsync(comparison.Name1, comparison.Name2);
+                    results[missingItem.Index] = match;
+                    AddUsage(match, ref usageCalls, ref promptTokens, ref completionTokens, ref totalTokens);
+                }
+            }
+
+            FillMissingResults(results, comparisons.Count, metadata, _confidenceThreshold, rawJson ?? text);
+
+            return new NameComparisonBatchResult(
+                results.ToList(),
+                usageCalls,
+                promptTokens,
+                completionTokens,
+                totalTokens);
+        }
+        catch
+        {
+            return await FallbackToIndividualAsync(results, comparisons, pending, "Z.AI batch call failed.");
+        }
+    }
+
     #region Pre-check helpers
 
     private static List<string> GetTokensFromPrompt(string prompt, string fieldName)
@@ -158,6 +279,78 @@ public class ZAINameMatchingService : INameMatchingService
         { "provider", "zai" },
         { "model", _modelName }
     };
+
+    private async Task<NameComparisonBatchResult> FallbackToIndividualAsync(
+        MatchResult[] results,
+        IReadOnlyList<NameComparisonPair> comparisons,
+        List<NameComparisonPromptBuilder.BatchComparison> pending,
+        string error)
+    {
+        var usageCalls = 0;
+        var promptTokens = 0;
+        var completionTokens = 0;
+        var totalTokens = 0;
+
+        foreach (var pendingItem in pending)
+        {
+            var comparison = comparisons[pendingItem.Index];
+            var match = await CompareNamesAsync(comparison.Name1, comparison.Name2);
+            results[pendingItem.Index] = match;
+            AddUsage(match, ref usageCalls, ref promptTokens, ref completionTokens, ref totalTokens);
+        }
+
+        FillMissingResults(results, comparisons.Count, BuildMetadata(), _confidenceThreshold, error);
+
+        return new NameComparisonBatchResult(results.ToList(), usageCalls, promptTokens, completionTokens, totalTokens);
+    }
+
+    private static void AddUsage(
+        MatchResult match,
+        ref int usageCalls,
+        ref int promptTokens,
+        ref int completionTokens,
+        ref int totalTokens)
+    {
+        if (match.Metadata == null || match.Metadata.Count == 0)
+            return;
+
+        var hasPrompt = TryGetInt(match.Metadata, "usage_prompt_tokens", out var prompt);
+        var hasCompletion = TryGetInt(match.Metadata, "usage_completion_tokens", out var completion);
+        var hasTotal = TryGetInt(match.Metadata, "usage_total_tokens", out var total);
+        if (!hasPrompt && !hasCompletion && !hasTotal)
+            return;
+
+        usageCalls++;
+        promptTokens += hasPrompt ? prompt : 0;
+        completionTokens += hasCompletion ? completion : 0;
+        totalTokens += hasTotal ? total : (hasPrompt ? prompt : 0) + (hasCompletion ? completion : 0);
+    }
+
+    private static bool TryGetInt(IDictionary<string, string> metadata, string key, out int value)
+    {
+        value = 0;
+        return metadata.TryGetValue(key, out var raw) && int.TryParse(raw, out value);
+    }
+
+    private static void FillMissingResults(
+        MatchResult[] results,
+        int totalCount,
+        Dictionary<string, string> baseMetadata,
+        double confidenceThreshold,
+        string rawResponse)
+    {
+        for (var i = 0; i < totalCount; i++)
+        {
+            if (results[i] != null)
+                continue;
+
+            results[i] = NameComparisonBatchResultParser.BuildError(
+                "Missing batch result.",
+                confidenceThreshold,
+                baseMetadata,
+                rawResponse);
+        }
+    }
 
     private static string Compact(string? text)
     {
