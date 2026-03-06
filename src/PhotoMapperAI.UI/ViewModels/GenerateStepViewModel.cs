@@ -93,6 +93,8 @@ public partial class GenerateStepViewModel : ViewModelBase
             SizeProfilePath = defaultProfile;
         }
 
+        ConfigureFaceDetectionModelsForPlatform();
+
         SelectedFaceModelTierIndex = GetTierIndexForModel(FaceDetectionModel);
 
         var configuredPaidModels = UiModelConfigLoader.Load().GeneratePaidModels;
@@ -257,10 +259,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     public List<string> OutputProfiles { get; } = new() { "none", "test", "prod" };
 
-    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new()
-    {
-        "opencv-dnn"
-    };
+    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new();
 
     public ObservableCollection<string> LocalVisionFaceDetectionModels { get; } = new()
     {
@@ -1752,6 +1751,44 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
 
         return profile;
+    }
+
+    private void ConfigureFaceDetectionModelsForPlatform()
+    {
+        var isWindows = OperatingSystem.IsWindows();
+        var isMacOS = OperatingSystem.IsMacOS();
+        var isLinux = OperatingSystem.IsLinux();
+
+        if (isWindows)
+        {
+            // Windows: OpenCV works fine
+            RecommendedFaceDetectionModels.Add("opencv-dnn");
+            FaceDetectionModel = "opencv-dnn";
+        }
+        else if (isMacOS)
+        {
+            // macOS ARM64: OpenCV has native library issues, use center as default
+            RecommendedFaceDetectionModels.Add("center");
+            LocalVisionFaceDetectionModels.Clear();
+            LocalVisionFaceDetectionModels.Add("llava:7b");
+            LocalVisionFaceDetectionModels.Add("qwen3-vl");
+            AdvancedFaceDetectionModels.Clear();
+            AdvancedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "center";
+        }
+        else if (isLinux)
+        {
+            // Linux: Try OpenCV, fallback to center
+            RecommendedFaceDetectionModels.Add("opencv-dnn");
+            RecommendedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "opencv-dnn";
+        }
+        else
+        {
+            // Unknown platform: Use center as safe default
+            RecommendedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "center";
+        }
     }
 
     private sealed class UiSizeProfile

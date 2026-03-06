@@ -81,11 +81,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             SizeProfilePath = defaultProfile;
         }
-        
+
         SeedNameModelList();
         LoadCropOffsetPresets();
         LoadFilenamePatternPresets();
         UpdateProviderKeyInputVisibility();
+        ConfigureFaceDetectionModelsForPlatform();
         _ = RefreshNameModelsAsync(showStatus: false);
     }
 
@@ -171,7 +172,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private int _selectedFaceModelTierIndex;
 
-    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new() { "opencv-dnn" };
+    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new();
     public ObservableCollection<string> LocalVisionFaceDetectionModels { get; } = new() { "llava:7b", "qwen3-vl" };
     public ObservableCollection<string> AdvancedFaceDetectionModels { get; } = new() { "yolov8-face", "haar-cascade", "center" };
 
@@ -1954,6 +1955,44 @@ public partial class BatchAutomationViewModel : ViewModelBase
             if (skippedCount > 0) parts.Add($"{skippedCount} skipped");
             if (totalUnmappedPlayers > 0) parts.Add($"{totalUnmappedPlayers} unmapped players ({unmappedTeamCount} teams)");
             ErrorSummaryTitle = $"Issues: {string.Join(", ", parts)}  —  Mapped {totalMapped}/{totalPlayers}";
+        }
+    }
+
+    private void ConfigureFaceDetectionModelsForPlatform()
+    {
+        var isWindows = OperatingSystem.IsWindows();
+        var isMacOS = OperatingSystem.IsMacOS();
+        var isLinux = OperatingSystem.IsLinux();
+
+        if (isWindows)
+        {
+            // Windows: OpenCV works fine
+            RecommendedFaceDetectionModels.Add("opencv-dnn");
+            FaceDetectionModel = "opencv-dnn";
+        }
+        else if (isMacOS)
+        {
+            // macOS ARM64: OpenCV has native library issues, use center as default
+            RecommendedFaceDetectionModels.Add("center");
+            LocalVisionFaceDetectionModels.Clear();
+            LocalVisionFaceDetectionModels.Add("llava:7b");
+            LocalVisionFaceDetectionModels.Add("qwen3-vl");
+            AdvancedFaceDetectionModels.Clear();
+            AdvancedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "center";
+        }
+        else if (isLinux)
+        {
+            // Linux: Try OpenCV, fallback to center
+            RecommendedFaceDetectionModels.Add("opencv-dnn");
+            RecommendedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "opencv-dnn";
+        }
+        else
+        {
+            // Unknown platform: Use center as safe default
+            RecommendedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "center";
         }
     }
 
