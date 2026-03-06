@@ -1,5 +1,6 @@
 using PhotoMapperAI.Models;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace PhotoMapperAI.Services.AI;
 
@@ -24,6 +25,26 @@ public class FallbackFaceDetectionService : IFaceDetectionService
     public FallbackFaceDetectionService(string models)
     {
         var modelList = models.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        // Filter out OpenCV models on macOS (they cause DllNotFoundException)
+        if (IsMacOS())
+        {
+            var filteredModels = modelList
+                .Where(m => !IsOpenCVModel(m.Trim()))
+                .ToList();
+
+            if (filteredModels.Count != modelList.Length)
+            {
+                var skippedModels = modelList.Where(m => IsOpenCVModel(m.Trim())).ToList();
+                if (skippedModels.Count > 0)
+                {
+                    _fallbackLog.Add($"ℹ macOS: Skipped OpenCV models: {string.Join(", ", skippedModels)} (native library issues)");
+                }
+            }
+
+            modelList = filteredModels.ToArray();
+        }
+
         _services = new IFaceDetectionService[modelList.Length];
 
         for (int i = 0; i < modelList.Length; i++)
@@ -34,6 +55,17 @@ public class FallbackFaceDetectionService : IFaceDetectionService
                 fallbackToOllamaOnUnknown: true
             );
         }
+    }
+
+    private static bool IsOpenCVModel(string model)
+    {
+        var lowered = model.ToLowerInvariant();
+        return lowered is "opencv-dnn" or "yolov8-face" or "haar-cascade" or "haar";
+    }
+
+    private static bool IsMacOS()
+    {
+        return RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
     }
 
     /// <summary>

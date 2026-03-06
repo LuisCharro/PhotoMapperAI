@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace PhotoMapperAI.Services.AI;
 
 /// <summary>
@@ -25,6 +27,16 @@ public static class FaceDetectionServiceFactory
             return new FallbackFaceDetectionService(normalized);
 
         var lowered = normalized.ToLowerInvariant();
+
+        // Check platform compatibility for OpenCV models
+        if (IsOpenCVModel(lowered) && IsMacOS())
+        {
+            throw new PlatformNotSupportedException(
+                "OpenCV face detection models (opencv-dnn, yolov8-face, haar-cascade) are not supported on macOS due to native library dependency issues. " +
+                $"Use 'center', 'llava:7b', or 'qwen3-vl' instead. Example: photomapperai generatephotos -d center"
+            );
+        }
+
         return lowered switch
         {
             "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
@@ -37,6 +49,16 @@ public static class FaceDetectionServiceFactory
                 => new OllamaFaceDetectionService(modelName: normalized),
             _ => throw new ArgumentException($"Unknown face detection model: {model}")
         };
+    }
+
+    private static bool IsOpenCVModel(string model)
+    {
+        return model is "opencv-dnn" or "yolov8-face" or "haar-cascade" or "haar";
+    }
+
+    private static bool IsMacOS()
+    {
+        return RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
     }
 
     private static string NormalizeOllamaAlias(string model)
