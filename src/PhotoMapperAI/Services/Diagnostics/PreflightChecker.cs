@@ -91,11 +91,12 @@ public static class PreflightChecker
             return result;
 
         var (provider, model) = ParseProviderAndModel(nameModel);
-        if (provider == "openai")
+
+        if (provider == "minimax")
         {
-            var key = openAiApiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            var key = minimaxApiKey ?? Environment.GetEnvironmentVariable("MINIMAX_API_KEY");
             if (string.IsNullOrWhiteSpace(key))
-                result.Errors.Add("OPENAI_API_KEY is missing for OpenAI name model.");
+                result.Errors.Add("MINIMAX_API_KEY is missing for MiniMax name model.");
             return result;
         }
 
@@ -107,19 +108,19 @@ public static class PreflightChecker
             return result;
         }
 
+        if (provider == "openai")
+        {
+            var key = openAiApiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            if (string.IsNullOrWhiteSpace(key))
+                result.Errors.Add("OPENAI_API_KEY is missing for OpenAI name model.");
+            return result;
+        }
+
         if (provider is "anthropic" or "claude")
         {
             var key = anthropicApiKey ?? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
             if (string.IsNullOrWhiteSpace(key))
                 result.Errors.Add("ANTHROPIC_API_KEY is missing for Anthropic name model.");
-            return result;
-        }
-
-        if (provider == "minimax")
-        {
-            var key = minimaxApiKey ?? Environment.GetEnvironmentVariable("MINIMAX_API_KEY");
-            if (string.IsNullOrWhiteSpace(key))
-                result.Errors.Add("MINIMAX_API_KEY is missing for MiniMax name model.");
             return result;
         }
 

@@ -2185,19 +2185,19 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     private static string GetProviderName(string modelName)
     {
+        if (IsMiniMaxModel(modelName)) return "MiniMax";
+        if (IsZaiModel(modelName)) return "Z.AI";
         if (IsOpenAiModel(modelName)) return "OpenAI";
         if (IsAnthropicModel(modelName)) return "Anthropic";
-        if (IsZaiModel(modelName)) return "Z.AI";
-        if (IsMiniMaxModel(modelName)) return "MiniMax";
         return "Unknown";
     }
 
     private static string GetProviderEnvVar(string modelName)
     {
+        if (IsMiniMaxModel(modelName)) return "MINIMAX_API_KEY";
+        if (IsZaiModel(modelName)) return "ZAI_API_KEY";
         if (IsOpenAiModel(modelName)) return "OPENAI_API_KEY";
         if (IsAnthropicModel(modelName)) return "ANTHROPIC_API_KEY";
-        if (IsZaiModel(modelName)) return "ZAI_API_KEY";
-        if (IsMiniMaxModel(modelName)) return "MINIMAX_API_KEY";
         return string.Empty;
     }
 

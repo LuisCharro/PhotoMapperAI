@@ -218,19 +218,28 @@ public partial class MapStepViewModel : ViewModelBase
         {
             if (IsPaidModel(NameModel))
             {
-                // Get the appropriate environment variable name based on model
-                string envVarName = IsOpenAiModel(NameModel) ? "OPENAI_API_KEY"
-                    : IsAnthropicModel(NameModel) ? "ANTHROPIC_API_KEY"
-                    : IsZaiModel(NameModel) ? "ZAI_API_KEY"
-                    : "MINIMAX_API_KEY";
-                
+                var preferredKeys = new (string EnvVar, string Provider)[]
+                {
+                    ("MINIMAX_API_KEY", "MiniMax"),
+                    ("ZAI_API_KEY", "Z.AI"),
+                    ("OPENAI_API_KEY", "OpenAI"),
+                    ("ANTHROPIC_API_KEY", "Anthropic")
+                };
+
+                var preferred = preferredKeys.FirstOrDefault(key =>
+                    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key.EnvVar)));
+                    
+                var envVarName = string.IsNullOrWhiteSpace(preferred.EnvVar)
+                    ? preferredKeys[0].EnvVar
+                    : preferred.EnvVar;
+
+                var providerName = string.IsNullOrWhiteSpace(preferred.Provider)
+                    ? preferredKeys[0].Provider
+                    : preferred.Provider;
+
                 var keyPresent = !string.IsNullOrWhiteSpace(ApiKey) ||
                                  !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envVarName));
-                string providerName = IsOpenAiModel(NameModel) ? "OpenAI"
-                    : IsAnthropicModel(NameModel) ? "Anthropic"
-                    : IsZaiModel(NameModel) ? "Z.AI"
-                    : "MiniMax";
-                
+
                 ModelDiagnosticStatus = keyPresent
                     ? $"✓ {providerName} API key available. {providerName} model can be used."
                     : $"✗ {providerName} API key is missing (GUI field or {envVarName}).";
