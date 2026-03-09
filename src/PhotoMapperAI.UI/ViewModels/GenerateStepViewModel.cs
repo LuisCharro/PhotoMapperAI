@@ -651,8 +651,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = !useSizeProfile && UseCustomPreviewDimensions;
+            var wantsAllSizes = AllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
 
@@ -1117,13 +1118,12 @@ public partial class GenerateStepViewModel : ViewModelBase
             }
 
             // Determine mode:
-            // - If a size profile is selected, generation always uses it
-            //   (single variant when AllSizes is off, all variants when AllSizes is on).
-            // - Preview custom dimensions are preview-only and do not override a selected size profile.
-            // - Manual/custom dimensions are only used when no size profile is selected.
+            // - If AllSizes is checked -> use the full size profile.
+            // - If custom dimensions are enabled (and AllSizes is off) -> custom dimensions override the profile.
+            // - Otherwise use the selected size profile in single-variant mode.
             var wantsAllSizes = AllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = !useSizeProfile && UseCustomPreviewDimensions;
+            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var allSizes = wantsAllSizes;
             var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;

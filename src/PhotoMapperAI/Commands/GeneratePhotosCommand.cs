@@ -1079,6 +1079,12 @@ public class GeneratePhotosCommand
     [Option(ShortName = "npp", LongName = "noProfilePlaceholders", Description = "Ignore placeholder paths defined in size profile variants")]
     public bool NoProfilePlaceholders { get; set; } = false;
 
+    [Option(ShortName = "ox", LongName = "cropOffsetX", Description = "Horizontal crop offset percentage override.")]
+    public double? CropOffsetX { get; set; }
+
+    [Option(ShortName = "oy", LongName = "cropOffsetY", Description = "Vertical crop offset percentage override.")]
+    public double? CropOffsetY { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         PhotoMapperAI.Models.SizeProfile? loadedProfile = null;
@@ -1133,7 +1139,14 @@ public class GeneratePhotosCommand
         var imageProcessor = new Services.Image.ImageProcessor();
 
         // Create generate photos command logic handler
-        var cropOffsetPreset = CropOffsetSettingsLoader.LoadActivePreset();
+        var cropOffsetPreset = CropOffsetX.HasValue || CropOffsetY.HasValue
+            ? new CropOffsetPreset
+            {
+                Name = "cli",
+                HorizontalPercent = CropOffsetX ?? 0,
+                VerticalPercent = CropOffsetY ?? 0
+            }
+            : CropOffsetSettingsLoader.LoadActivePreset();
         var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache, cropOffsetPreset, FaceDetectionTrace);
 
         var baseOutputPath = ProcessedPhotosOutputPath;

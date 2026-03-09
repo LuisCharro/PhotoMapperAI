@@ -56,7 +56,8 @@ public sealed class ExternalGenerateCliRunner
             ignoreProfilePlaceholders,
             downloadOpenCvModels,
             onlyPlayer,
-            placeholderImagePath);
+            placeholderImagePath,
+            cropOffsetPreset);
 
         var startInfo = new ProcessStartInfo
         {
@@ -145,7 +146,7 @@ public sealed class ExternalGenerateCliRunner
         string? onlyPlayer,
         string? placeholderImagePath)
     {
-        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath);
+        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropOffsetPreset: null);
         return $"Working directory: {workingDirectory}\nExecution mode: external-cli\nCommand: dotnet " + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
     }
 
@@ -185,7 +186,7 @@ public sealed class ExternalGenerateCliRunner
             onlyPlayer,
             placeholderImagePath,
             executionMode = "external-cli",
-            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath)
+            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropOffsetPreset: null)
         };
 
         Directory.CreateDirectory(outputDir);
@@ -208,7 +209,8 @@ public sealed class ExternalGenerateCliRunner
         bool ignoreProfilePlaceholders,
         bool downloadOpenCvModels,
         string? onlyPlayer,
-        string? placeholderImagePath)
+        string? placeholderImagePath,
+        CropOffsetPreset? cropOffsetPreset)
     {
         var args = new List<string>
         {
@@ -260,6 +262,14 @@ public sealed class ExternalGenerateCliRunner
         {
             args.Add("--placeholderImage");
             args.Add(placeholderImagePath);
+        }
+
+        if (cropOffsetPreset != null)
+        {
+            args.Add("--cropOffsetX");
+            args.Add(cropOffsetPreset.HorizontalPercent.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            args.Add("--cropOffsetY");
+            args.Add(cropOffsetPreset.VerticalPercent.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
         return args;

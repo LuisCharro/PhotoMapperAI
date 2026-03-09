@@ -573,6 +573,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 return;
             }
 
+            var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+            var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+
             var (previewWidth, previewHeight) = ResolvePreviewDimensions();
             var photoPath = ResolvePreviewPhotoPath(teamPhotoDir, previewPlayer.External_Player_ID);
 
@@ -603,7 +608,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 portraitOnly: false,
                 previewWidth,
                 previewHeight,
-                !string.IsNullOrWhiteSpace(SizeProfilePath) ? SizeProfilePath : null,
+                sizeProfilePath,
                 allSizes: false,
                 ignoreProfilePlaceholders: false,
                 DownloadOpenCvModels,
@@ -1553,8 +1558,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
             } // End of map skip block
 
             var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = !useSizeProfile && UseCustomPreviewDimensions;
+            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var allSizes = wantsAllSizes;
             var generationOutputDir = teamOutputDir;
