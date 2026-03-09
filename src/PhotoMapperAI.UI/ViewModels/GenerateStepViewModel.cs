@@ -1115,14 +1115,14 @@ public partial class GenerateStepViewModel : ViewModelBase
                 AppendLog($"Using output profile '{OutputProfile}' => {baseOutputDirectory}");
             }
 
-            // Determine mode: AllSizes takes precedence over CustomDimensions
-            // - If AllSizes is checked → use size profile with all variants
-            // - If UseCustomPreviewDimensions is checked (and not AllSizes) → use custom dimensions
-            // - Otherwise → use size profile with first variant OR manual dimensions
+            // Determine mode:
+            // - If a size profile is selected, generation always uses it
+            //   (single variant when AllSizes is off, all variants when AllSizes is on).
+            // - Preview custom dimensions are preview-only and do not override a selected size profile.
+            // - Manual/custom dimensions are only used when no size profile is selected.
             var wantsAllSizes = AllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-            
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var wantsCustomDimensions = !useSizeProfile && UseCustomPreviewDimensions;
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var allSizes = wantsAllSizes;
             var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
@@ -1147,6 +1147,11 @@ public partial class GenerateStepViewModel : ViewModelBase
                 var profile = LoadSizeProfile(SizeProfilePath);
                 var variantMode = allSizes ? "all variants" : "single variant";
                 AppendLog($"Using size profile '{profile.Name}' ({variantMode})");
+                if (!allSizes)
+                {
+                    baseOutputDirectory = ResolveSingleProfileOutputDirectory(baseOutputDirectory, profile);
+                    AppendLog($"Single-profile output folder => {baseOutputDirectory}");
+                }
             }
 
             Directory.CreateDirectory(baseOutputDirectory);
@@ -1426,6 +1431,21 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         var manualPlaceholder = UsePlaceholderImages ? PlaceholderImagePath : null;
         return (PortraitWidth, PortraitHeight, manualPlaceholder);
+    }
+
+    private static string ResolveSingleProfileOutputDirectory(string baseOutputDirectory, UiSizeProfile profile)
+    {
+        var folderName = SanitizeOutputFolderName(profile.Name);
+        return Path.Combine(baseOutputDirectory, folderName);
+    }
+
+    private static string SanitizeOutputFolderName(string? folderName)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(folderName) ? "default" : folderName.Trim();
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitizedChars = trimmed.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray();
+        var sanitized = new string(sanitizedChars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "default" : sanitized;
     }
 
     private string? ResolvePreviewPhotoPath(string External_Player_ID)

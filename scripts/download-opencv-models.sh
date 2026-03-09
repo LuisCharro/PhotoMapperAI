@@ -66,7 +66,7 @@ case $choice in
         echo ""
 
         echo "Downloading face_detection_yunet_2023mar.onnx..."
-        curl -L -O https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+        curl -L -O https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 
         echo ""
         echo -e "${GREEN}✓ OpenCV YuNet model downloaded successfully!${NC}"
@@ -122,7 +122,7 @@ case $choice in
 
         echo ""
         echo "Downloading OpenCV YuNet model..."
-        curl -L -O https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+        curl -L -O https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 
         echo ""
         echo "Downloading Haar Cascade models..."

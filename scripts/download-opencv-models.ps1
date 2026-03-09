@@ -59,7 +59,7 @@ switch ($Choice) {
         Write-Host "Downloading OpenCV YuNet model..." -ForegroundColor Green
         Write-Host ""
 
-        Download-File -Url "https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" -OutFile "face_detection_yunet_2023mar.onnx"
+        Download-File -Url "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" -OutFile "face_detection_yunet_2023mar.onnx"
 
         Write-Host ""
         Write-Host "✓ OpenCV YuNet model downloaded successfully!" -ForegroundColor Green
@@ -102,7 +102,7 @@ switch ($Choice) {
         Download-File -Url "https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel" -OutFile "res10_300x300_ssd_iter_140000.caffemodel"
 
         # YuNet
-        Download-File -Url "https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" -OutFile "face_detection_yunet_2023mar.onnx"
+        Download-File -Url "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" -OutFile "face_detection_yunet_2023mar.onnx"
 
         # Haar
         Download-File -Url "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml" -OutFile "haarcascade_frontalface_default.xml"

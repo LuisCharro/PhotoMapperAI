@@ -1529,14 +1529,27 @@ public partial class BatchAutomationViewModel : ViewModelBase
             }
             } // End of map skip block
 
+            var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var wantsCustomDimensions = !useSizeProfile && UseCustomPreviewDimensions;
+            var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+            var allSizes = wantsAllSizes;
+            var generationOutputDir = teamOutputDir;
+
+            if (useSizeProfile && !allSizes)
+            {
+                var profile = LoadSizeProfile(SizeProfilePath);
+                generationOutputDir = ResolveSingleProfileOutputDirectory(teamOutputDir, profile);
+            }
+
             // Step 3: Generate photos
             // Check if we can skip this step
             var generateSkipped = false;
             if (SkipExistingSteps || SkipGenerateStep)
             {
-                if (Directory.Exists(teamOutputDir))
+                if (Directory.Exists(generationOutputDir))
                 {
-                    var existingPhotos = Directory.GetFiles(teamOutputDir, "*.*")
+                    var existingPhotos = Directory.GetFiles(generationOutputDir, "*.*")
                         .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
                                     f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
                                     f.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
@@ -1545,9 +1558,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     if (existingPhotos.Count > 0)
                     {
                         UpdateTeamProperty(team, t => t.PhotosGenerated = existingPhotos.Count);
-                        UpdateTeamProperty(team, t => t.PhotoPath = teamOutputDir);
+                        UpdateTeamProperty(team, t => t.PhotoPath = generationOutputDir);
                         teamResult.PhotosGenerated = existingPhotos.Count;
-                        teamResult.PhotoPath = teamOutputDir;
+                        teamResult.PhotoPath = generationOutputDir;
                         
                         var unmappedCount = GetUnmappedCount(teamResult.PlayersExtracted, teamResult.PlayersMapped);
                         var completedMessage = unmappedCount > 0
@@ -1556,7 +1569,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         UpdateTeamStatus(team, BatchTeamStatus.Completed, completedMessage);
                         
                         var genSkipReason = SkipExistingSteps ? "SkipExistingSteps enabled" : "SkipGenerateStep enabled";
-                        AppendLog($"[GENERATE] {team.TeamName}: ⏭ SKIPPED ({genSkipReason}) - found {existingPhotos.Count} existing photos in {teamOutputDir}");
+                        AppendLog($"[GENERATE] {team.TeamName}: ⏭ SKIPPED ({genSkipReason}) - found {existingPhotos.Count} existing photos in {generationOutputDir}");
                         AppendLog($"[GENERATE] {team.TeamName}:   Output directory contains: {string.Join(", ", existingPhotos.Take(5).Select(Path.GetFileName))}{(existingPhotos.Count > 5 ? $"... and {existingPhotos.Count - 5} more" : "")}");
                         generateSkipped = true;
                         
@@ -1568,12 +1581,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     }
                     else if (SkipExistingSteps || SkipGenerateStep)
                     {
-                        AppendLog($"[GENERATE] {team.TeamName}: Generate skip requested but no photos found in: {teamOutputDir} - will generate");
+                        AppendLog($"[GENERATE] {team.TeamName}: Generate skip requested but no photos found in: {generationOutputDir} - will generate");
                     }
                 }
                 else if (SkipExistingSteps || SkipGenerateStep)
                 {
-                    AppendLog($"[GENERATE] {team.TeamName}: Generate skip requested but output directory not found: {teamOutputDir} - will generate");
+                    AppendLog($"[GENERATE] {team.TeamName}: Generate skip requested but output directory not found: {generationOutputDir} - will generate");
                 }
             }
 
@@ -1591,19 +1604,13 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         VerticalPercent = CropOffsetY
                     };
 
-                    var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-                    var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-                    var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
-                    var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
-                    var allSizes = wantsAllSizes;
-
                     var effectiveWidth = wantsCustomDimensions ? PreviewCustomWidth : DefaultWidth;
                     var effectiveHeight = wantsCustomDimensions ? PreviewCustomHeight : DefaultHeight;
 
                     LogExecutedCommand(BuildGenerateCommand(
                         teamResult.MappedCsvPath ?? csvPath,
                         teamPhotoDir,
-                        teamOutputDir,
+                        generationOutputDir,
                         ImageFormat,
                         FaceDetectionModel,
                         effectiveWidth,
@@ -1616,7 +1623,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         Directory.GetCurrentDirectory(),
                         teamResult.MappedCsvPath ?? csvPath,  // Use mapped CSV with External_Player_ID
                         teamPhotoDir,
-                        teamOutputDir,
+                        generationOutputDir,
                         ImageFormat,
                         FaceDetectionModel,
                         false,
@@ -1638,7 +1645,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     }
 
                     UpdateTeamProperty(team, t => t.PhotosGenerated = generateResult.PortraitsGenerated);
-                    UpdateTeamProperty(team, t => t.PhotoPath = teamOutputDir);
+                    UpdateTeamProperty(team, t => t.PhotoPath = generationOutputDir);
                     var unmappedCount = GetUnmappedCount(teamResult.PlayersExtracted, teamResult.PlayersMapped);
                     var completedMessage = unmappedCount > 0
                         ? $"Completed: {generateResult.PortraitsGenerated} photos generated (Unmapped: {unmappedCount})"
@@ -1648,7 +1655,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
                     // Update team result and add to session
                     teamResult.PhotosGenerated = generateResult.PortraitsGenerated;
-                    teamResult.PhotoPath = teamOutputDir;
+                    teamResult.PhotoPath = generationOutputDir;
                     teamResult.Status = "Completed";
                     teamResult.StatusMessage = completedMessage;
                     teamResult.CompletedAt = DateTime.UtcNow;
@@ -2227,6 +2234,21 @@ public partial class BatchAutomationViewModel : ViewModelBase
         }
 
         return profile;
+    }
+
+    private static string ResolveSingleProfileOutputDirectory(string baseOutputDirectory, UiSizeProfile profile)
+    {
+        var folderName = SanitizeOutputFolderName(profile.Name);
+        return Path.Combine(baseOutputDirectory, folderName);
+    }
+
+    private static string SanitizeOutputFolderName(string? folderName)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(folderName) ? "default" : folderName.Trim();
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitizedChars = trimmed.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray();
+        var sanitized = new string(sanitizedChars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "default" : sanitized;
     }
 
     private sealed class UiSizeProfile

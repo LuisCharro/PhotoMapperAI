@@ -12,6 +12,10 @@ namespace PhotoMapperAI.Services.Image;
 /// </summary>
 public class ImageProcessor : IImageProcessor
 {
+    private const double EyeLinePercentFromTop = 0.35;
+    private const double TargetFaceWidthPercent = 0.40;
+    private const double TargetFaceHeightPercent = 0.28;
+
     public string Name => "ImageSharp";
 
     /// <summary>
@@ -274,12 +278,8 @@ public class ImageProcessor : IImageProcessor
         if (landmarks.BothEyesDetected && landmarks.EyeMidpoint != null && landmarks.FaceRect != null)
         {
             var faceRect = landmarks.FaceRect;
-            
-            // Calculate crop dimensions based on FACE size (not image size)
-            // This ensures consistent portrait composition regardless of image resolution
-            cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
-            cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
-            
+
+            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, targetAspectRatio);
             centerX = landmarks.EyeMidpoint.X;
             eyeY = landmarks.EyeMidpoint.Y;
         }
@@ -292,8 +292,7 @@ public class ImageProcessor : IImageProcessor
             
             if (faceRect != null)
             {
-                cropWidth = (int)(faceRect.Width * 2.0);
-                cropHeight = (int)(faceRect.Height * 3.0);
+                (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, targetAspectRatio);
             }
             else
             {
@@ -320,11 +319,8 @@ public class ImageProcessor : IImageProcessor
         else if (landmarks.FaceDetected && landmarks.FaceRect != null)
         {
             var faceRect = landmarks.FaceRect;
-            
-            // Calculate crop dimensions based on FACE size
-            cropWidth = (int)(faceRect.Width * 2.0);   // 2x face width
-            cropHeight = (int)(faceRect.Height * 3.0); // 3x face height
-            
+
+            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, targetAspectRatio);
             // Eyes are typically in the upper 40% of the face rectangle
             centerX = faceRect.X + faceRect.Width / 2;
             eyeY = faceRect.Y + (int)(faceRect.Height * 0.40);
@@ -366,19 +362,8 @@ public class ImageProcessor : IImageProcessor
         // Keep more headroom so top hair is not cut (closer to legacy framing).
         var cropX = centerX - (cropWidth / 2);
 
-        int cropY;
-        if (landmarks.BothEyesDetected && landmarks.FaceRect != null)
-        {
-            // Legacy PlayerPortraitManager alignment:
-            // centerY = eyeMidY - 10% faceHeight, then center crop around that point.
-            var centerY = eyeY - (int)(landmarks.FaceRect.Height * 0.10);
-            cropY = centerY - (cropHeight / 2);
-        }
-        else
-        {
-            // Keep a slightly lower eye anchor for less aggressive head cuts in fallback cases.
-            cropY = eyeY - (int)(cropHeight * 0.52);
-        }
+        // Keep the eye line in the upper third of the portrait for consistent legacy-style framing.
+        var cropY = eyeY - (int)Math.Round(cropHeight * EyeLinePercentFromTop);
         
         // Ensure crop stays within image bounds
         cropX = Math.Max(0, Math.Min(cropX, imageWidth - cropWidth));
@@ -411,6 +396,19 @@ public class ImageProcessor : IImageProcessor
             cropWidth,
             cropHeight
         );
+    }
+
+    private static (int Width, int Height) CalculateFaceBasedCropSize(
+        PhotoMapperAI.Models.Rectangle faceRect,
+        double targetAspectRatio)
+    {
+        var minWidth = Math.Max(1, (int)Math.Ceiling(faceRect.Width / TargetFaceWidthPercent));
+        var minHeight = Math.Max(1, (int)Math.Ceiling(faceRect.Height / TargetFaceHeightPercent));
+
+        var cropHeight = Math.Max(minHeight, (int)Math.Ceiling(minWidth / targetAspectRatio));
+        var cropWidth = Math.Max(minWidth, (int)Math.Round(cropHeight * targetAspectRatio));
+
+        return (cropWidth, cropHeight);
     }
 
     #endregion
