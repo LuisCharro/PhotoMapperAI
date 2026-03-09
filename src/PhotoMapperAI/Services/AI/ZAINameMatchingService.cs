@@ -17,6 +17,7 @@ public class ZAINameMatchingService : INameMatchingService
     private readonly string _modelName;
     private readonly double _confidenceThreshold;
     private readonly string _baseUrl;
+    private readonly bool _useAnthropicStyle;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public ZAINameMatchingService(
@@ -29,9 +30,13 @@ public class ZAINameMatchingService : INameMatchingService
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("ZAI_API_KEY is missing. Z.AI provider is not configured.");
 
+        var envBaseUrl = Environment.GetEnvironmentVariable("ZAI_BASE_URL");
         _baseUrl = string.IsNullOrWhiteSpace(baseUrl)
-            ? (Environment.GetEnvironmentVariable("ZAI_BASE_URL")?.TrimEnd('/') ?? "https://api.z.ai/api/paas/v4")
+            ? (string.IsNullOrWhiteSpace(envBaseUrl) ? "https://api.z.ai/api/coding/paas/v4" : envBaseUrl.TrimEnd('/'))
             : baseUrl.TrimEnd('/');
+        var apiStyle = Environment.GetEnvironmentVariable("ZAI_API_STYLE");
+        _useAnthropicStyle = string.Equals(apiStyle, "anthropic", StringComparison.OrdinalIgnoreCase)
+                             || _baseUrl.Contains("/anthropic", StringComparison.OrdinalIgnoreCase);
         _modelName = modelName;
         _confidenceThreshold = confidenceThreshold;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
@@ -65,21 +70,34 @@ public class ZAINameMatchingService : INameMatchingService
             };
         }
 
-        var requestBody = new
-        {
-            model = _modelName,
-            messages = new[]
+        var requestBody = _useAnthropicStyle
+            ? (object)new
             {
-                new { role = "user", content = prompt }
-            },
-            temperature = 0.0
-        };
+                model = _modelName,
+                max_tokens = 1024,
+                messages = new[]
+                {
+                    new { role = "user", content = new[] { new { type = "text", text = prompt } } }
+                },
+                temperature = 1.0
+            }
+            : new
+            {
+                model = _modelName,
+                messages = new[]
+                {
+                    new { role = "user", content = prompt }
+                },
+                temperature = 0.0
+            };
 
         try
         {
             var json = JsonSerializer.Serialize(requestBody);
-            using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            using var response = await _httpClient.PostAsync($"{_baseUrl}/chat/completions", content);
+            using var content = new StringContent(json, Encoding.UTF8);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var endpoint = _useAnthropicStyle ? $"{_baseUrl}/messages" : $"{_baseUrl}/chat/completions";
+            using var response = await _httpClient.PostAsync(endpoint, content);
             var responseBody = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -90,14 +108,29 @@ public class ZAINameMatchingService : INameMatchingService
                     BuildMetadata());
             }
 
-            var data = JsonSerializer.Deserialize<ZAIResponse>(responseBody, _jsonOptions);
-            var text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
             var metadata = BuildMetadata();
-            if (data?.Usage != null)
+            string text;
+            if (_useAnthropicStyle)
             {
-                metadata["usage_prompt_tokens"] = data.Usage.PromptTokens.ToString();
-                metadata["usage_completion_tokens"] = data.Usage.CompletionTokens.ToString();
-                metadata["usage_total_tokens"] = data.Usage.TotalTokens.ToString();
+                var data = JsonSerializer.Deserialize<ZAIAnthropicResponse>(responseBody, _jsonOptions);
+                text = ExtractTextContent(data);
+                if (data?.Usage != null)
+                {
+                    metadata["usage_prompt_tokens"] = data.Usage.InputTokens.ToString();
+                    metadata["usage_completion_tokens"] = data.Usage.OutputTokens.ToString();
+                    metadata["usage_total_tokens"] = (data.Usage.InputTokens + data.Usage.OutputTokens).ToString();
+                }
+            }
+            else
+            {
+                var data = JsonSerializer.Deserialize<ZAIResponse>(responseBody, _jsonOptions);
+                text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+                if (data?.Usage != null)
+                {
+                    metadata["usage_prompt_tokens"] = data.Usage.PromptTokens.ToString();
+                    metadata["usage_completion_tokens"] = data.Usage.CompletionTokens.ToString();
+                    metadata["usage_total_tokens"] = data.Usage.TotalTokens.ToString();
+                }
             }
 
             return NameComparisonResultParser.Parse(text, _confidenceThreshold, metadata, _jsonOptions);
@@ -157,21 +190,34 @@ public class ZAINameMatchingService : INameMatchingService
             return new NameComparisonBatchResult(results.ToList(), 0, 0, 0, 0);
 
         var prompt = NameComparisonPromptBuilder.BuildBatch(pending);
-        var requestBody = new
-        {
-            model = _modelName,
-            messages = new[]
+        var requestBody = _useAnthropicStyle
+            ? (object)new
             {
-                new { role = "user", content = prompt }
-            },
-            temperature = 0.0
-        };
+                model = _modelName,
+                max_tokens = 2048,
+                messages = new[]
+                {
+                    new { role = "user", content = new[] { new { type = "text", text = prompt } } }
+                },
+                temperature = 1.0
+            }
+            : new
+            {
+                model = _modelName,
+                messages = new[]
+                {
+                    new { role = "user", content = prompt }
+                },
+                temperature = 0.0
+            };
 
         try
         {
             var json = JsonSerializer.Serialize(requestBody);
-            using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            using var response = await _httpClient.PostAsync($"{_baseUrl}/chat/completions", content);
+            using var content = new StringContent(json, Encoding.UTF8);
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var endpoint = _useAnthropicStyle ? $"{_baseUrl}/messages" : $"{_baseUrl}/chat/completions";
+            using var response = await _httpClient.PostAsync(endpoint, content);
             var responseBody = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -179,14 +225,38 @@ public class ZAINameMatchingService : INameMatchingService
                 return await FallbackToIndividualAsync(results, comparisons, pending, responseBody);
             }
 
-            var data = JsonSerializer.Deserialize<ZAIResponse>(responseBody, _jsonOptions);
-            var text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
             var metadata = BuildMetadata();
-            if (data?.Usage != null)
+            string text;
+            int promptTokens;
+            int completionTokens;
+            int totalTokens;
+            if (_useAnthropicStyle)
             {
-                metadata["usage_prompt_tokens"] = data.Usage.PromptTokens.ToString();
-                metadata["usage_completion_tokens"] = data.Usage.CompletionTokens.ToString();
-                metadata["usage_total_tokens"] = data.Usage.TotalTokens.ToString();
+                var data = JsonSerializer.Deserialize<ZAIAnthropicResponse>(responseBody, _jsonOptions);
+                text = ExtractTextContent(data);
+                promptTokens = data?.Usage?.InputTokens ?? 0;
+                completionTokens = data?.Usage?.OutputTokens ?? 0;
+                totalTokens = data?.Usage != null ? data.Usage.InputTokens + data.Usage.OutputTokens : 0;
+                if (data?.Usage != null)
+                {
+                    metadata["usage_prompt_tokens"] = data.Usage.InputTokens.ToString();
+                    metadata["usage_completion_tokens"] = data.Usage.OutputTokens.ToString();
+                    metadata["usage_total_tokens"] = totalTokens.ToString();
+                }
+            }
+            else
+            {
+                var data = JsonSerializer.Deserialize<ZAIResponse>(responseBody, _jsonOptions);
+                text = data?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+                promptTokens = data?.Usage?.PromptTokens ?? 0;
+                completionTokens = data?.Usage?.CompletionTokens ?? 0;
+                totalTokens = data?.Usage?.TotalTokens ?? 0;
+                if (data?.Usage != null)
+                {
+                    metadata["usage_prompt_tokens"] = data.Usage.PromptTokens.ToString();
+                    metadata["usage_completion_tokens"] = data.Usage.CompletionTokens.ToString();
+                    metadata["usage_total_tokens"] = data.Usage.TotalTokens.ToString();
+                }
             }
 
             var parsed = NameComparisonBatchResultParser.Parse(
@@ -208,9 +278,6 @@ public class ZAINameMatchingService : INameMatchingService
             }
 
             var usageCalls = 1;
-            var promptTokens = data?.Usage?.PromptTokens ?? 0;
-            var completionTokens = data?.Usage?.CompletionTokens ?? 0;
-            var totalTokens = data?.Usage?.TotalTokens ?? 0;
 
             var missing = pending.Where(p => results[p.Index] == null).ToList();
             if (missing.Count > 0)
@@ -277,7 +344,8 @@ public class ZAINameMatchingService : INameMatchingService
     private Dictionary<string, string> BuildMetadata() => new()
     {
         { "provider", "zai" },
-        { "model", _modelName }
+        { "model", _modelName },
+        { "api_style", _useAnthropicStyle ? "anthropic" : "openai" }
     };
 
     private async Task<NameComparisonBatchResult> FallbackToIndividualAsync(
@@ -360,6 +428,23 @@ public class ZAINameMatchingService : INameMatchingService
         return text.Replace('\n', ' ').Replace('\r', ' ').Trim();
     }
 
+    private static string ExtractTextContent(ZAIAnthropicResponse? response)
+    {
+        if (response?.Content == null)
+            return string.Empty;
+
+        foreach (var block in response.Content)
+        {
+            if (string.Equals(block.Type, "text", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(block.Text))
+            {
+                return block.Text;
+            }
+        }
+
+        return string.Empty;
+    }
+
     private class ZAIResponse
     {
         [JsonPropertyName("choices")]
@@ -391,6 +476,33 @@ public class ZAINameMatchingService : INameMatchingService
 
         [JsonPropertyName("total_tokens")]
         public int TotalTokens { get; set; }
+    }
+
+    private class ZAIAnthropicResponse
+    {
+        [JsonPropertyName("content")]
+        public List<ZAIAnthropicContent>? Content { get; set; }
+
+        [JsonPropertyName("usage")]
+        public ZAIAnthropicUsage? Usage { get; set; }
+    }
+
+    private class ZAIAnthropicContent
+    {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("text")]
+        public string? Text { get; set; }
+    }
+
+    private class ZAIAnthropicUsage
+    {
+        [JsonPropertyName("input_tokens")]
+        public int InputTokens { get; set; }
+
+        [JsonPropertyName("output_tokens")]
+        public int OutputTokens { get; set; }
     }
 
 }
