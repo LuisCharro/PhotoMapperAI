@@ -187,6 +187,26 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
 
             landmarks.ProcessingTimeMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
 
+            if (landmarks.FaceDetected && landmarks.FaceRect != null && landmarks.LeftEye == null && landmarks.RightEye == null)
+            {
+                // OpenCV DNN does not provide eye landmarks, so estimate them from the face box
+                // to keep portrait alignment consistent with the legacy eye-midpoint workflow.
+                var faceRect = landmarks.FaceRect;
+                var eyeY = Clamp(faceRect.Y + (int)(faceRect.Height * 0.40), 0, image.Rows - 1);
+                var leftX = Clamp(faceRect.X + (int)(faceRect.Width * 0.30), 0, image.Cols - 1);
+                var rightX = Clamp(faceRect.X + (int)(faceRect.Width * 0.70), 0, image.Cols - 1);
+
+                landmarks.LeftEye = new PhotoMapperAI.Models.Point(leftX, eyeY);
+                landmarks.RightEye = new PhotoMapperAI.Models.Point(rightX, eyeY);
+                landmarks.BothEyesDetected = true;
+                landmarks.Metadata["eyes"] = "estimated_from_face_rect";
+
+                Console.WriteLine(
+                    $"[OpenCVDNN] Estimated eyes from faceRect: " +
+                    $"face=({faceRect.X},{faceRect.Y},{faceRect.Width},{faceRect.Height}) " +
+                    $"left=({leftX},{eyeY}) right=({rightX},{eyeY})");
+            }
+
             return landmarks;
         });
     }
@@ -300,5 +320,14 @@ public class OpenCVDNNFaceDetectionService : IFaceDetectionService
             var imageBytes = File.ReadAllBytes(imagePath);
             return Cv2.ImDecode(imageBytes, ImreadModes.Color);
         }
+    }
+
+    private static int Clamp(int value, int min, int max)
+    {
+        if (value < min)
+            return min;
+        if (value > max)
+            return max;
+        return value;
     }
 }

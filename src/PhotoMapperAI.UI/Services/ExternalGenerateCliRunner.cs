@@ -43,7 +43,7 @@ public sealed class ExternalGenerateCliRunner
         await faceDetectionService.InitializeAsync();
 
         var imageProcessor = new ImageProcessor();
-        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache: null, cropOffsetPreset);
+        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache: null, cropOffsetPreset, faceDetectionTrace: false);
 
         if (string.IsNullOrWhiteSpace(sizeProfilePath))
         {

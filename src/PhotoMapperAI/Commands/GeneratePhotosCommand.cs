@@ -40,6 +40,7 @@ public class GeneratePhotosCommandLogic
     private readonly IImageProcessor _imageProcessor;
     private readonly FaceDetectionCache? _cache;
     private readonly CropOffsetPreset? _cropOffsetPreset;
+    private readonly bool _faceDetectionTrace;
     private string? _placeholderImagePath;
 
     /// <summary>
@@ -49,12 +50,14 @@ public class GeneratePhotosCommandLogic
         IFaceDetectionService faceDetectionService,
         IImageProcessor imageProcessor,
         FaceDetectionCache? cache = null,
-        CropOffsetPreset? cropOffsetPreset = null)
+        CropOffsetPreset? cropOffsetPreset = null,
+        bool faceDetectionTrace = false)
     {
         _faceDetectionService = faceDetectionService;
         _imageProcessor = imageProcessor;
         _cache = cache;
         _cropOffsetPreset = cropOffsetPreset;
+        _faceDetectionTrace = faceDetectionTrace;
     }
 
     /// <summary>
@@ -141,6 +144,7 @@ public class GeneratePhotosCommandLogic
         LogLine($"Output Dir: {processedPhotosOutputPath}");
         LogLine($"Format: {format}");
         LogLine($"Face Detection: {faceDetectionModel}");
+        LogLine($"Face Detection Trace: {_faceDetectionTrace}");
         LogLine($"Crop Method: {crop}");
         LogLine($"Portrait Only: {portraitOnly}");
         LogLine($"Portrait Size: {portraitWidth}x{portraitHeight}");
@@ -756,6 +760,7 @@ public class GeneratePhotosCommandLogic
         try
         {
             FaceLandmarks landmarks;
+            var usedCache = false;
 
             // Step 4a: Detect faces (unless portrait-only mode)
             if (!portraitOnly)
@@ -768,6 +773,7 @@ public class GeneratePhotosCommandLogic
                     {
                         landmarks = cached;
                         Console.WriteLine("  ✓ Using cached face detection");
+                        usedCache = true;
                     }
                     else
                     {
@@ -788,6 +794,11 @@ public class GeneratePhotosCommandLogic
             else
             {
                 landmarks = new FaceLandmarks { FaceDetected = false };
+            }
+
+            if (_faceDetectionTrace)
+            {
+                LogFaceDetectionTrace(player, photoPath, faceDetectionModel, landmarks, usedCache);
             }
 
             // Step 5: Generate portrait
@@ -872,6 +883,7 @@ public class GeneratePhotosCommandLogic
         try
         {
             FaceLandmarks landmarks;
+            var usedCache = false;
 
             if (!portraitOnly)
             {
@@ -882,6 +894,7 @@ public class GeneratePhotosCommandLogic
                     {
                         landmarks = cached;
                         Console.WriteLine("  ✓ Using cached face detection");
+                        usedCache = true;
                     }
                     else
                     {
@@ -899,6 +912,11 @@ public class GeneratePhotosCommandLogic
             else
             {
                 landmarks = new FaceLandmarks { FaceDetected = false };
+            }
+
+            if (_faceDetectionTrace)
+            {
+                LogFaceDetectionTrace(player, photoPath, faceDetectionModel, landmarks, usedCache);
             }
 
             var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
@@ -931,6 +949,47 @@ public class GeneratePhotosCommandLogic
         catch (Exception ex)
         {
             return new ProcessPlayerResult(false, false, $"Error: {ex.Message}");
+        }
+    }
+
+    private static void LogFaceDetectionTrace(
+        PlayerRecord player,
+        string photoPath,
+        string faceDetectionModel,
+        FaceLandmarks landmarks,
+        bool usedCache)
+    {
+        var fileName = Path.GetFileName(photoPath);
+        var eyeMid = landmarks.EyeMidpoint;
+        var faceRect = landmarks.FaceRect;
+        var faceRectText = faceRect == null
+            ? "none"
+            : $"{faceRect.X},{faceRect.Y},{faceRect.Width},{faceRect.Height}";
+        var leftEyeText = landmarks.LeftEye == null
+            ? "none"
+            : $"{landmarks.LeftEye.X},{landmarks.LeftEye.Y}";
+        var rightEyeText = landmarks.RightEye == null
+            ? "none"
+            : $"{landmarks.RightEye.X},{landmarks.RightEye.Y}";
+        var eyeMidText = eyeMid == null
+            ? "none"
+            : $"{eyeMid.X},{eyeMid.Y}";
+
+        Console.WriteLine(
+            $"[FaceTrace] Model={faceDetectionModel} UsedModel={landmarks.ModelUsed} Cached={usedCache} " +
+            $"Player={player.PlayerId}/{player.External_Player_ID} File={fileName} " +
+            $"FaceDetected={landmarks.FaceDetected} BothEyes={landmarks.BothEyesDetected} " +
+            $"FaceRect={faceRectText} LeftEye={leftEyeText} RightEye={rightEyeText} EyeMid={eyeMidText}");
+
+        if (!landmarks.FaceDetected)
+        {
+            Console.WriteLine("[FaceTrace] Warning: no face detected.");
+            return;
+        }
+
+        if (!landmarks.BothEyesDetected)
+        {
+            Console.WriteLine("[FaceTrace] Warning: both eyes not detected.");
         }
     }
 
@@ -969,7 +1028,7 @@ public class GeneratePhotosCommand
     [Option(ShortName = "f", LongName = "format", Description = "Image format: jpg, png (default: jpg)")]
     public string Format { get; set; } = "jpg";
 
-    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b)")]
+    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-yunet, opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b)")]
     public string FaceDetection { get; set; } = "llava:7b";
 
     [Option(ShortName = "c", LongName = "crop", Description = "Crop method: generic, ai (default: generic)")]
@@ -1007,6 +1066,9 @@ public class GeneratePhotosCommand
 
     [Option(ShortName = "dl", LongName = "downloadOpenCvModels", Description = "Download missing OpenCV DNN model files if needed")]
     public bool DownloadOpenCvModels { get; set; } = false;
+
+    [Option(ShortName = "fdtr", LongName = "faceDetectionTrace", Description = "Log detailed face detection output per image")]
+    public bool FaceDetectionTrace { get; set; } = false;
 
     [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or External_Player_ID)")]
     public string? OnlyPlayer { get; set; }
@@ -1072,7 +1134,7 @@ public class GeneratePhotosCommand
 
         // Create generate photos command logic handler
         var cropOffsetPreset = CropOffsetSettingsLoader.LoadActivePreset();
-        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache, cropOffsetPreset);
+        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache, cropOffsetPreset, FaceDetectionTrace);
 
         var baseOutputPath = ProcessedPhotosOutputPath;
         if (!string.IsNullOrWhiteSpace(OutputProfile))
