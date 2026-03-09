@@ -1028,8 +1028,8 @@ public class GeneratePhotosCommand
     [Option(ShortName = "f", LongName = "format", Description = "Image format: jpg, png (default: jpg)")]
     public string Format { get; set; } = "jpg";
 
-    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-yunet, opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b)")]
-    public string FaceDetection { get; set; } = "llava:7b";
+    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: apple-vision (macOS), opencv-yunet, opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list")]
+    public string FaceDetection { get; set; } = OperatingSystem.IsMacOS() ? "apple-vision" : "llava:7b";
 
     [Option(ShortName = "c", LongName = "crop", Description = "Crop method: generic, ai (default: generic)")]
     public string Crop { get; set; } = "generic";

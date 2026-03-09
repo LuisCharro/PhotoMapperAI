@@ -263,6 +263,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     public ObservableCollection<string> LocalVisionFaceDetectionModels { get; } = new()
     {
+        "apple-vision",
         "llava:7b",
         "qwen3-vl"
     };
@@ -1717,6 +1718,10 @@ public partial class GenerateStepViewModel : ViewModelBase
         if (string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
             return 0;
 
+        if (string.Equals(modelName, "apple-vision", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "vision", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
         if (string.Equals(modelName, "llava:7b", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(modelName, "qwen3-vl", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(modelName, "qwen3-vl:latest", StringComparison.OrdinalIgnoreCase))
@@ -1800,18 +1805,21 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
         else if (isMacOS)
         {
-            // macOS ARM64: OpenCV not available, use AI vision models
+            // macOS: prefer Apple Vision, keep Ollama and center as fallbacks
+            RecommendedFaceDetectionModels.Add("apple-vision");
             RecommendedFaceDetectionModels.Add("qwen3-vl");
             RecommendedFaceDetectionModels.Add("llava:7b");
             RecommendedFaceDetectionModels.Add("center");
             LocalVisionFaceDetectionModels.Clear();
+            LocalVisionFaceDetectionModels.Add("apple-vision");
             LocalVisionFaceDetectionModels.Add("llava:7b");
             LocalVisionFaceDetectionModels.Add("qwen3-vl");
             AdvancedFaceDetectionModels.Clear();
+            AdvancedFaceDetectionModels.Add("apple-vision");
             AdvancedFaceDetectionModels.Add("qwen3-vl");
             AdvancedFaceDetectionModels.Add("llava:7b");
             AdvancedFaceDetectionModels.Add("center");
-            FaceDetectionModel = "qwen3-vl";
+            FaceDetectionModel = "apple-vision";
         }
         else if (isLinux)
         {

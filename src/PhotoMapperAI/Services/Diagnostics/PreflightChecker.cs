@@ -168,6 +168,28 @@ public static class PreflightChecker
                 continue;
             }
 
+            if (IsAppleVisionModel(model))
+            {
+                if (OperatingSystem.IsMacOS())
+                {
+                    var service = new AppleVisionFaceDetectionService();
+                    if (await service.IsAvailableAsync())
+                    {
+                        availableCount++;
+                    }
+                    else
+                    {
+                        result.Warnings.Add("Apple Vision face detection is not available on this macOS environment.");
+                    }
+                }
+                else
+                {
+                    result.Warnings.Add($"Apple Vision model '{model}' is only available on macOS.");
+                }
+
+                continue;
+            }
+
             if (IsOpenCvDnnModel(model))
             {
                 var baseModelsPath = Path.Combine(AppContext.BaseDirectory, "models");
@@ -319,6 +341,12 @@ public static class PreflightChecker
         return string.Equals(model, "center", StringComparison.OrdinalIgnoreCase)
             || string.Equals(model, "haar", StringComparison.OrdinalIgnoreCase)
             || string.Equals(model, "haar-cascade", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAppleVisionModel(string model)
+    {
+        return string.Equals(model, "apple-vision", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(model, "vision", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsOllamaModel(string model)
