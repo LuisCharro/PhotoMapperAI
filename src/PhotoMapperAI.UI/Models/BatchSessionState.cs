@@ -32,7 +32,7 @@ public class BatchSessionState
     public bool AiSecondPass { get; set; }
     
     // Face Detection Settings
-    public string? FaceDetectionModel { get; set; } = "opencv-dnn";
+    public string? FaceDetectionModel { get; set; } = "opencv-yunet";
     public bool DownloadOpenCvModels { get; set; }
     
     // Size Settings

@@ -124,7 +124,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     private string _imageFormat = "jpg";
 
     [ObservableProperty]
-    private string _faceDetectionModel = "opencv-dnn";
+    private string _faceDetectionModel = "opencv-yunet";
 
     [ObservableProperty]
     private string _sizeProfilePath = string.Empty;
@@ -1762,8 +1762,9 @@ public partial class GenerateStepViewModel : ViewModelBase
         if (isWindows)
         {
             // Windows: OpenCV works fine
+            RecommendedFaceDetectionModels.Add("opencv-yunet");
             RecommendedFaceDetectionModels.Add("opencv-dnn");
-            FaceDetectionModel = "opencv-dnn";
+            FaceDetectionModel = "opencv-yunet";
         }
         else if (isMacOS)
         {
@@ -1779,9 +1780,10 @@ public partial class GenerateStepViewModel : ViewModelBase
         else if (isLinux)
         {
             // Linux: Try OpenCV, fallback to center
+            RecommendedFaceDetectionModels.Add("opencv-yunet");
             RecommendedFaceDetectionModels.Add("opencv-dnn");
             RecommendedFaceDetectionModels.Add("center");
-            FaceDetectionModel = "opencv-dnn";
+            FaceDetectionModel = "opencv-yunet";
         }
         else
         {
