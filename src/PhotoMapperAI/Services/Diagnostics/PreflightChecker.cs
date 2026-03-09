@@ -33,7 +33,7 @@ public sealed class PreflightResult
 
         if (MissingOpenCvFiles.Count > 0)
         {
-            lines.Add("Missing OpenCV DNN files:");
+            lines.Add("Missing OpenCV model files:");
             lines.AddRange(MissingOpenCvFiles.Select(f => $"- {f}"));
         }
 
@@ -61,7 +61,7 @@ public sealed class PreflightResult
 
         if (MissingOpenCvFiles.Count > 0)
         {
-            lines.Add("Missing OpenCV DNN files:");
+            lines.Add("Missing OpenCV model files:");
             lines.AddRange(MissingOpenCvFiles.Select(f => $"- {f}"));
         }
 
@@ -217,6 +217,50 @@ public static class PreflightChecker
                 continue;
             }
 
+            if (IsOpenCvYuNetModel(model))
+            {
+                var baseModelsPath = Path.Combine(AppContext.BaseDirectory, "models");
+                var (modelsPath, modelPath) = OpenCVYuNetFaceDetectionService.GetResolvedModelPaths(baseModelsPath);
+                var missingFiles = new List<string>();
+
+                if (!File.Exists(modelPath))
+                    missingFiles.Add(modelPath);
+
+                if (missingFiles.Count > 0 && downloadOpenCvModels)
+                {
+                    var download = await OpenCvModelDownloader.EnsureYuNetModelAsync(modelsPath);
+                    if (!download.Success)
+                    {
+                        result.Warnings.Add($"Failed to download OpenCV YuNet model: {download.Error}");
+                    }
+                    else if (download.Downloaded.Count > 0)
+                    {
+                        result.Warnings.Add("Downloaded missing OpenCV YuNet model.");
+                    }
+
+                    missingFiles = new List<string>();
+                    if (!File.Exists(modelPath))
+                        missingFiles.Add(modelPath);
+                }
+
+                if (missingFiles.Count == 0)
+                {
+                    availableCount++;
+                }
+                else
+                {
+                    foreach (var file in missingFiles)
+                    {
+                        if (!result.MissingOpenCvFiles.Contains(file, StringComparer.OrdinalIgnoreCase))
+                            result.MissingOpenCvFiles.Add(file);
+                    }
+
+                    result.Warnings.Add($"OpenCV YuNet model missing for '{model}' (models path: {modelsPath}).");
+                }
+
+                continue;
+            }
+
             if (IsOllamaModel(model))
             {
                 ollamaCandidates.Add(model);
@@ -262,6 +306,12 @@ public static class PreflightChecker
     {
         return string.Equals(model, "opencv-dnn", StringComparison.OrdinalIgnoreCase)
             || string.Equals(model, "yolov8-face", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsOpenCvYuNetModel(string model)
+    {
+        return string.Equals(model, "opencv-yunet", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(model, "yunet", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsCenterOrHaar(string model)

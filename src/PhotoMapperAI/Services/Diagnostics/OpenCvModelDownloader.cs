@@ -7,6 +7,7 @@ public static class OpenCvModelDownloader
 {
     private const string PrototxtFileName = "res10_ssd_deploy.prototxt";
     private const string WeightsFileName = "res10_300x300_ssd_iter_140000.caffemodel";
+    private const string YuNetFileName = "face_detection_yunet_2023mar.onnx";
 
     private static readonly string[] DefaultPrototxtUrls =
     {
@@ -25,6 +26,12 @@ public static class OpenCvModelDownloader
         "https://github.com/opencv/opencv_3rdparty/raw/master/dnn_models_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel",
         "https://raw.githubusercontent.com/opencv/opencv_3rdparty/master/dnn_models_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel",
         "https://raw.githubusercontent.com/opencv/opencv_3rdparty/master/res10_300x300_ssd_iter_140000.caffemodel"
+    };
+
+    private static readonly string[] DefaultYuNetUrls =
+    {
+        "https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+        "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
     };
 
     public static async Task<(bool Success, List<string> Downloaded, string Error)> EnsureModelsAsync(string modelsPath)
@@ -52,6 +59,33 @@ public static class OpenCvModelDownloader
             {
                 await DownloadFileAsync(http, weightsUrls, weightsPath);
                 downloaded.Add(weightsPath);
+            }
+
+            return (true, downloaded, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return (false, downloaded, ex.Message);
+        }
+    }
+
+    public static async Task<(bool Success, List<string> Downloaded, string Error)> EnsureYuNetModelAsync(string modelsPath)
+    {
+        var downloaded = new List<string>();
+
+        try
+        {
+            Directory.CreateDirectory(modelsPath);
+
+            var modelPath = Path.Combine(modelsPath, YuNetFileName);
+
+            using var http = new HttpClient();
+            var urls = LoadYuNetUrlsFromSettings();
+
+            if (!File.Exists(modelPath))
+            {
+                await DownloadFileAsync(http, urls, modelPath);
+                downloaded.Add(modelPath);
             }
 
             return (true, downloaded, string.Empty);
@@ -119,6 +153,35 @@ public static class OpenCvModelDownloader
         catch
         {
             return (DefaultPrototxtUrls, DefaultWeightsUrls);
+        }
+    }
+
+    private static IReadOnlyList<string> LoadYuNetUrlsFromSettings()
+    {
+        var settingsPath = ResolveSettingsPath();
+        if (string.IsNullOrWhiteSpace(settingsPath))
+            return DefaultYuNetUrls;
+
+        try
+        {
+            var json = File.ReadAllText(settingsPath);
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("OpenCV", out var openCv))
+                return DefaultYuNetUrls;
+
+            if (!openCv.TryGetProperty("Downloads", out var downloads))
+                return DefaultYuNetUrls;
+
+            var urls = ReadUrlArray(downloads, "YuNetUrls").ToList();
+            if (urls.Count == 0)
+                urls.AddRange(DefaultYuNetUrls);
+
+            return urls;
+        }
+        catch
+        {
+            return DefaultYuNetUrls;
         }
     }
 
