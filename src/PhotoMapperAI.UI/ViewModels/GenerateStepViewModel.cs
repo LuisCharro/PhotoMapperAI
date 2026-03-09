@@ -1800,14 +1800,18 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
         else if (isMacOS)
         {
-            // macOS ARM64: OpenCV has native library issues, use center as default
+            // macOS ARM64: OpenCV not available, use AI vision models
+            RecommendedFaceDetectionModels.Add("qwen3-vl");
+            RecommendedFaceDetectionModels.Add("llava:7b");
             RecommendedFaceDetectionModels.Add("center");
             LocalVisionFaceDetectionModels.Clear();
             LocalVisionFaceDetectionModels.Add("llava:7b");
             LocalVisionFaceDetectionModels.Add("qwen3-vl");
             AdvancedFaceDetectionModels.Clear();
+            AdvancedFaceDetectionModels.Add("qwen3-vl");
+            AdvancedFaceDetectionModels.Add("llava:7b");
             AdvancedFaceDetectionModels.Add("center");
-            FaceDetectionModel = "center";
+            FaceDetectionModel = "qwen3-vl";
         }
         else if (isLinux)
         {
