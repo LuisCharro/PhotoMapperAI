@@ -36,6 +36,7 @@ public sealed class ExternalMapCliRunner
         bool useAi,
         bool aiSecondPass,
         bool aiOnly,
+        bool aiTrace,
         string? openAiApiKey,
         string? anthropicApiKey,
         string? zaiApiKey,
@@ -68,7 +69,7 @@ public sealed class ExternalMapCliRunner
             aiSecondPass,
             uiProgress: uiProgress,
             cancellationToken: cancellationToken,
-            aiTrace: false,
+            aiTrace: aiTrace,
             aiOnly: aiOnly,
             log: log);
 

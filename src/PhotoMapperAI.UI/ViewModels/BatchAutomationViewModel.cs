@@ -132,6 +132,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private bool _aiSecondPass = true;
 
+    [ObservableProperty]
+    private bool _aiTrace;
+
     // Unified API key for all paid providers
     [ObservableProperty]
     private string _apiKey = string.Empty;
@@ -151,6 +154,15 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isPaidSelected;
+
+    [ObservableProperty]
+    private string? _selectedFreeTierModel;
+
+    [ObservableProperty]
+    private string? _selectedLocalModel;
+
+    [ObservableProperty]
+    private string? _selectedPaidModel;
 
     [ObservableProperty]
     private bool _isCheckingModel;
@@ -531,6 +543,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     UseAiMapping,
                     AiSecondPass,
                     AiOnly,
+                    UseAiMapping && AiTrace,
                     openAiApiKey: IsOpenAiModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                     anthropicApiKey: IsAnthropicModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                     zaiApiKey: IsZaiModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
@@ -1299,6 +1312,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             {
                 UpdateTeamStatus(team, BatchTeamStatus.Extracting, "Extracting players...");
                 AppendLog($"[EXTRACT] {team.TeamName}: Extracting players...");
+                LogExecutedCommand(BuildExtractCommand(team));
 
                 if (File.Exists(PlayersSqlPath))
                 {
@@ -1402,6 +1416,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     AppendLog($"[MAP] {team.TeamName}:   - Use AI Mapping: {UseAiMapping}");
                     AppendLog($"[MAP] {team.TeamName}:   - AI Only Mode: {AiOnly}");
                     AppendLog($"[MAP] {team.TeamName}:   - AI Second Pass: {AiSecondPass}");
+                    AppendLog($"[MAP] {team.TeamName}:   - AI Trace: {AiTrace}");
                     AppendLog($"[MAP] {team.TeamName}:   - Name Model: {effectiveNameModel}");
                     AppendLog($"[MAP] {team.TeamName}:   - Confidence Threshold: {NameMatchingThreshold:F2}");
                     
@@ -1430,6 +1445,19 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
                     var effectiveAiSecondPass = UseAiMapping && AiSecondPass;
                     var effectiveAiOnly = UseAiMapping && AiOnly;
+                    var effectiveAiTrace = UseAiMapping && AiTrace;
+
+                    LogExecutedCommand(BuildMapCommand(
+                        csvPath,
+                        teamPhotoDir,
+                        string.IsNullOrWhiteSpace(FilenamePattern) ? null : FilenamePattern,
+                        UsePhotoManifest ? PhotoManifestPath : null,
+                        effectiveNameModel,
+                        NameMatchingThreshold,
+                        UseAiMapping,
+                        effectiveAiSecondPass,
+                        effectiveAiOnly,
+                        effectiveAiTrace));
 
                     var mapResult = await _mapRunner.ExecuteAsync(
                         Directory.GetCurrentDirectory(),
@@ -1443,6 +1471,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         useAi: UseAiMapping,
                         aiSecondPass: effectiveAiSecondPass,
                         aiOnly: effectiveAiOnly,
+                        aiTrace: effectiveAiTrace,
                         openAiApiKey: IsOpenAiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                         anthropicApiKey: IsAnthropicModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                         zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
@@ -1570,6 +1599,18 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
                     var effectiveWidth = wantsCustomDimensions ? PreviewCustomWidth : DefaultWidth;
                     var effectiveHeight = wantsCustomDimensions ? PreviewCustomHeight : DefaultHeight;
+
+                    LogExecutedCommand(BuildGenerateCommand(
+                        teamResult.MappedCsvPath ?? csvPath,
+                        teamPhotoDir,
+                        teamOutputDir,
+                        ImageFormat,
+                        FaceDetectionModel,
+                        effectiveWidth,
+                        effectiveHeight,
+                        sizeProfilePath,
+                        allSizes,
+                        DownloadOpenCvModels));
 
                     var generateResult = await _generateRunner.ExecuteAsync(
                         Directory.GetCurrentDirectory(),
@@ -1837,6 +1878,99 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             LogLines.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
         });
+    }
+
+    private void LogExecutedCommand(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return;
+
+        _sessionState.CommandsExecuted.Add(command);
+        AppendLog($"[COMMAND] {command}");
+    }
+
+    private string BuildExtractCommand(BatchTeamItem team)
+    {
+        var sqlPath = string.IsNullOrWhiteSpace(PlayersSqlPath) ? "" : $"-inputSqlPath \"{PlayersSqlPath}\"";
+        return $"photomapperai extract {sqlPath} -teamId {team.TeamId} -outputName \"{team.TeamName}.csv\"".Trim();
+    }
+
+    private string BuildMapCommand(
+        string csvPath,
+        string photosDir,
+        string? filenamePattern,
+        string? photoManifest,
+        string nameModel,
+        double threshold,
+        bool useAi,
+        bool aiSecondPass,
+        bool aiOnly,
+        bool aiTrace)
+    {
+        var args = new List<string>
+        {
+            "photomapperai map",
+            $"-inputCsvPath \"{csvPath}\"",
+            $"-photosDir \"{photosDir}\"",
+            $"-nameModel {nameModel}",
+            $"-confidenceThreshold {threshold:0.##}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(filenamePattern))
+            args.Add($"-filenamePattern \"{filenamePattern}\"");
+
+        if (!string.IsNullOrWhiteSpace(photoManifest))
+            args.Add($"-photoManifest \"{photoManifest}\"");
+
+        if (useAi)
+            args.Add("-useAI");
+
+        if (aiSecondPass)
+            args.Add("-aiSecondPass");
+
+        if (aiOnly)
+            args.Add("-aiOnly");
+
+        if (aiTrace)
+            args.Add("-aiTrace");
+
+        return string.Join(" ", args);
+    }
+
+    private string BuildGenerateCommand(
+        string inputCsvPath,
+        string photosDir,
+        string outputDir,
+        string? imageFormat,
+        string faceDetectionModel,
+        int width,
+        int height,
+        string? sizeProfilePath,
+        bool allSizes,
+        bool downloadOpenCvModels)
+    {
+        var args = new List<string>
+        {
+            "photomapperai generatephotos",
+            $"-inputCsvPath \"{inputCsvPath}\"",
+            $"-photosDir \"{photosDir}\"",
+            $"-processedPhotosOutputPath \"{outputDir}\"",
+            $"-format {imageFormat}",
+            $"-faceDetection {faceDetectionModel}",
+            $"-faceWidth {width}",
+            $"-faceHeight {height}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(sizeProfilePath))
+            args.Add($"-sizeProfile \"{sizeProfilePath}\"");
+
+        if (allSizes)
+            args.Add("-allSizes");
+
+        if (downloadOpenCvModels)
+            args.Add("-downloadOpenCvModels");
+
+        return string.Join(" ", args);
     }
 
     [RelayCommand]
@@ -2180,6 +2314,17 @@ public partial class BatchAutomationViewModel : ViewModelBase
         foreach (var model in paid)
             PaidNameModels.Add(model);
 
+        SelectedFreeTierModel = FreeTierNameModels.FirstOrDefault();
+        SelectedLocalModel = LocalNameModels.FirstOrDefault();
+        SelectedPaidModel = PaidNameModels.FirstOrDefault();
+
+        if (IsFreeTierModel(previousSelection))
+            SelectedFreeTierModel = previousSelection;
+        else if (IsLocalModel(previousSelection))
+            SelectedLocalModel = previousSelection;
+        else if (IsPaidModel(previousSelection))
+            SelectedPaidModel = previousSelection;
+
         if (!string.IsNullOrWhiteSpace(previousSelection) &&
             (LocalNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
              FreeTierNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
@@ -2261,6 +2406,13 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         UpdateProviderKeyInputVisibility();
         SelectedModelTierIndex = GetTierIndexForModel(value);
+
+        if (IsFreeTierModel(value))
+            SelectedFreeTierModel = value;
+        else if (IsLocalModel(value))
+            SelectedLocalModel = value;
+        else if (IsPaidModel(value))
+            SelectedPaidModel = value;
     }
 
     // Handle tier selection - mutually exclusive (radio-button style)
@@ -2275,7 +2427,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
             // Set a default free tier model if none selected
             if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsFreeTierModel(NameMatchingModel))
             {
-                NameMatchingModel = FreeTierNameModels.FirstOrDefault() ?? string.Empty;
+                NameMatchingModel = SelectedFreeTierModel
+                    ?? FreeTierNameModels.FirstOrDefault()
+                    ?? string.Empty;
             }
         }
     }
@@ -2291,7 +2445,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
             // Set a default local model if none selected
             if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsLocalModel(NameMatchingModel))
             {
-                NameMatchingModel = LocalNameModels.FirstOrDefault() ?? string.Empty;
+                NameMatchingModel = SelectedLocalModel
+                    ?? LocalNameModels.FirstOrDefault()
+                    ?? string.Empty;
             }
         }
     }
@@ -2307,7 +2463,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
             // Set a default paid model if none selected
             if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsPaidModel(NameMatchingModel))
             {
-                NameMatchingModel = PaidNameModels.FirstOrDefault() ?? string.Empty;
+                NameMatchingModel = SelectedPaidModel
+                    ?? PaidNameModels.FirstOrDefault()
+                    ?? string.Empty;
             }
         }
     }
@@ -2316,9 +2474,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         string? candidate = value switch
         {
-            0 => FreeTierNameModels.FirstOrDefault(),
-            1 => LocalNameModels.FirstOrDefault(),
-            2 => PaidNameModels.FirstOrDefault(),
+            0 => SelectedFreeTierModel ?? FreeTierNameModels.FirstOrDefault(),
+            1 => SelectedLocalModel ?? LocalNameModels.FirstOrDefault(),
+            2 => SelectedPaidModel ?? PaidNameModels.FirstOrDefault(),
             _ => null
         };
 
@@ -2327,6 +2485,42 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             NameMatchingModel = candidate;
         }
+    }
+
+    partial void OnSelectedFreeTierModelChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (!IsFreeTierSelected)
+            IsFreeTierSelected = true;
+
+        if (!string.Equals(NameMatchingModel, value, StringComparison.OrdinalIgnoreCase))
+            NameMatchingModel = value;
+    }
+
+    partial void OnSelectedLocalModelChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (!IsLocalSelected)
+            IsLocalSelected = true;
+
+        if (!string.Equals(NameMatchingModel, value, StringComparison.OrdinalIgnoreCase))
+            NameMatchingModel = value;
+    }
+
+    partial void OnSelectedPaidModelChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (!IsPaidSelected)
+            IsPaidSelected = true;
+
+        if (!string.Equals(NameMatchingModel, value, StringComparison.OrdinalIgnoreCase))
+            NameMatchingModel = value;
     }
 
     partial void OnFaceDetectionModelChanged(string value)

@@ -123,7 +123,7 @@
                           VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox Grid.Column="1" 
                           ItemsSource="{Binding FreeTierNameModels}"
-                          SelectedItem="{Binding NameModel}"
+                          SelectedItem="{Binding SelectedFreeTierModel}"
                           HorizontalAlignment="Stretch" Height="32"
                           IsEnabled="{Binding IsFreeTierSelected}"/>
               </Grid>
@@ -137,7 +137,7 @@
                           VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox Grid.Column="1" 
                           ItemsSource="{Binding LocalNameModels}"
-                          SelectedItem="{Binding NameModel}"
+                          SelectedItem="{Binding SelectedLocalModel}"
                           HorizontalAlignment="Stretch" Height="32"
                           IsEnabled="{Binding IsLocalSelected}"/>
               </Grid>
@@ -152,7 +152,7 @@
                             VerticalAlignment="Center" Margin="0,0,10,0"/>
                   <ComboBox Grid.Column="1" 
                             ItemsSource="{Binding PaidNameModels}"
-                            SelectedItem="{Binding NameModel}"
+                            SelectedItem="{Binding SelectedPaidModel}"
                             HorizontalAlignment="Stretch" Height="32"
                             IsEnabled="{Binding IsPaidSelected}"/>
                 </Grid>
@@ -190,6 +190,9 @@
             <!-- AI Options -->
             <CheckBox Content="Run AI second pass on remaining unmatched players"
                       IsChecked="{Binding AiSecondPass}"
+                      FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+            <CheckBox Content="AI Trace (debug details)"
+                      IsChecked="{Binding AiTrace}"
                       FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
             <CheckBox Content="AI-only mode (skip deterministic matching)"
                       IsChecked="{Binding AiOnly}"

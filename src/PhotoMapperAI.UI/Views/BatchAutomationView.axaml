@@ -167,6 +167,7 @@
                   <CheckBox Content="Use AI for unmatched" IsChecked="{Binding UseAiMapping}" FontSize="11"/>
                   <CheckBox Content="AI-only (skip deterministic)" IsChecked="{Binding AiOnly}" FontSize="11"/>
                   <CheckBox Content="AI Second Pass" IsChecked="{Binding AiSecondPass}" FontSize="11"/>
+                  <CheckBox Content="AI Trace" IsChecked="{Binding AiTrace}" FontSize="11"/>
                 </StackPanel>
 
                 <!-- Model Selection - 3 Horizontal Containers -->
@@ -179,7 +180,7 @@
                               VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <ComboBox Grid.Column="1" 
                               ItemsSource="{Binding FreeTierNameModels}"
-                              SelectedItem="{Binding NameMatchingModel}"
+                              SelectedItem="{Binding SelectedFreeTierModel}"
                               HorizontalAlignment="Stretch" Height="28"
                               IsEnabled="{Binding IsFreeTierSelected}"/>
                   </Grid>
@@ -193,7 +194,7 @@
                               VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <ComboBox Grid.Column="1" 
                               ItemsSource="{Binding LocalNameModels}"
-                              SelectedItem="{Binding NameMatchingModel}"
+                              SelectedItem="{Binding SelectedLocalModel}"
                               HorizontalAlignment="Stretch" Height="28"
                               IsEnabled="{Binding IsLocalSelected}"/>
                   </Grid>
@@ -208,7 +209,7 @@
                                 VerticalAlignment="Center" Margin="0,0,10,0"/>
                       <ComboBox Grid.Column="1" 
                                 ItemsSource="{Binding PaidNameModels}"
-                                SelectedItem="{Binding NameMatchingModel}"
+                                SelectedItem="{Binding SelectedPaidModel}"
                                 HorizontalAlignment="Stretch" Height="28"
                                 IsEnabled="{Binding IsPaidSelected}"/>
                     </Grid>

@@ -95,6 +95,9 @@ public partial class MapStepViewModel : ViewModelBase
     private bool _aiSecondPass = true;
 
     [ObservableProperty]
+    private bool _aiTrace;
+
+    [ObservableProperty]
     private string _apiKey = string.Empty;
 
     [ObservableProperty]
@@ -142,6 +145,15 @@ public partial class MapStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isPaidSelected;
+
+    [ObservableProperty]
+    private string? _selectedFreeTierModel;
+
+    [ObservableProperty]
+    private string? _selectedLocalModel;
+
+    [ObservableProperty]
+    private string? _selectedPaidModel;
 
     public ObservableCollection<string> LogLines { get; } = new();
 
@@ -393,6 +405,7 @@ public partial class MapStepViewModel : ViewModelBase
                 UseAiMapping,
                 UseAiMapping && AiSecondPass,
                 UseAiMapping && AiOnly,
+                UseAiMapping && AiTrace,
                 IsOpenAiModel(effectiveNameModel) ? usedApiKey : null,
                 IsAnthropicModel(effectiveNameModel) ? usedApiKey : null,
                 IsZaiModel(effectiveNameModel) ? usedApiKey : null,
@@ -562,6 +575,17 @@ public partial class MapStepViewModel : ViewModelBase
         foreach (var model in paid)
             PaidNameModels.Add(model);
 
+        SelectedFreeTierModel = FreeTierNameModels.FirstOrDefault();
+        SelectedLocalModel = LocalNameModels.FirstOrDefault();
+        SelectedPaidModel = PaidNameModels.FirstOrDefault();
+
+        if (IsFreeTierModel(previousSelection))
+            SelectedFreeTierModel = previousSelection;
+        else if (IsLocalModel(previousSelection))
+            SelectedLocalModel = previousSelection;
+        else if (IsPaidModel(previousSelection))
+            SelectedPaidModel = previousSelection;
+
         if (!string.IsNullOrWhiteSpace(previousSelection) &&
             (LocalNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
              FreeTierNameModels.Any(m => string.Equals(m, previousSelection, StringComparison.OrdinalIgnoreCase)) ||
@@ -625,6 +649,13 @@ public partial class MapStepViewModel : ViewModelBase
     {
         UpdateProviderKeyInputVisibility();
         SelectedModelTierIndex = GetTierIndexForModel(value);
+
+        if (IsFreeTierModel(value))
+            SelectedFreeTierModel = value;
+        else if (IsLocalModel(value))
+            SelectedLocalModel = value;
+        else if (IsPaidModel(value))
+            SelectedPaidModel = value;
     }
 
     // Handle tier selection - mutually exclusive (radio-button style)
@@ -639,7 +670,9 @@ public partial class MapStepViewModel : ViewModelBase
             // Set a default free tier model if none selected
             if (string.IsNullOrWhiteSpace(NameModel) || !IsFreeTierModel(NameModel))
             {
-                NameModel = FreeTierNameModels.FirstOrDefault() ?? string.Empty;
+                NameModel = SelectedFreeTierModel
+                    ?? FreeTierNameModels.FirstOrDefault()
+                    ?? string.Empty;
             }
         }
     }
@@ -655,7 +688,9 @@ public partial class MapStepViewModel : ViewModelBase
             // Set a default local model if none selected
             if (string.IsNullOrWhiteSpace(NameModel) || !IsLocalModel(NameModel))
             {
-                NameModel = LocalNameModels.FirstOrDefault() ?? string.Empty;
+                NameModel = SelectedLocalModel
+                    ?? LocalNameModels.FirstOrDefault()
+                    ?? string.Empty;
             }
         }
     }
@@ -671,9 +706,47 @@ public partial class MapStepViewModel : ViewModelBase
             // Set a default paid model if none selected
             if (string.IsNullOrWhiteSpace(NameModel) || !IsPaidModel(NameModel))
             {
-                NameModel = PaidNameModels.FirstOrDefault() ?? string.Empty;
+                NameModel = SelectedPaidModel
+                    ?? PaidNameModels.FirstOrDefault()
+                    ?? string.Empty;
             }
         }
+    }
+
+    partial void OnSelectedFreeTierModelChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (!IsFreeTierSelected)
+            IsFreeTierSelected = true;
+
+        if (!string.Equals(NameModel, value, StringComparison.OrdinalIgnoreCase))
+            NameModel = value;
+    }
+
+    partial void OnSelectedLocalModelChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (!IsLocalSelected)
+            IsLocalSelected = true;
+
+        if (!string.Equals(NameModel, value, StringComparison.OrdinalIgnoreCase))
+            NameModel = value;
+    }
+
+    partial void OnSelectedPaidModelChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (!IsPaidSelected)
+            IsPaidSelected = true;
+
+        if (!string.Equals(NameModel, value, StringComparison.OrdinalIgnoreCase))
+            NameModel = value;
     }
 
     partial void OnUseAiMappingChanged(bool value)
