@@ -47,6 +47,7 @@ public class BatchSessionState
     
     // Results
     public List<BatchTeamResult> TeamResults { get; set; } = new();
+    public List<string> CommandsExecuted { get; set; } = new();
     public int TotalTeams { get; set; }
     public int TeamsCompleted { get; set; }
     public int TeamsFailed { get; set; }
