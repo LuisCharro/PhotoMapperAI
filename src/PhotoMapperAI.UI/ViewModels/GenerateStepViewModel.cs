@@ -651,23 +651,29 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
-            // Determine preview dimensions: custom or from profile variant
-            int previewWidth, previewHeight;
-            string? placeholderPath = null;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var wantsCustomDimensions = !useSizeProfile && UseCustomPreviewDimensions;
+            var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+            var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
 
-            if (UseCustomPreviewDimensions)
-            {
-                previewWidth = PreviewCustomWidth;
-                previewHeight = PreviewCustomHeight;
-                LogDiagnostic($"Using custom preview dimensions: {previewWidth}x{previewHeight}");
-            }
-            else
+            int previewWidth;
+            int previewHeight;
+            string? placeholderPath;
+
+            if (useSizeProfile)
             {
                 var (variantWidth, variantHeight, variantPlaceholder) = ResolvePreviewVariant();
                 previewWidth = variantWidth;
                 previewHeight = variantHeight;
-                placeholderPath = variantPlaceholder;
-                LogDiagnostic($"Using profile variant dimensions: {previewWidth}x{previewHeight}");
+                placeholderPath = ignoreProfilePlaceholders ? null : variantPlaceholder;
+                LogDiagnostic($"Using size profile preview dimensions: {previewWidth}x{previewHeight}");
+            }
+            else
+            {
+                previewWidth = wantsCustomDimensions ? PreviewCustomWidth : PortraitWidth;
+                previewHeight = wantsCustomDimensions ? PreviewCustomHeight : PortraitHeight;
+                placeholderPath = UsePlaceholderImages ? PlaceholderImagePath : null;
+                LogDiagnostic($"Using manual preview dimensions: {previewWidth}x{previewHeight}");
             }
 
             var photoPath = ResolvePreviewPhotoPath(player.External_Player_ID);
@@ -687,60 +693,55 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
+            LogDiagnostic($"Preview generation path: external-cli");
             LogDiagnostic($"Face detection model requested: {FaceDetectionModel}");
-            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
-            LogDiagnostic($"Detector initialization result: {faceDetectionService.ModelName}");
-            if (string.Equals(FaceDetectionModel, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
-            {
-                var openCvService = faceDetectionService as PhotoMapperAI.Services.AI.OpenCVDNNFaceDetectionService;
-                if (openCvService != null)
-                {
-                    LogDiagnostic("OpenCV-DNN model: using res10_300x300_ssd_iter_140000.caffemodel");
-                }
-            }
-            await faceDetectionService.InitializeAsync();
-            LogDiagnostic("OpenCV runtime status: initialized");
+            PreviewStatus = "Generating preview...";
 
-            FaceLandmarks landmarks;
-            if (PortraitOnly)
-            {
-                landmarks = new FaceLandmarks { FaceDetected = false };
-            }
-            else
-            {
-                PreviewStatus = "Detecting face for preview...";
-                landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath);
-                if (landmarks != null)
-                {
-                    LogDiagnostic($"Face detected: rect={landmarks.FaceRect}, confidence={landmarks.FaceConfidence}, center={landmarks.FaceCenter}");
-                }
-                else
-                {
-                    LogDiagnostic("Face not detected, using image center");
-                }
-            }
+            var previewOutputDir = Path.Combine(
+                Path.GetTempPath(),
+                "PhotoMapperAI",
+                "preview",
+                "generate",
+                Guid.NewGuid().ToString("N"));
 
-            var imageProcessor = new ImageProcessor();
-            using var image = await imageProcessor.LoadImageAsync(photoPath);
-            LogDiagnostic($"Source image dimensions: {image.Width}x{image.Height}");
+            Directory.CreateDirectory(previewOutputDir);
 
-            var cropOffset = BuildCurrentCropOffsetPreset();
-            LogDiagnostic($"Crop offset preset: {cropOffset.Name} ({cropOffset.HorizontalPercent}%, {cropOffset.VerticalPercent}%)");
-
-            using var cropped = await imageProcessor.CropPortraitAsync(
-                image,
-                landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
+            var previewResult = await _cliRunner.ExecuteAsync(
+                Directory.GetCurrentDirectory(),
+                InputCsvPath,
+                PhotosDirectory,
+                previewOutputDir,
+                ImageFormat,
+                FaceDetectionModel,
+                PortraitOnly,
                 previewWidth,
                 previewHeight,
-                cropOffset);
+                sizeProfilePath,
+                allSizes: false,
+                ignoreProfilePlaceholders,
+                DownloadOpenCvModels,
+                player.PlayerId.ToString(),
+                placeholderPath,
+                BuildCurrentCropOffsetPreset(),
+                _cancellationTokenSource?.Token ?? CancellationToken.None,
+                new Progress<string>(msg => LogDiagnostic(msg)));
 
-            LogDiagnostic($"Computed crop rectangle: {cropped.Width}x{cropped.Height}");
-            LogDiagnostic($"Output dimensions: {previewWidth}x{previewHeight}");
+            if (previewResult.ExitCode != 0)
+            {
+                PreviewStatus = $"Preview failed: external generation exited with {previewResult.ExitCode}.";
+                return;
+            }
 
-            using var stream = new MemoryStream();
-            cropped.Save(stream, new JpegEncoder { Quality = 92 });
-            stream.Position = 0;
-            PreviewImage = new Bitmap(stream);
+            var previewFileName = $"{player.PlayerId}.{NormalizePreviewExtension(ImageFormat)}";
+            var previewFilePath = Path.Combine(previewOutputDir, previewFileName);
+            if (!File.Exists(previewFilePath))
+            {
+                PreviewStatus = $"Preview failed: generated file not found ({previewFileName}).";
+                return;
+            }
+
+            await using var previewStream = File.OpenRead(previewFilePath);
+            PreviewImage = new Bitmap(previewStream);
 
             PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
             PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
@@ -1446,6 +1447,17 @@ public partial class GenerateStepViewModel : ViewModelBase
         var sanitizedChars = trimmed.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray();
         var sanitized = new string(sanitizedChars).Trim();
         return string.IsNullOrWhiteSpace(sanitized) ? "default" : sanitized;
+    }
+
+    private static string NormalizePreviewExtension(string imageFormat)
+    {
+        var normalized = (imageFormat ?? "jpg").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "jpeg" => "jpg",
+            "png" => "png",
+            _ => "jpg"
+        };
     }
 
     private string? ResolvePreviewPhotoPath(string External_Player_ID)

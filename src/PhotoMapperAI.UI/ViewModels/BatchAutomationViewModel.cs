@@ -582,30 +582,53 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 return;
             }
 
-            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
-            await faceDetectionService.InitializeAsync();
+            PreviewStatus = "Generating preview...";
 
-            FaceLandmarks landmarks;
-            PreviewStatus = "Detecting face for preview...";
-            landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath)
-                ?? new FaceLandmarks { FaceDetected = false };
+            var previewOutputDir = Path.Combine(
+                Path.GetTempPath(),
+                "PhotoMapperAI",
+                "preview",
+                "batch",
+                Guid.NewGuid().ToString("N"));
 
-            var imageProcessor = new ImageProcessor();
-            using var image = await imageProcessor.LoadImageAsync(photoPath);
+            Directory.CreateDirectory(previewOutputDir);
 
-            var cropOffset = BuildCurrentCropOffsetPreset();
-
-            using var cropped = await imageProcessor.CropPortraitAsync(
-                image,
-                landmarks.FaceDetected ? landmarks : new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
+            var previewResult = await _generateRunner.ExecuteAsync(
+                Directory.GetCurrentDirectory(),
+                mappedCsvPath,
+                teamPhotoDir,
+                previewOutputDir,
+                ImageFormat,
+                FaceDetectionModel,
+                portraitOnly: false,
                 previewWidth,
                 previewHeight,
-                cropOffset);
+                !string.IsNullOrWhiteSpace(SizeProfilePath) ? SizeProfilePath : null,
+                allSizes: false,
+                ignoreProfilePlaceholders: false,
+                DownloadOpenCvModels,
+                previewPlayer.PlayerId.ToString(),
+                placeholderImagePath: null,
+                BuildCurrentCropOffsetPreset(),
+                CancellationToken.None,
+                log: null);
 
-            using var stream = new MemoryStream();
-            cropped.Save(stream, new JpegEncoder { Quality = 92 });
-            stream.Position = 0;
-            PreviewImage = new Bitmap(stream);
+            if (previewResult.ExitCode != 0)
+            {
+                PreviewStatus = $"Preview failed: external generation exited with {previewResult.ExitCode}.";
+                return;
+            }
+
+            var previewFileName = $"{previewPlayer.PlayerId}.{NormalizePreviewExtension(ImageFormat)}";
+            var previewFilePath = Path.Combine(previewOutputDir, previewFileName);
+            if (!File.Exists(previewFilePath))
+            {
+                PreviewStatus = $"Preview failed: generated file not found ({previewFileName}).";
+                return;
+            }
+
+            await using var previewStream = File.OpenRead(previewFilePath);
+            PreviewImage = new Bitmap(previewStream);
 
             PreviewTeamLabel = $"Preview team: {team.TeamName} | {BuildPreviewPlayerLabel(previewPlayer)}";
             PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
@@ -1742,6 +1765,17 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
         var photoFiles = FindPlayerPhotoFiles(photosDirectory, External_Player_ID);
         return photoFiles.FirstOrDefault();
+    }
+
+    private static string NormalizePreviewExtension(string imageFormat)
+    {
+        var normalized = (imageFormat ?? "jpg").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "jpeg" => "jpg",
+            "png" => "png",
+            _ => "jpg"
+        };
     }
 
     private static List<string> FindPlayerPhotoFiles(string photosDirectory, string External_Player_ID)
