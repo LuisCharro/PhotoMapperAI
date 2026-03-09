@@ -52,7 +52,28 @@ For consistent portraits, **eye detection is critical**:
 photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d center
 ```
 
-### 2. OpenCV DNN (Fast AI - Face Only)
+### 2. OpenCV YuNet (Fast AI - Face + Eyes)
+- **Model Name:** `opencv-yunet`
+- **Speed:** Fast (1-2 seconds per image)
+- **Face Detection:** ✅ Yes
+- **Eye Detection:** ✅ Yes (returns eye landmarks)
+- **Requirements:** YuNet ONNX model in `./models/`
+
+**How it works:**
+- Detects face rectangle using YuNet
+- Returns left/right eye landmarks directly
+- **Precise horizontal centering** using eye midpoint
+- **Precise vertical positioning** using actual eye coordinates
+
+**Model Files Needed:**
+- `face_detection_yunet_2023mar.onnx`
+
+**Command:**
+```bash
+photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d opencv-yunet
+```
+
+### 3. OpenCV DNN (Legacy - Face Only)
 - **Model Name:** `opencv-dnn`
 - **Speed:** Fast (1-2 seconds per image)
 - **Face Detection:** ✅ Yes
@@ -74,7 +95,7 @@ photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d center
 photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d opencv-dnn
 ```
 
-### 3. LLaVA 7B (Recommended for Production)
+### 4. LLaVA 7B (Recommended for Production)
 - **Model Name:** `llava:7b`
 - **Speed:** Slow (5-10 seconds per image)
 - **Face Detection:** ✅ Yes
@@ -93,7 +114,7 @@ photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d opencv
 photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d llava:7b
 ```
 
-### 4. Qwen3-VL (Best Accuracy)
+### 5. Qwen3-VL (Best Accuracy)
 - **Model Name:** `qwen3-vl`
 - **Speed:** Very Slow (30-60 seconds per image)
 - **Face Detection:** ✅ Yes
@@ -110,6 +131,7 @@ photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d qwen3-
 | Model | Face | Eyes | Speed | Horizontal Center | Vertical Center |
 |-------|------|------|-------|-------------------|-----------------|
 | center | ❌ | ❌ | Instant | Image center | Estimated (12% from top) |
+| opencv-yunet | ✅ | ✅ | 1-2s | **Eye midpoint** | **Actual eye Y** |
 | opencv-dnn | ✅ | ❌ | 1-2s | Face center | Estimated (35% of face) |
 | llava:7b | ✅ | ✅ | 5-10s | **Eye midpoint** | **Actual eye Y** |
 | qwen3-vl | ✅ | ✅ | 30-60s | **Eye midpoint** | **Actual eye Y** |
@@ -129,7 +151,7 @@ photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d llava:
 
 **Recommended fallback chains:**
 - **Best quality:** `llava:7b,qwen3-vl` (both detect eyes)
-- **Fast + quality:** `opencv-dnn,llava:7b` (opencv for speed, llava for eyes)
+- **Fast + quality:** `opencv-yunet,llava:7b` (opencv for speed, llava for eyes)
 - **Testing:** `center,llava:7b` (instant fallback to AI)
 
 ## Performance Benchmarks
@@ -137,7 +159,8 @@ photomapperai generatephotos -i players.csv -p ./photos -o ./portraits -d llava:
 | Model          | Time per Image | Accuracy | Recommended For |
 |----------------|----------------|-----------|----------------|
 | center         | < 1 sec        | Low       | Testing, quick iteration |
-| opencv-dnn     | 1-2 sec        | Good      | Production (when working) |
+| opencv-yunet   | 1-2 sec        | Good      | Production (eye-aligned) |
+| opencv-dnn     | 1-2 sec        | Good      | Legacy fallback |
 | llava:7b       | 5-10 sec       | Good      | Production default |
 | qwen3-vl       | 30-60 sec      | Best      | Edge cases, difficult images |
 

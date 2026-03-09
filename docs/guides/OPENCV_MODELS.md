@@ -8,7 +8,20 @@ PhotoMapperAI uses OpenCV for face detection, which requires downloading model f
 
 ## Model Files Needed
 
-### 1. OpenCV DNN (Caffe) - Face Detection
+### 1. OpenCV YuNet (ONNX) - Face + Eye Landmarks
+
+**File:**
+- `face_detection_yunet_2023mar.onnx` (~1.3 MB)
+
+**Source:** [OpenCV Zoo - YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+
+**Download commands:**
+```bash
+cd models
+curl -L -O https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+```
+
+### 2. OpenCV DNN (Caffe) - Face Detection
 
 **Files:**
 - `res10_ssd_deploy.prototxt` (~28 KB)
@@ -23,7 +36,7 @@ curl -L -O https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_
 curl -L -O https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
 ```
 
-### 2. Haar Cascades - Face & Eye Detection
+### 3. Haar Cascades - Face & Eye Detection
 
 **Files:**
 - `haarcascade_frontalface_default.xml` (~9 MB)
@@ -46,7 +59,7 @@ curl -L -O https://raw.githubusercontent.com/opencv/opencv/master/data/haarcasca
 curl -L -O https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_righteye_2splits.xml
 ```
 
-### 3. YOLOv8-Face (Optional, Best Accuracy)
+### 4. YOLOv8-Face (Optional, Best Accuracy)
 
 **File:**
 - `yolov8-face.onnx` (~20 MB)
@@ -70,14 +83,20 @@ mkdir -p models
 
 Choose the models you want to use:
 
-#### Option A: OpenCV DNN (Recommended - Good Speed/Accuracy)
+#### Option A: OpenCV YuNet (Recommended - Face + Eyes)
+```bash
+cd models
+curl -L -O https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+```
+
+#### Option B: OpenCV DNN (Legacy - Good Speed/Accuracy)
 ```bash
 cd models
 curl -L -O https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_ssd_deploy.prototxt
 curl -L -O https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
 ```
 
-#### Option B: Haar Cascades (Fastest, Lower Accuracy)
+#### Option C: Haar Cascades (Fastest, Lower Accuracy)
 ```bash
 cd models
 curl -L -O https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml
@@ -86,7 +105,7 @@ curl -L -O https://raw.githubusercontent.com/opencv/opencv/master/data/haarcasca
 curl -L -O https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_righteye_2splits.xml
 ```
 
-#### Option C: YOLOv8-Face (Best Accuracy, Slower)
+#### Option D: YOLOv8-Face (Best Accuracy, Slower)
 ```bash
 cd models
 # Download from YOLOv8-Face repository
@@ -108,6 +127,9 @@ cp appsettings.template.json appsettings.json
     "FaceDetection": {
       "Model": "res10_ssd_deploy.prototxt",
       "Weights": "res10_300x300_ssd_iter_140000.caffemodel"
+    },
+    "YuNet": {
+      "Model": "face_detection_yunet_2023mar.onnx"
     }
   }
 }
@@ -128,6 +150,7 @@ appsettings.json
 
 | Model | Files Needed | Speed | Accuracy | Face Detection | Eye Detection |
 |--------|-------------|---------|------------|---------------|
+| **OpenCV YuNet** | 1 file (ONNX) | Fast | High | ✅ Yes |
 | **OpenCV DNN** | 2 files (prototxt + caffemodel) | Fast | High | ❌ No |
 | **Haar Cascades** | 4 files (XML) | Very Fast | Medium | ✅ Yes |
 | **YOLOv8-Face** | 1 file (ONNX) | Medium | Very High | ❌ No |
@@ -174,6 +197,7 @@ cd ~/test-data/PhotoMapperAI/models
 
 ## References
 
+- OpenCV YuNet: https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
 - OpenCV DNN Face Detector: https://github.com/opencv/opencv_3rdparty/tree/dnn_samples_face_detector_20170830
 - OpenCV Haar Cascades: https://github.com/opencv/opencv/tree/master/data/haarcascades
 - YOLOv8-Face: https://github.com/akanametov/yolov8-face

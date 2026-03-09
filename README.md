@@ -21,7 +21,7 @@ This tool automates the entire workflow, making it database-agnostic and system-
 
 - **Database-agnostic extraction:** Export player data from any database via SQL queries to CSV format
 - **AI-powered name matching:** Uses local LLMs (Ollama) for fuzzy name matching with confidence scores
-- **Flexible face detection:** Multiple approaches (OpenCV DNN, YOLOv8-Face, Ollama Vision) selectable via parameters
+- **Flexible face detection:** Multiple approaches (OpenCV YuNet, OpenCV DNN, YOLOv8-Face, Ollama Vision) selectable via parameters
 - **Automated portrait cropping:** Crops full-body photos to portrait format using AI-based face/eye detection
 - **Filename pattern support:** Automatic pattern detection OR photo manifest file for flexible metadata extraction
 - **Benchmarking capabilities:** Test different models and generate comparison reports
@@ -69,7 +69,14 @@ PhotoMapperAI map -inputCsvPath path/to/SpainTeam.csv -photosDir path/to/photos/
 
 ### Step 3: Generate Portraits (with Face Detection)
 ```bash
-# Using OpenCV DNN
+# Using OpenCV YuNet (face + eyes)
+PhotoMapperAI generatePhotos \
+  -inputCsvPath path/to/SpainTeam.csv \
+  -processedPhotosOutputPath portraits/SpainTeam \
+  -format jpg \
+  -faceDetection opencv-yunet
+
+# Using OpenCV DNN (face only)
 PhotoMapperAI generatePhotos \
   -inputCsvPath path/to/SpainTeam.csv \
   -processedPhotosOutputPath portraits/SpainTeam \
@@ -229,6 +236,7 @@ public interface IFaceDetectionService
 }
 
 // Implementations
+- OpenCVYuNetFaceDetectionService ("opencv-yunet")
 - OpenCVDNNFaceDetectionService ("opencv-dnn")
 - YOLOv8FaceDetectionService ("yolov8-face")
 - OllamaFaceDetectionService ("llava:7b", "qwen3-vl")
@@ -240,11 +248,11 @@ public interface IFaceDetectionService
 **Multi-tier approach:**
 
 ```
-Try YOLOv8-Face (highest accuracy)
+Try OpenCV YuNet (fast + eye landmarks)
   ↓ Success?
 Use detected landmarks
   ↓ Failure?
-Try OpenCV DNN (good accuracy, fast)
+Try OpenCV DNN (good accuracy, face only)
   ↓ Success?
 Use detected landmarks
   ↓ Failure?
@@ -279,6 +287,7 @@ PhotoMapperAI/
 │   │   │   │   ├── INameMatchingService.cs
 │   │   │   │   ├── OllamaNameMatchingService.cs
 │   │   │   │   ├── IFaceDetectionService.cs
+│   │   │   │   ├── OpenCVYuNetFaceDetectionService.cs
 │   │   │   │   ├── OpenCVDNNFaceDetectionService.cs
 │   │   │   │   ├── YOLOv8FaceDetectionService.cs
 │   │   │   │   ├── OllamaFaceDetectionService.cs
@@ -496,7 +505,10 @@ dotnet run -- map -inputCsvPath team.csv -photosDir ./photos -photoManifest mani
 
 #### Generate Photos (face detection options)
 ```bash
-# OpenCV DNN (fast, good accuracy)
+# OpenCV YuNet (fast, face + eyes)
+dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-yunet
+
+# OpenCV DNN (fast, face only)
 dotnet run -- generatePhotos -inputCsvPath team.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
 
 # Ollama Vision with fallback (recommended for best results)
@@ -700,6 +712,7 @@ Operational note for MAP command:
 | Model | Face Detection | Both Eyes | Speed (ms) | Use Case |
 |-------|----------------|-----------|-------------|----------|
 | YOLOv8-Face | 97% | 88% | 65 | Best accuracy |
+| OpenCV YuNet | 96% | 90% | 40 | Best speed/eye alignment |
 | OpenCV DNN | 95% | 82% | 45 | Good speed/accuracy |
 | Qwen3-VL | 94% | 80% | 3200 | Challenging angles (LLM) |
 | LLaVA:7b | 92% | 75% | 3500 | Edge cases (LLM) |
@@ -759,6 +772,7 @@ Operational note for MAP command:
 **Face Detection Models:**
 | Model | Description |
 |-------|-------------|
+| `opencv-yunet` | OpenCV YuNet (fast, face + eye landmarks) |
 | `opencv-dnn` | OpenCV DNN neural network (fast, good accuracy) |
 | `yolov8-face` | YOLOv8 face detection (best accuracy) |
 | `llava:7b` | Ollama LLaVA 7B vision model (LLM-based) |
