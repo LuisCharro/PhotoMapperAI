@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\**\*" />
+    <Content Include="Resources/AppleVision/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="CopyOpenCvMacDependencies" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
