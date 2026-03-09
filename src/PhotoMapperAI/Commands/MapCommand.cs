@@ -195,6 +195,26 @@ public class MapCommandLogic
             }
 
             // Phase 3: AI fallback passes
+            if (useAi)
+            {
+                if (unmatchedPlayers.Count == 0)
+                {
+                    LogLine("AI matching skipped: no unmatched players after deterministic/ID passes.");
+                }
+                else if (remainingCandidates.Count == 0)
+                {
+                    LogLine("AI matching skipped: no remaining photo candidates.");
+                }
+                else
+                {
+                    LogLine($"AI matching candidates: {unmatchedPlayers.Count} players, {remainingCandidates.Count} photos.");
+                }
+            }
+            else
+            {
+                LogLine("AI matching is disabled (Use AI Mapping is off).");
+            }
+
             if (useAi && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
             {
                 try
@@ -457,7 +477,12 @@ public class MapCommandLogic
         double? Margin = null,
         string? SelectedExternal_Player_ID = null,
         string? SelectedName = null,
-        double? SelectedConfidence = null);
+        double? SelectedConfidence = null,
+        string? Provider = null,
+        string? Model = null,
+        string? ApiStyle = null,
+        string? BestError = null,
+        string? BestRawResponse = null);
 
     private List<PhotoCandidate> BuildPhotoCandidates(
         List<string> photos,
@@ -701,6 +726,17 @@ public class MapCommandLogic
                     modelComparisons += batch.Count;
                 }
             }
+
+            var errorCount = matchResultsByIndex.Values.Count(r =>
+                r.Metadata != null && r.Metadata.ContainsKey("error"));
+            if (errorCount > 0)
+            {
+                log?.Report($"AI note: {errorCount} comparison(s) returned errors. Enable AI trace for per-player details.");
+            }
+            else if (usageCalls == 0 && modelComparisons > 0)
+            {
+                log?.Report("AI note: model comparisons ran but usage/tokens reported as zero.");
+            }
         }
 
         foreach (var player in snapshot)
@@ -739,6 +775,8 @@ public class MapCommandLogic
                     ? individualAttempt
                     : attempt;
             }
+
+            LogAiSummary(passNumber, player, attempt, log);
 
             if (aiTrace)
             {
@@ -899,6 +937,12 @@ public class MapCommandLogic
                 Reason: "no_model_result");
         }
 
+        var provider = bestMatch.Metadata?.GetValueOrDefault("provider");
+        var model = bestMatch.Metadata?.GetValueOrDefault("model");
+        var apiStyle = bestMatch.Metadata?.GetValueOrDefault("api_style");
+        var bestError = bestMatch.Metadata?.GetValueOrDefault("error");
+        var bestRawResponse = bestMatch.Metadata?.GetValueOrDefault("raw_response");
+
         if (bestMatch.Confidence < confidenceThreshold)
         {
             return new AiProposalAttempt(
@@ -910,7 +954,12 @@ public class MapCommandLogic
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
-                Margin: bestMatch.Confidence - secondBestConfidence);
+                Margin: bestMatch.Confidence - secondBestConfidence,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
         }
 
         var margin = bestMatch.Confidence - secondBestConfidence;
@@ -925,7 +974,12 @@ public class MapCommandLogic
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
-                Margin: margin);
+                Margin: margin,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
         }
 
         var reason = bestMatch.Metadata?.GetValueOrDefault("reason", string.Empty) ?? string.Empty;
@@ -946,7 +1000,12 @@ public class MapCommandLogic
             Margin: margin,
             SelectedExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
             SelectedName: bestCandidate.Candidate.DisplayName,
-            SelectedConfidence: bestMatch.Confidence);
+            SelectedConfidence: bestMatch.Confidence,
+            Provider: provider,
+            Model: model,
+            ApiStyle: apiStyle,
+            BestError: bestError,
+            BestRawResponse: bestRawResponse);
     }
 
     private static bool ShouldRetryIndividualAiEvaluation(AiProposalAttempt batchAttempt)
@@ -1084,8 +1143,14 @@ public class MapCommandLogic
                 UsageCalls: usageCalls,
                 PromptTokens: promptTokens,
                 CompletionTokens: completionTokens,
-                TotalTokens: totalTokens);
+            TotalTokens: totalTokens);
         }
+
+        var provider = bestMatch.Metadata?.GetValueOrDefault("provider");
+        var model = bestMatch.Metadata?.GetValueOrDefault("model");
+        var apiStyle = bestMatch.Metadata?.GetValueOrDefault("api_style");
+        var bestError = bestMatch.Metadata?.GetValueOrDefault("error");
+        var bestRawResponse = bestMatch.Metadata?.GetValueOrDefault("raw_response");
 
         if (bestMatch.Confidence < confidenceThreshold)
         {
@@ -1102,7 +1167,12 @@ public class MapCommandLogic
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
-                Margin: bestMatch.Confidence - secondBestConfidence);
+                Margin: bestMatch.Confidence - secondBestConfidence,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
         }
 
         // If only one candidate was evaluated, no ambiguity is possible - skip ambiguity check
@@ -1122,7 +1192,12 @@ public class MapCommandLogic
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
-                Margin: margin);
+                Margin: margin,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
         }
 
         var reason = bestMatch.Metadata.GetValueOrDefault("reason", string.Empty);
@@ -1147,7 +1222,12 @@ public class MapCommandLogic
             Margin: margin,
             SelectedExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
             SelectedName: bestCandidate.Candidate.DisplayName,
-            SelectedConfidence: bestMatch.Confidence);
+            SelectedConfidence: bestMatch.Confidence,
+            Provider: provider,
+            Model: model,
+            ApiStyle: apiStyle,
+            BestError: bestError,
+            BestRawResponse: bestRawResponse);
     }
 
     private static void LogAiTrace(int passNumber, PlayerRecord player, AiProposalAttempt attempt)
@@ -1170,6 +1250,37 @@ public class MapCommandLogic
             $"|selected_conf={FormatTraceDouble(attempt.SelectedConfidence)}");
     }
 
+    private static void LogAiSummary(int passNumber, PlayerRecord player, AiProposalAttempt attempt, IProgress<string>? log)
+    {
+        var line =
+            "AI_SUMMARY" +
+            $"|pass={passNumber}" +
+            $"|player_id={FormatTraceValue(player.PlayerId.ToString(CultureInfo.InvariantCulture))}" +
+            $"|player_name={FormatTraceValue(player.FullName)}" +
+            $"|outcome={FormatTraceValue(attempt.Outcome)}" +
+            $"|reason={FormatTraceValue(attempt.Reason)}" +
+            $"|compared={attempt.Comparisons}" +
+            $"|provider={FormatTraceValue(attempt.Provider)}" +
+            $"|model={FormatTraceValue(attempt.Model)}" +
+            $"|api_style={FormatTraceValue(attempt.ApiStyle)}" +
+            $"|error={FormatTraceValue(attempt.BestError)}" +
+            $"|raw={FormatTraceSnippet(attempt.BestRawResponse)}" +
+            $"|best_name={FormatTraceValue(attempt.BestName)}" +
+            $"|best_conf={FormatTraceDouble(attempt.BestConfidence)}" +
+            $"|second_conf={FormatTraceDouble(attempt.SecondBestConfidence)}" +
+            $"|margin={FormatTraceDouble(attempt.Margin)}" +
+            $"|selected_name={FormatTraceValue(attempt.SelectedName)}" +
+            $"|selected_conf={FormatTraceDouble(attempt.SelectedConfidence)}";
+
+        if (log == null)
+        {
+            Console.WriteLine(line);
+            return;
+        }
+
+        log.Report(line);
+    }
+
     private static string FormatTraceValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -1184,6 +1295,19 @@ public class MapCommandLogic
             return string.Empty;
 
         return value.Value.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatTraceSnippet(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var cleaned = value.Replace('|', '/').Replace('\n', ' ').Replace('\r', ' ').Trim();
+        const int maxLen = 220;
+        if (cleaned.Length <= maxLen)
+            return cleaned;
+
+        return cleaned.Substring(0, maxLen) + "...";
     }
 
     private static void AddUsage(
