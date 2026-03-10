@@ -54,6 +54,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Each task publishes both applications to the same output folder
   - Accessible via `Ctrl+Shift+P` → "Tasks: Run Task"
 
+- **Manual unmapped-player mapping dialog** (Map and Batch flows)
+  - Review unmapped CSV rows alongside unused photos in one dialog
+  - Create mappings with point-and-click selection instead of editing CSV files by hand
+  - Save assignments back into the mapped CSV and refresh the surrounding UI state
+
+- **Apple Vision support on macOS**
+  - Native Apple Vision face detection service for macOS environments
+  - macOS UI defaults now prefer Apple Vision where available
+
 ### Fixed
 
 - **DataGrid not displaying teams** - Fixed DataGrid rendering in BatchAutomationView
@@ -67,6 +76,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GUI cancellation support** - Added cancel actions for long-running map/generate operations with command-level cancellation propagation
 - **Session management wiring** - Save/Load session actions are now implemented (default app-data location)
 - **Map result model duplication** - Removed duplicate `MapResult` in UI layer; uses shared command result model
+- **Windows face-detection default selection**
+  - Windows UI now recommends and preselects `opencv-yunet`
+  - macOS continues to prefer Apple Vision as the recommended default
+
+- **Preview performance and parity**
+  - Preview now uses the shared generation logic in-process instead of spawning `dotnet run`
+  - Preserves preview/final output parity while removing CLI startup overhead
+  - Reuses face-detection cache for repeated previews
+
+- **GUI manual-mapping workflow build issues**
+  - Fixed the VS Code GUI debug build issues introduced by the new manual-mapping dialog
+  - Resolved Avalonia binding/import issues in the dialog and batch view wiring
+
+- **Obsolete Apple Vision CI integration test**
+  - Skipped the outdated macOS-specific test that depended on local-only fixtures and runtime assumptions
 
 ## [1.0.1] - 2026-02-12
 

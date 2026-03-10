@@ -1,4 +1,42 @@
-# PhotoMapperAI v1.0.0 Release Notes
+# PhotoMapperAI Release Notes
+
+## Upcoming Release Draft
+
+This section is a preparation draft for the next release after `v1.0.0`. It captures the work already completed on the current development branch so versioning can be finalized later.
+
+### Highlights
+
+- **Faster GUI preview with CLI parity**
+  - Preview now runs the shared portrait-generation logic in-process instead of launching a fresh CLI process for each request.
+  - This keeps preview output aligned with final generation while making repeated previews substantially faster.
+
+- **Manual unmapped-player repair flow**
+  - New UI flow in both the map view and batch automation view for manually assigning unused photos to unmapped CSV players.
+  - Mappings are saved back into the mapped CSV directly from the dialog.
+
+- **Platform-aware face detection defaults**
+  - macOS prefers Apple Vision for face detection.
+  - Windows now correctly recommends and preselects `opencv-yunet` as the default high-quality local option.
+
+- **CI stability improvement**
+  - The obsolete Apple Vision integration test that relied on local-only fixtures is now skipped in CI.
+
+### Additional UI Improvements
+
+- Added Apple Vision support in the macOS face-detection flow.
+- Added new image preview size presets and crop-frame improvements.
+- Improved output-directory resolution and size-profile behavior in the UI generate flow.
+- Fixed several GUI/debug-build issues in the new manual-mapping workflow.
+
+### PR / Release Checklist
+
+- Pick the release version number.
+- Move the relevant `Unreleased` notes from [`CHANGELOG.md`](CHANGELOG.md) into a dated release section.
+- Trim or rewrite any items that are too implementation-focused for the public release notes.
+
+---
+
+## PhotoMapperAI v1.0.0 Release Notes
 
 ## Overview
 
