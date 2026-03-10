@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Platform.Storage;
 using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.UI.Models;
+using PhotoMapperAI.UI.ViewModels;
 
 namespace PhotoMapperAI.UI.Views;
 
@@ -300,5 +301,108 @@ public partial class BatchAutomationView : UserControl
         {
             vm.RequestAutoPreviewFromUi();
         }
+    }
+
+    private async void OpenManualMapping_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not ViewModels.BatchAutomationViewModel vm)
+        {
+            return;
+        }
+
+        var team = vm.SelectedTeam;
+        if (team == null)
+        {
+            await ShowInfoDialogAsync("Manual Mapping", "Select a team first.");
+            return;
+        }
+
+        var mappedCsvPath = team.MappedCsvPath;
+        if (string.IsNullOrWhiteSpace(mappedCsvPath))
+        {
+            var teamCsvDir = Path.Combine(vm.BaseCsvDirectory ?? string.Empty, team.TeamName);
+            mappedCsvPath = Path.Combine(teamCsvDir, $"mapped_{team.TeamName}.csv");
+        }
+
+        if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
+        {
+            await ShowInfoDialogAsync("Manual Mapping", $"No mapped CSV found for {team.TeamName}. Run the map step first.");
+            return;
+        }
+
+        var teamPhotoDir = vm.UseTeamPhotoSubdirectories
+            ? Path.Combine(vm.BasePhotoDirectory ?? string.Empty, team.TeamName)
+            : vm.BasePhotoDirectory;
+
+        if (string.IsNullOrWhiteSpace(teamPhotoDir) || !Directory.Exists(teamPhotoDir))
+        {
+            await ShowInfoDialogAsync("Manual Mapping", $"Photo directory not found for {team.TeamName}.");
+            return;
+        }
+
+        var dialogVm = new ManualPhotoMappingDialogViewModel(
+            $"Manual Mapping: {team.TeamName}",
+            mappedCsvPath,
+            teamPhotoDir,
+            vm.FilenamePattern,
+            vm.UsePhotoManifest ? vm.PhotoManifestPath : null);
+        await dialogVm.InitializeAsync();
+
+        var dialog = new ManualPhotoMappingDialog(dialogVm);
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var saved = owner != null
+            ? await dialog.ShowDialog<bool>(owner)
+            : false;
+
+        if (saved)
+        {
+            await vm.RefreshTeamMappingSummaryAsync(team, mappedCsvPath);
+        }
+    }
+
+    private async Task ShowInfoDialogAsync(string title, string message)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null)
+        {
+            return;
+        }
+
+        var closeButton = new Button
+        {
+            Content = "OK",
+            Width = 100,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+        };
+
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 760,
+            Height = 220,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Padding = new Avalonia.Thickness(16),
+                Child = new StackPanel
+                {
+                    Spacing = 14,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                            FontSize = 14
+                        },
+                        closeButton
+                    }
+                }
+            }
+        };
+
+        closeButton.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(owner);
     }
 }

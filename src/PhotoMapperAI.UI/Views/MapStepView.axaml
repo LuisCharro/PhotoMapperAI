@@ -271,6 +271,11 @@
           <TextBlock Text="{Binding OutputCsvPath, StringFormat='Saved to: {0}'}"
                      FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"
                      IsVisible="{Binding OutputCsvPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          <Button Content="Manual Fix Unmapped"
+                  Click="OpenManualMapping_Click"
+                  HorizontalAlignment="Left"
+                  Padding="12,6"
+                  IsVisible="{Binding OutputCsvPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
         </StackPanel>
       </Border>
 

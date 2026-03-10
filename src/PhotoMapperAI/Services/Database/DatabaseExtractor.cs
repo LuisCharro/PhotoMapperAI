@@ -288,6 +288,50 @@ public class DatabaseExtractor
     }
 
     /// <summary>
+    /// Reads player data from an existing mapped CSV file, preserving row order and all mapping values.
+    /// </summary>
+    /// <param name="csvPath">Path to mapped CSV file</param>
+    /// <returns>Ordered list of player records with preserved values</returns>
+    public static async Task<List<PlayerRecord>> ReadExistingMappedCsvRowsAsync(string csvPath)
+    {
+        return await Task.Run(() =>
+        {
+            var result = new List<PlayerRecord>();
+
+            if (!File.Exists(csvPath))
+            {
+                return result;
+            }
+
+            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            {
+                HasHeaderRecord = true,
+                Delimiter = ",",
+                IgnoreBlankLines = true
+            };
+
+            using var reader = new StreamReader(csvPath);
+            using var csv = new CsvReader(reader, config);
+
+            foreach (var record in csv.GetRecords<PlayerRecordCsvExtended>())
+            {
+                result.Add(new PlayerRecord
+                {
+                    PlayerId = record.PlayerId,
+                    TeamId = record.TeamId,
+                    FamilyName = record.FamilyName ?? string.Empty,
+                    SurName = record.SurName ?? string.Empty,
+                    External_Player_ID = record.External_Player_ID,
+                    ValidMapping = record.ValidMapping,
+                    Confidence = record.Confidence
+                });
+            }
+
+            return result;
+        });
+    }
+
+    /// <summary>
     /// Writes player records to CSV file.
     /// </summary>
     public static async Task WriteCsvAsync(List<PlayerRecord> players, string outputCsvPath)

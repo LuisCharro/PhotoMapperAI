@@ -329,6 +329,10 @@
               <Button Content="Deselect All" 
                       Command="{Binding DeselectAllTeamsCommand}"
                       Padding="8,4" FontSize="10"/>
+              <Button Content="Manual Map Selected Team"
+                      Click="OpenManualMapping_Click"
+                      Padding="8,4" FontSize="10"
+                      IsEnabled="{Binding SelectedTeam, Converter={x:Static ObjectConverters.IsNotNull}}"/>
             </StackPanel>
 
             <!-- Team Count Display -->
@@ -342,6 +346,7 @@
             <!-- DataGrid with explicit binding -->
             <DataGrid Grid.Row="5"
                       ItemsSource="{Binding Teams}"
+                      SelectedItem="{Binding SelectedTeam, Mode=TwoWay}"
                       AutoGenerateColumns="False"
                       Height="250"
                       GridLinesVisibility="All"

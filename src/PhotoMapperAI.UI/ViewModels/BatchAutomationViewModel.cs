@@ -1415,6 +1415,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     var mappedPlayers = await _databaseExtractor.ReadCsvAsync(mappedCsvPath);
                     var mappedCount = mappedPlayers.Count(p => p.ValidMapping);
                     UpdateTeamProperty(team, t => t.PlayersMapped = mappedCount);
+                    UpdateTeamProperty(team, t => t.MappedCsvPath = mappedCsvPath);
                     teamResult.PlayersMapped = mappedCount;
                     teamResult.MappedCsvPath = mappedCsvPath;
                     
@@ -1551,6 +1552,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     {
                         mappedCsvPath = csvPath; // Fallback to original if mapped not found
                     }
+                    UpdateTeamProperty(team, t => t.MappedCsvPath = mappedCsvPath);
                     teamResult.MappedCsvPath = mappedCsvPath;
 
                     // Collect unmapped player names for issue summary
@@ -2178,6 +2180,44 @@ public partial class BatchAutomationViewModel : ViewModelBase
         }
     }
 
+    public async Task RefreshTeamMappingSummaryAsync(BatchTeamItem team, string mappedCsvPath)
+    {
+        if (team == null || string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
+        {
+            return;
+        }
+
+        var mappedPlayers = await DatabaseExtractor.ReadExistingMappedCsvRowsAsync(mappedCsvPath);
+        var mappedCount = mappedPlayers.Count(player => player.ValidMapping);
+        var unmappedNames = mappedPlayers
+            .Where(player => !player.ValidMapping)
+            .Select(player => string.IsNullOrWhiteSpace(player.FullName) ? $"ID:{player.PlayerId}" : player.FullName)
+            .ToList();
+
+        UpdateTeamProperty(team, t => t.PlayersMapped = mappedCount);
+        UpdateTeamProperty(team, t => t.UnmappedPlayerNames = unmappedNames);
+        UpdateTeamProperty(team, t => t.MappedCsvPath = mappedCsvPath);
+
+        if (team.Status == BatchTeamStatus.Completed)
+        {
+            var completedMessage = unmappedNames.Count > 0
+                ? $"Completed: {team.PhotosGenerated} photos generated (Unmapped: {unmappedNames.Count})"
+                : $"Completed: {team.PhotosGenerated} photos generated";
+            UpdateTeamStatus(team, BatchTeamStatus.Completed, completedMessage);
+        }
+
+        var sessionTeam = _sessionState.TeamResults.FirstOrDefault(result => result.TeamId == team.TeamId);
+        if (sessionTeam != null)
+        {
+            sessionTeam.PlayersMapped = mappedCount;
+            sessionTeam.UnmappedPlayerNames = unmappedNames;
+            sessionTeam.MappedCsvPath = mappedCsvPath;
+        }
+
+        AppendLog($"[MAP] {team.TeamName}: manual mapping dialog saved {mappedCount} mapped players, {unmappedNames.Count} unmapped remaining.");
+        UpdateErrorSummary();
+    }
+
     private void UpdateProviderKeyInputVisibility()
     {
         // Unified API key input visibility for all paid providers
@@ -2628,10 +2668,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         if (value)
         {
-            _isLocalSelected = false;
-            _isPaidSelected = false;
-            OnPropertyChanged(nameof(IsLocalSelected));
-            OnPropertyChanged(nameof(IsPaidSelected));
+            IsLocalSelected = false;
+            IsPaidSelected = false;
             // Set a default free tier model if none selected
             if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsFreeTierModel(NameMatchingModel))
             {
@@ -2646,10 +2684,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         if (value)
         {
-            _isFreeTierSelected = false;
-            _isPaidSelected = false;
-            OnPropertyChanged(nameof(IsFreeTierSelected));
-            OnPropertyChanged(nameof(IsPaidSelected));
+            IsFreeTierSelected = false;
+            IsPaidSelected = false;
             // Set a default local model if none selected
             if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsLocalModel(NameMatchingModel))
             {
@@ -2664,10 +2700,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         if (value)
         {
-            _isFreeTierSelected = false;
-            _isLocalSelected = false;
-            OnPropertyChanged(nameof(IsFreeTierSelected));
-            OnPropertyChanged(nameof(IsLocalSelected));
+            IsFreeTierSelected = false;
+            IsLocalSelected = false;
             // Set a default paid model if none selected
             if (string.IsNullOrWhiteSpace(NameMatchingModel) || !IsPaidModel(NameMatchingModel))
             {

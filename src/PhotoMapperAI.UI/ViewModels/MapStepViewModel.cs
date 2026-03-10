@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.AI;
+using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
@@ -663,10 +664,8 @@ public partial class MapStepViewModel : ViewModelBase
     {
         if (value)
         {
-            _isLocalSelected = false;
-            _isPaidSelected = false;
-            OnPropertyChanged(nameof(IsLocalSelected));
-            OnPropertyChanged(nameof(IsPaidSelected));
+            IsLocalSelected = false;
+            IsPaidSelected = false;
             // Set a default free tier model if none selected
             if (string.IsNullOrWhiteSpace(NameModel) || !IsFreeTierModel(NameModel))
             {
@@ -681,10 +680,8 @@ public partial class MapStepViewModel : ViewModelBase
     {
         if (value)
         {
-            _isFreeTierSelected = false;
-            _isPaidSelected = false;
-            OnPropertyChanged(nameof(IsFreeTierSelected));
-            OnPropertyChanged(nameof(IsPaidSelected));
+            IsFreeTierSelected = false;
+            IsPaidSelected = false;
             // Set a default local model if none selected
             if (string.IsNullOrWhiteSpace(NameModel) || !IsLocalModel(NameModel))
             {
@@ -699,10 +696,8 @@ public partial class MapStepViewModel : ViewModelBase
     {
         if (value)
         {
-            _isFreeTierSelected = false;
-            _isLocalSelected = false;
-            OnPropertyChanged(nameof(IsFreeTierSelected));
-            OnPropertyChanged(nameof(IsLocalSelected));
+            IsFreeTierSelected = false;
+            IsLocalSelected = false;
             // Set a default paid model if none selected
             if (string.IsNullOrWhiteSpace(NameModel) || !IsPaidModel(NameModel))
             {
@@ -803,6 +798,21 @@ public partial class MapStepViewModel : ViewModelBase
         {
             ProcessingStatus = $"✗ Error saving log: {ex.Message}";
         }
+    }
+
+    public async Task RefreshMappingSummaryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(OutputCsvPath) || !File.Exists(OutputCsvPath))
+        {
+            return;
+        }
+
+        var players = await DatabaseExtractor.ReadExistingMappedCsvRowsAsync(OutputCsvPath);
+        PlayersProcessed = players.Count;
+        PlayersMatched = players.Count(player => player.ValidMapping);
+        ProcessingStatus = $"✓ Mapped {PlayersMatched}/{PlayersProcessed} players successfully";
+        IsComplete = true;
+        AppendLog($"Manual mapping dialog saved updates to: {OutputCsvPath}");
     }
 
     private void UpdateProviderKeyInputVisibility()
