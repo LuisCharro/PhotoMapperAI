@@ -2840,7 +2840,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     private static int GetFaceTierIndexForModel(string modelName)
     {
-        if (string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(modelName, "opencv-yunet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "yunet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
             return 0;
         if (string.Equals(modelName, "apple-vision", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(modelName, "vision", StringComparison.OrdinalIgnoreCase))

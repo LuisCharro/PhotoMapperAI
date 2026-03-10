@@ -98,7 +98,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         ConfigureFaceDetectionModelsForPlatform();
 
-        SelectedFaceModelTierIndex = GetTierIndexForModel(FaceDetectionModel);
+        SelectedFaceModelTierIndex = GetFaceTierIndexForModel(FaceDetectionModel);
 
         var configuredPaidModels = UiModelConfigLoader.Load().GeneratePaidModels;
         if (configuredPaidModels.Count == 0)
@@ -355,7 +355,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     partial void OnFaceDetectionModelChanged(string value)
     {
-        SelectedFaceModelTierIndex = GetTierIndexForModel(value);
+        SelectedFaceModelTierIndex = GetFaceTierIndexForModel(value);
     }
 
     partial void OnSelectedCropOffsetPresetChanged(CropOffsetPreset? value)
@@ -1874,9 +1874,11 @@ public partial class GenerateStepViewModel : ViewModelBase
         ScheduleAutoPreview();
     }
 
-    private static int GetTierIndexForModel(string modelName)
+    private static int GetFaceTierIndexForModel(string modelName)
     {
-        if (string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(modelName, "opencv-yunet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "yunet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
             return 0;
 
         if (string.Equals(modelName, "apple-vision", StringComparison.OrdinalIgnoreCase) ||
