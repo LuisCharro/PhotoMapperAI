@@ -1562,7 +1562,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
             var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var allSizes = wantsAllSizes;
-            var generationOutputDir = teamOutputDir;
+            var generationOutputDir = useSizeProfile
+                ? teamOutputDir
+                : ResolveDefaultSingleVariantOutputDirectory(teamOutputDir);
 
             if (useSizeProfile && !allSizes)
             {
@@ -2286,6 +2288,17 @@ public partial class BatchAutomationViewModel : ViewModelBase
     {
         var folderName = SanitizeOutputFolderName(profile.Name);
         return Path.Combine(baseOutputDirectory, folderName);
+    }
+
+    private static string ResolveDefaultSingleVariantOutputDirectory(string baseOutputDirectory)
+    {
+        var normalizedBasePath = baseOutputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.Equals(Path.GetFileName(normalizedBasePath), "default", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalizedBasePath;
+        }
+
+        return Path.Combine(baseOutputDirectory, "default");
     }
 
     private static string SanitizeOutputFolderName(string? folderName)

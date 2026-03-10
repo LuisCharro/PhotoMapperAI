@@ -1155,6 +1155,11 @@ public partial class GenerateStepViewModel : ViewModelBase
                     AppendLog($"Single-profile output folder => {baseOutputDirectory}");
                 }
             }
+            else
+            {
+                baseOutputDirectory = ResolveDefaultSingleVariantOutputDirectory(baseOutputDirectory);
+                AppendLog($"Single-size output folder => {baseOutputDirectory}");
+            }
 
             Directory.CreateDirectory(baseOutputDirectory);
             if (useSizeProfile)
@@ -1439,6 +1444,17 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         var folderName = SanitizeOutputFolderName(profile.Name);
         return Path.Combine(baseOutputDirectory, folderName);
+    }
+
+    private static string ResolveDefaultSingleVariantOutputDirectory(string baseOutputDirectory)
+    {
+        var normalizedBasePath = baseOutputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.Equals(Path.GetFileName(normalizedBasePath), "default", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalizedBasePath;
+        }
+
+        return Path.Combine(baseOutputDirectory, "default");
     }
 
     private static string SanitizeOutputFolderName(string? folderName)
