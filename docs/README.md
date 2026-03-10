@@ -53,7 +53,6 @@ The following essential files remain at the repository root:
 - [`README.md`](../README.md) - Main project documentation and getting started
 - [`CHANGELOG.md`](../CHANGELOG.md) - Version history and changes
 - [`RELEASE_NOTES.md`](../RELEASE_NOTES.md) - Release notes for each version
-- [`PENDING_FEATURES.md`](../PENDING_FEATURES.md) - Planned and pending features
 
 ## External Resources
 

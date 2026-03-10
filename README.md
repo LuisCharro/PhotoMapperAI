@@ -622,9 +622,9 @@ Use these placeholders in filename patterns:
 
 Legacy placeholders `{sur}` (first name) and `{family}` (last name) are still supported for backward compatibility.
 
-### Planned Improvements
+### Improvement Notes
 
-See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md) for detailed enhancement plans.
+See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md) for the portrait-generation backlog and follow-up ideas.
 
 **Completed:**
 - ✅ **Face-Based Crop Dimensions** - Crop size based on detected face (2x width, 3x height)
@@ -635,7 +635,7 @@ See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPRO
 - ✅ **AI Model Selection Tiers** - Organized model selection (Free Tier, Local, Paid)
 - ✅ **Model Refresh/Check** - Verify model availability before processing
 
-**Pending:**
+**Remaining ideas:**
 - ⏳ **Haar Cascade Eye Detection** - Created but has native library issues on macOS
 - ⏳ **Debug Visualization** - Save intermediate images with detected regions highlighted
 
@@ -647,7 +647,6 @@ See [`docs/planning/PORTRAIT_IMPROVEMENTS_PLAN.md`](docs/planning/PORTRAIT_IMPRO
 
 ### Documentation
 
-- [`PENDING_FEATURES.md`](PENDING_FEATURES.md) - Planned and pending features
 - [`RELEASE_NOTES.md`](RELEASE_NOTES.md) - v1.0.0 release notes and features
 - [`CHANGELOG.md`](CHANGELOG.md) - Version history and detailed changes
 - [`docs/`](docs/) - Technical documentation (see [docs/README.md](docs/README.md) for index)
