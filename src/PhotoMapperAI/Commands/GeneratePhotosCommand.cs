@@ -84,7 +84,9 @@ public class GeneratePhotosCommandLogic
         bool parallel,
         int parallelDegree,
         string? onlyPlayerId = null,
-        string? placeholderImagePath = null)
+        string? placeholderImagePath = null,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null)
     {
         var result = await ExecuteWithResultAsync(
             inputCsvPath,
@@ -99,7 +101,9 @@ public class GeneratePhotosCommandLogic
             parallel,
             parallelDegree,
             onlyPlayerId,
-            placeholderImagePath: placeholderImagePath
+            placeholderImagePath: placeholderImagePath,
+            cropFrameWidth: cropFrameWidth,
+            cropFrameHeight: cropFrameHeight
         );
 
         return result.ExitCode;
@@ -124,7 +128,9 @@ public class GeneratePhotosCommandLogic
         string? placeholderImagePath = null,
         IProgress<(int processed, int total, string current)>? progress = null,
         CancellationToken cancellationToken = default,
-        IProgress<string>? log = null)
+        IProgress<string>? log = null,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null)
     {
         var totalPlayers = 0;
         var successCount = 0;
@@ -148,6 +154,10 @@ public class GeneratePhotosCommandLogic
         LogLine($"Crop Method: {crop}");
         LogLine($"Portrait Only: {portraitOnly}");
         LogLine($"Portrait Size: {portraitWidth}x{portraitHeight}");
+        if (cropFrameWidth.HasValue || cropFrameHeight.HasValue)
+        {
+            LogLine($"Crop Frame: {cropFrameWidth ?? portraitWidth}x{cropFrameHeight ?? portraitHeight}");
+        }
         LogLine($"Parallel: {parallel} (Degree: {parallelDegree})");
         if (!string.IsNullOrWhiteSpace(onlyPlayerId))
         {
@@ -247,6 +257,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitWidth,
                         portraitHeight,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         portraitOnly,
                         faceDetectionModel,
                         cancellationToken
@@ -287,6 +299,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitWidth,
                         portraitHeight,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         portraitOnly,
                         faceDetectionModel,
                         cancellationToken
@@ -446,6 +460,8 @@ public class GeneratePhotosCommandLogic
         bool parallel,
         int parallelDegree,
         string? onlyPlayerId = null,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null,
         IProgress<(int processed, int total, string current)>? progress = null,
         CancellationToken cancellationToken = default,
         IProgress<string>? log = null)
@@ -480,6 +496,10 @@ public class GeneratePhotosCommandLogic
         LogLine($"Portrait Only: {portraitOnly}");
         LogLine($"Parallel: {parallel} (Degree: {parallelDegree})");
         LogLine($"Variants: {string.Join(", ", variants.Select(v => $"{v.Key}:{v.Width}x{v.Height}"))}");
+        if (cropFrameWidth.HasValue || cropFrameHeight.HasValue)
+        {
+            LogLine($"Crop Frame: {cropFrameWidth ?? baseVariant.Width}x{cropFrameHeight ?? baseVariant.Height}");
+        }
         LogLine(string.Empty);
 
         try
@@ -568,6 +588,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitOnly,
                         faceDetectionModel,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         cancellationToken);
 
                     var currentProcessed = Interlocked.Increment(ref processedCount);
@@ -605,6 +627,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitOnly,
                         faceDetectionModel,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         cancellationToken);
 
                     processedCount++;
@@ -713,6 +737,8 @@ public class GeneratePhotosCommandLogic
         string format,
         int portraitWidth,
         int portraitHeight,
+        int? cropFrameWidth,
+        int? cropFrameHeight,
         bool portraitOnly,
         string faceDetectionModel,
         CancellationToken cancellationToken = default)
@@ -811,6 +837,8 @@ public class GeneratePhotosCommandLogic
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                 portraitWidth,
                 portraitHeight,
+                cropFrameWidth,
+                cropFrameHeight,
                 _cropOffsetPreset
             );
 
@@ -834,6 +862,8 @@ public class GeneratePhotosCommandLogic
         string format,
         bool portraitOnly,
         string faceDetectionModel,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -927,6 +957,8 @@ public class GeneratePhotosCommandLogic
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                 baseVariant.Width,
                 baseVariant.Height,
+                cropFrameWidth,
+                cropFrameHeight,
                 _cropOffsetPreset);
 
             var baseOutputPath = Path.Combine(baseVariant.OutputDir, $"{player.PlayerId}.{format}");
@@ -1042,6 +1074,12 @@ public class GeneratePhotosCommand
 
     [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
     public int FaceHeight { get; set; } = 300;
+
+    [Option(Template = "--cropFrameWidth <WIDTH>", Description = "Optional crop-frame width override used for framing while keeping the final output size.")]
+    public int? CropFrameWidth { get; set; }
+
+    [Option(Template = "--cropFrameHeight <HEIGHT>", Description = "Optional crop-frame height override used for framing while keeping the final output size.")]
+    public int? CropFrameHeight { get; set; }
 
     [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON.")]
     public string? SizeProfile { get; set; }
@@ -1196,7 +1234,9 @@ public class GeneratePhotosCommand
                 Parallel,
                 ParallelDegree,
                 OnlyPlayer,
-                placeholderForVariant
+                placeholderForVariant,
+                CropFrameWidth,
+                CropFrameHeight
             );
         }
 
@@ -1235,7 +1275,9 @@ public class GeneratePhotosCommand
             PortraitOnly,
             Parallel,
             ParallelDegree,
-            OnlyPlayer);
+            OnlyPlayer,
+            cropFrameWidth: CropFrameWidth,
+            cropFrameHeight: CropFrameHeight);
 
         return multiResult.ExitCode;
     }

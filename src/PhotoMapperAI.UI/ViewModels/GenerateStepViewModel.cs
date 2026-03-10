@@ -77,6 +77,8 @@ public class PhotoPreviewItem : ObservableObject
 
 public partial class GenerateStepViewModel : ViewModelBase
 {
+    private const double PreviewMaxDisplayWidth = 240;
+    private const double PreviewMaxDisplayHeight = 180;
     private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
     private CancellationTokenSource? _autoPreviewCts;
@@ -188,6 +190,12 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     [ObservableProperty]
     private Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private double _previewDisplayWidth;
+
+    [ObservableProperty]
+    private double _previewDisplayHeight;
 
     [ObservableProperty]
     private string _previewStatus = string.Empty;
@@ -382,6 +390,11 @@ public partial class GenerateStepViewModel : ViewModelBase
     partial void OnUseCustomPreviewDimensionsChanged(bool value)
     {
         TriggerAutoPreviewIfNeeded();
+    }
+
+    partial void OnPreviewImageChanged(Bitmap? value)
+    {
+        UpdatePreviewDisplaySize(value);
     }
 
     private void TriggerAutoPreviewIfNeeded()
@@ -660,6 +673,8 @@ public partial class GenerateStepViewModel : ViewModelBase
 
             int previewWidth;
             int previewHeight;
+            int? previewCropFrameWidth = null;
+            int? previewCropFrameHeight = null;
             string? placeholderPath;
 
             if (useSizeProfile)
@@ -672,10 +687,17 @@ public partial class GenerateStepViewModel : ViewModelBase
             }
             else
             {
-                previewWidth = wantsCustomDimensions ? PreviewCustomWidth : PortraitWidth;
-                previewHeight = wantsCustomDimensions ? PreviewCustomHeight : PortraitHeight;
+                previewWidth = PortraitWidth;
+                previewHeight = PortraitHeight;
+                if (wantsCustomDimensions)
+                {
+                    previewCropFrameWidth = PreviewCustomWidth;
+                    previewCropFrameHeight = PreviewCustomHeight;
+                }
                 placeholderPath = UsePlaceholderImages ? PlaceholderImagePath : null;
-                LogDiagnostic($"Using manual preview dimensions: {previewWidth}x{previewHeight}");
+                LogDiagnostic(previewCropFrameWidth.HasValue || previewCropFrameHeight.HasValue
+                    ? $"Using manual output {previewWidth}x{previewHeight} with crop frame {previewCropFrameWidth ?? previewWidth}x{previewCropFrameHeight ?? previewHeight}"
+                    : $"Using manual preview dimensions: {previewWidth}x{previewHeight}");
             }
 
             var photoPath = ResolvePreviewPhotoPath(player.External_Player_ID);
@@ -724,6 +746,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                 DownloadOpenCvModels,
                 player.PlayerId.ToString(),
                 placeholderPath,
+                previewCropFrameWidth,
+                previewCropFrameHeight,
                 BuildCurrentCropOffsetPreset(),
                 _cancellationTokenSource?.Token ?? CancellationToken.None,
                 new Progress<string>(msg => LogDiagnostic(msg)));
@@ -746,7 +770,9 @@ public partial class GenerateStepViewModel : ViewModelBase
             PreviewImage = new Bitmap(previewStream);
 
             PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
-            PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+            PreviewStatus = previewCropFrameWidth.HasValue || previewCropFrameHeight.HasValue
+                ? $"Preview generated (output {previewWidth}x{previewHeight}, crop frame {previewCropFrameWidth ?? previewWidth}x{previewCropFrameHeight ?? previewHeight})."
+                : $"Preview generated ({previewWidth}x{previewHeight}).";
             LogDiagnostic($"Preview encoded message: {PreviewStatus}");
 
             if (StrictModeEnabled && diagnostics.Count > 0)
@@ -1132,11 +1158,15 @@ public partial class GenerateStepViewModel : ViewModelBase
 
             // Determine actual dimensions to use for generation
             int effectiveWidth, effectiveHeight;
+            int? cropFrameWidth = null;
+            int? cropFrameHeight = null;
             if (wantsCustomDimensions)
             {
-                effectiveWidth = PreviewCustomWidth;
-                effectiveHeight = PreviewCustomHeight;
-                AppendLog($"Using custom dimensions: {effectiveWidth}x{effectiveHeight} (size profile ignored)");
+                effectiveWidth = PortraitWidth;
+                effectiveHeight = PortraitHeight;
+                cropFrameWidth = PreviewCustomWidth;
+                cropFrameHeight = PreviewCustomHeight;
+                AppendLog($"Using custom crop frame: {cropFrameWidth}x{cropFrameHeight} with output size {effectiveWidth}x{effectiveHeight}");
             }
             else
             {
@@ -1186,7 +1216,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                 ignoreProfilePlaceholders,
                 DownloadOpenCvModels,
                 OnlyPlayerId,
-                placeholderPath));
+                placeholderPath,
+                cropFrameWidth,
+                cropFrameHeight));
 
             var log = new Progress<string>(AppendLog);
             var progress = new Progress<(int processed, int total, string current)>(state =>
@@ -1221,7 +1253,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                         ignoreProfilePlaceholders,
                         DownloadOpenCvModels,
                         OnlyPlayerId,
-                        placeholderPath);
+                        placeholderPath,
+                        cropFrameWidth,
+                        cropFrameHeight);
                     AppendLog($"Debug artifact: {debugPath}");
                 }
                 catch (Exception ex)
@@ -1246,6 +1280,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                 DownloadOpenCvModels,
                 OnlyPlayerId,
                 placeholderPath,
+                cropFrameWidth,
+                cropFrameHeight,
                 BuildCurrentCropOffsetPreset(),
                 _cancellationTokenSource.Token,
                 log,
@@ -1444,6 +1480,23 @@ public partial class GenerateStepViewModel : ViewModelBase
     {
         var folderName = SanitizeOutputFolderName(profile.Name);
         return Path.Combine(baseOutputDirectory, folderName);
+    }
+
+    private void UpdatePreviewDisplaySize(Bitmap? bitmap)
+    {
+        if (bitmap == null || bitmap.PixelSize.Width <= 0 || bitmap.PixelSize.Height <= 0)
+        {
+            PreviewDisplayWidth = 0;
+            PreviewDisplayHeight = 0;
+            return;
+        }
+
+        var width = (double)bitmap.PixelSize.Width;
+        var height = (double)bitmap.PixelSize.Height;
+        var scale = Math.Min(1d, Math.Min(PreviewMaxDisplayWidth / width, PreviewMaxDisplayHeight / height));
+
+        PreviewDisplayWidth = Math.Max(1, width * scale);
+        PreviewDisplayHeight = Math.Max(1, height * scale);
     }
 
     private static string ResolveDefaultSingleVariantOutputDirectory(string baseOutputDirectory)

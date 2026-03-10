@@ -34,6 +34,8 @@ public sealed class ExternalGenerateCliRunner
         bool downloadOpenCvModels,
         string? onlyPlayer,
         string? placeholderImagePath,
+        int? cropFrameWidth,
+        int? cropFrameHeight,
         CropOffsetPreset? cropOffsetPreset,
         CancellationToken cancellationToken,
         IProgress<string>? log,
@@ -57,6 +59,8 @@ public sealed class ExternalGenerateCliRunner
             downloadOpenCvModels,
             onlyPlayer,
             placeholderImagePath,
+            cropFrameWidth,
+            cropFrameHeight,
             cropOffsetPreset);
 
         var startInfo = new ProcessStartInfo
@@ -144,9 +148,11 @@ public sealed class ExternalGenerateCliRunner
         bool ignoreProfilePlaceholders,
         bool downloadOpenCvModels,
         string? onlyPlayer,
-        string? placeholderImagePath)
+        string? placeholderImagePath,
+        int? cropFrameWidth,
+        int? cropFrameHeight)
     {
-        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropOffsetPreset: null);
+        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropFrameWidth, cropFrameHeight, cropOffsetPreset: null);
         return $"Working directory: {workingDirectory}\nExecution mode: external-cli\nCommand: dotnet " + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
     }
 
@@ -165,7 +171,9 @@ public sealed class ExternalGenerateCliRunner
         bool ignoreProfilePlaceholders,
         bool downloadOpenCvModels,
         string? onlyPlayer,
-        string? placeholderImagePath)
+        string? placeholderImagePath,
+        int? cropFrameWidth,
+        int? cropFrameHeight)
     {
         var payload = new
         {
@@ -185,8 +193,10 @@ public sealed class ExternalGenerateCliRunner
             downloadOpenCvModels,
             onlyPlayer,
             placeholderImagePath,
+            cropFrameWidth,
+            cropFrameHeight,
             executionMode = "external-cli",
-            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropOffsetPreset: null)
+            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropFrameWidth, cropFrameHeight, cropOffsetPreset: null)
         };
 
         Directory.CreateDirectory(outputDir);
@@ -210,6 +220,8 @@ public sealed class ExternalGenerateCliRunner
         bool downloadOpenCvModels,
         string? onlyPlayer,
         string? placeholderImagePath,
+        int? cropFrameWidth,
+        int? cropFrameHeight,
         CropOffsetPreset? cropOffsetPreset)
     {
         var args = new List<string>
@@ -244,6 +256,18 @@ public sealed class ExternalGenerateCliRunner
             args.Add(width.ToString());
             args.Add("--faceHeight");
             args.Add(height.ToString());
+
+            if (cropFrameWidth.HasValue)
+            {
+                args.Add("--cropFrameWidth");
+                args.Add(cropFrameWidth.Value.ToString());
+            }
+
+            if (cropFrameHeight.HasValue)
+            {
+                args.Add("--cropFrameHeight");
+                args.Add(cropFrameHeight.Value.ToString());
+            }
         }
 
         if (portraitOnly)

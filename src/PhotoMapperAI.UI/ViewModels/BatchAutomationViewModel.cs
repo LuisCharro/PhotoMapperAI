@@ -26,6 +26,8 @@ namespace PhotoMapperAI.UI.ViewModels;
 
 public partial class BatchAutomationViewModel : ViewModelBase
 {
+    private const double PreviewMaxDisplayWidth = 240;
+    private const double PreviewMaxDisplayHeight = 180;
     private const double MinConfidenceThreshold = 0.65;
     private readonly DatabaseExtractor _databaseExtractor;
     private readonly ExternalMapCliRunner _mapRunner;
@@ -219,6 +221,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
     // Preview + custom dimensions
     [ObservableProperty]
     private Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private double _previewDisplayWidth;
+
+    [ObservableProperty]
+    private double _previewDisplayHeight;
 
     [ObservableProperty]
     private string _previewStatus = string.Empty;
@@ -579,6 +587,13 @@ public partial class BatchAutomationViewModel : ViewModelBase
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
 
             var (previewWidth, previewHeight) = ResolvePreviewDimensions();
+            int? previewCropFrameWidth = null;
+            int? previewCropFrameHeight = null;
+            if (wantsCustomDimensions)
+            {
+                previewCropFrameWidth = PreviewCustomWidth;
+                previewCropFrameHeight = PreviewCustomHeight;
+            }
             var photoPath = ResolvePreviewPhotoPath(teamPhotoDir, previewPlayer.External_Player_ID);
 
             if (string.IsNullOrWhiteSpace(photoPath))
@@ -614,6 +629,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 DownloadOpenCvModels,
                 previewPlayer.PlayerId.ToString(),
                 placeholderImagePath: null,
+                previewCropFrameWidth,
+                previewCropFrameHeight,
                 BuildCurrentCropOffsetPreset(),
                 CancellationToken.None,
                 log: null);
@@ -636,7 +653,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
             PreviewImage = new Bitmap(previewStream);
 
             PreviewTeamLabel = $"Preview team: {team.TeamName} | {BuildPreviewPlayerLabel(previewPlayer)}";
-            PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+            PreviewStatus = previewCropFrameWidth.HasValue || previewCropFrameHeight.HasValue
+                ? $"Preview generated (output {previewWidth}x{previewHeight}, crop frame {previewCropFrameWidth ?? previewWidth}x{previewCropFrameHeight ?? previewHeight})."
+                : $"Preview generated ({previewWidth}x{previewHeight}).";
         }
         catch (Exception ex)
         {
@@ -1634,8 +1653,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         VerticalPercent = CropOffsetY
                     };
 
-                    var effectiveWidth = wantsCustomDimensions ? PreviewCustomWidth : DefaultWidth;
-                    var effectiveHeight = wantsCustomDimensions ? PreviewCustomHeight : DefaultHeight;
+                    var effectiveWidth = DefaultWidth;
+                    var effectiveHeight = DefaultHeight;
+                    int? cropFrameWidth = wantsCustomDimensions ? PreviewCustomWidth : null;
+                    int? cropFrameHeight = wantsCustomDimensions ? PreviewCustomHeight : null;
 
                     LogExecutedCommand(BuildGenerateCommand(
                         teamResult.MappedCsvPath ?? csvPath,
@@ -1645,6 +1666,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         FaceDetectionModel,
                         effectiveWidth,
                         effectiveHeight,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         sizeProfilePath,
                         allSizes,
                         DownloadOpenCvModels));
@@ -1665,6 +1688,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         DownloadOpenCvModels,
                         null,
                         null,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         cropOffset,
                         cancellationToken,
                         new Progress<string>(msg => AppendLog($"[GENERATE] {team.TeamName}: {msg}")));
@@ -1745,11 +1770,6 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     private (int width, int height) ResolvePreviewDimensions()
     {
-        if (UseCustomPreviewDimensions)
-        {
-            return (PreviewCustomWidth, PreviewCustomHeight);
-        }
-
         if (!string.IsNullOrWhiteSpace(SizeProfilePath))
         {
             var profile = LoadSizeProfile(SizeProfilePath);
@@ -1761,6 +1781,23 @@ public partial class BatchAutomationViewModel : ViewModelBase
         }
 
         return (DefaultWidth, DefaultHeight);
+    }
+
+    private void UpdatePreviewDisplaySize(Bitmap? bitmap)
+    {
+        if (bitmap == null || bitmap.PixelSize.Width <= 0 || bitmap.PixelSize.Height <= 0)
+        {
+            PreviewDisplayWidth = 0;
+            PreviewDisplayHeight = 0;
+            return;
+        }
+
+        var width = (double)bitmap.PixelSize.Width;
+        var height = (double)bitmap.PixelSize.Height;
+        var scale = Math.Min(1d, Math.Min(PreviewMaxDisplayWidth / width, PreviewMaxDisplayHeight / height));
+
+        PreviewDisplayWidth = Math.Max(1, width * scale);
+        PreviewDisplayHeight = Math.Max(1, height * scale);
     }
 
     private string? ResolvePreviewPhotoPath(string photosDirectory, string External_Player_ID)
@@ -1993,6 +2030,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
         string faceDetectionModel,
         int width,
         int height,
+        int? cropFrameWidth,
+        int? cropFrameHeight,
         string? sizeProfilePath,
         bool allSizes,
         bool downloadOpenCvModels)
@@ -2008,6 +2047,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
             $"-faceWidth {width}",
             $"-faceHeight {height}"
         };
+
+        if (cropFrameWidth.HasValue)
+            args.Add($"--cropFrameWidth {cropFrameWidth.Value}");
+
+        if (cropFrameHeight.HasValue)
+            args.Add($"--cropFrameHeight {cropFrameHeight.Value}");
 
         if (!string.IsNullOrWhiteSpace(sizeProfilePath))
             args.Add($"-sizeProfile \"{sizeProfilePath}\"");
@@ -2655,6 +2700,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
     partial void OnUseCustomPreviewDimensionsChanged(bool value)
     {
         ScheduleAutoPreview();
+    }
+
+    partial void OnPreviewImageChanged(Bitmap? value)
+    {
+        UpdatePreviewDisplaySize(value);
     }
 
     partial void OnUseAiMappingChanged(bool value)

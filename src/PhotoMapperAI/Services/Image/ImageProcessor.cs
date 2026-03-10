@@ -12,6 +12,8 @@ namespace PhotoMapperAI.Services.Image;
 /// </summary>
 public class ImageProcessor : IImageProcessor
 {
+    private const int DefaultPortraitWidth = 200;
+    private const int DefaultPortraitHeight = 300;
     private const double EyeLinePercentFromTop = 0.35;
     private const double TargetFaceWidthPercent = 0.40;
     private const double TargetFaceHeightPercent = 0.28;
@@ -38,6 +40,8 @@ public class ImageProcessor : IImageProcessor
         FaceLandmarks landmarks,
         int portraitWidth,
         int portraitHeight,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null,
         CropOffsetPreset? cropOffset = null)
     {
         return await Task.Run(() =>
@@ -47,8 +51,8 @@ public class ImageProcessor : IImageProcessor
                 landmarks,
                 image.Width,
                 image.Height,
-                portraitWidth,
-                portraitHeight,
+                cropFrameWidth ?? portraitWidth,
+                cropFrameHeight ?? portraitHeight,
                 cropOffset
             );
 
@@ -268,8 +272,11 @@ public class ImageProcessor : IImageProcessor
         int portraitHeight,
         CropOffsetPreset? cropOffset)
     {
-        // Target aspect ratio is portrait (e.g., 200:300 = 2:3)
-        var targetAspectRatio = (double)portraitWidth / portraitHeight; // e.g., 0.667
+        // Keep crop composition anchored to the default portrait framing.
+        // Custom dimensions should resize the crop window itself.
+        var referenceAspectRatio = (double)DefaultPortraitWidth / DefaultPortraitHeight;
+        var widthScale = Math.Max(0.05d, (double)portraitWidth / DefaultPortraitWidth);
+        var heightScale = Math.Max(0.05d, (double)portraitHeight / DefaultPortraitHeight);
 
         int cropWidth, cropHeight;
         int centerX, eyeY;
@@ -279,7 +286,7 @@ public class ImageProcessor : IImageProcessor
         {
             var faceRect = landmarks.FaceRect;
 
-            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, targetAspectRatio);
+            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, referenceAspectRatio, widthScale, heightScale);
             centerX = landmarks.EyeMidpoint.X;
             eyeY = landmarks.EyeMidpoint.Y;
         }
@@ -292,13 +299,15 @@ public class ImageProcessor : IImageProcessor
             
             if (faceRect != null)
             {
-                (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, targetAspectRatio);
+                (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, referenceAspectRatio, widthScale, heightScale);
             }
             else
             {
                 // Fallback to image-based dimensions
-                cropHeight = (int)(imageHeight * 0.35);
-                cropWidth = (int)(cropHeight * targetAspectRatio);
+                var baseCropHeight = Math.Max(1, (int)Math.Round(imageHeight * 0.35));
+                var baseCropWidth = Math.Max(1, (int)Math.Round(baseCropHeight * referenceAspectRatio));
+                cropWidth = Math.Max(1, (int)Math.Round(baseCropWidth * widthScale));
+                cropHeight = Math.Max(1, (int)Math.Round(baseCropHeight * heightScale));
             }
             
             centerX = eye.X;
@@ -320,7 +329,7 @@ public class ImageProcessor : IImageProcessor
         {
             var faceRect = landmarks.FaceRect;
 
-            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, targetAspectRatio);
+            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, referenceAspectRatio, widthScale, heightScale);
             // Eyes are typically in the upper 40% of the face rectangle
             centerX = faceRect.X + faceRect.Width / 2;
             eyeY = faceRect.Y + (int)(faceRect.Height * 0.40);
@@ -334,8 +343,10 @@ public class ImageProcessor : IImageProcessor
             // This is approximately 20-25% of the total image height for full-body photos.
             
             // Use a smaller crop height for proper portrait composition
-            cropHeight = (int)(imageHeight * 0.22);  // 22% of image height
-            cropWidth = (int)(cropHeight * targetAspectRatio);
+            var baseCropHeight = Math.Max(1, (int)Math.Round(imageHeight * 0.22));  // 22% of image height
+            var baseCropWidth = Math.Max(1, (int)Math.Round(baseCropHeight * referenceAspectRatio));
+            cropWidth = Math.Max(1, (int)Math.Round(baseCropWidth * widthScale));
+            cropHeight = Math.Max(1, (int)Math.Round(baseCropHeight * heightScale));
             
             // Center horizontally
             centerX = imageWidth / 2;
@@ -350,12 +361,10 @@ public class ImageProcessor : IImageProcessor
         if (cropWidth > imageWidth)
         {
             cropWidth = imageWidth;
-            cropHeight = (int)(cropWidth / targetAspectRatio);
         }
         if (cropHeight > imageHeight)
         {
             cropHeight = imageHeight;
-            cropWidth = (int)(cropHeight * targetAspectRatio);
         }
         
         // Calculate crop rectangle
@@ -400,13 +409,17 @@ public class ImageProcessor : IImageProcessor
 
     private static (int Width, int Height) CalculateFaceBasedCropSize(
         PhotoMapperAI.Models.Rectangle faceRect,
-        double targetAspectRatio)
+        double referenceAspectRatio,
+        double widthScale,
+        double heightScale)
     {
         var minWidth = Math.Max(1, (int)Math.Ceiling(faceRect.Width / TargetFaceWidthPercent));
         var minHeight = Math.Max(1, (int)Math.Ceiling(faceRect.Height / TargetFaceHeightPercent));
 
-        var cropHeight = Math.Max(minHeight, (int)Math.Ceiling(minWidth / targetAspectRatio));
-        var cropWidth = Math.Max(minWidth, (int)Math.Round(cropHeight * targetAspectRatio));
+        var baseCropHeight = Math.Max(minHeight, (int)Math.Ceiling(minWidth / referenceAspectRatio));
+        var baseCropWidth = Math.Max(minWidth, (int)Math.Round(baseCropHeight * referenceAspectRatio));
+        var cropWidth = Math.Max(minWidth, (int)Math.Round(baseCropWidth * widthScale));
+        var cropHeight = Math.Max(minHeight, (int)Math.Round(baseCropHeight * heightScale));
 
         return (cropWidth, cropHeight);
     }

@@ -475,8 +475,9 @@
                 <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="6" Padding="6"
                         MinHeight="150" VerticalAlignment="Stretch" HorizontalAlignment="Center">
                   <Image Source="{Binding PreviewImage}"
-                         MaxHeight="180"
-                         Stretch="Uniform"
+                         Width="{Binding PreviewDisplayWidth}"
+                         Height="{Binding PreviewDisplayHeight}"
+                         Stretch="Fill"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center"/>
                 </Border>
