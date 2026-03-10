@@ -4,7 +4,7 @@ namespace PhotoMapperAI.Tests.Services.AI;
 
 public class AppleVisionFaceDetectionServiceTests
 {
-    [Fact]
+    [Fact(Skip = "Obsolete Apple Vision integration test. Depends on local fixture/runtime assumptions that are not maintained in CI.")]
     public async Task DetectFaceLandmarksAsync_OnMacOS_DetectsFace()
     {
         if (!OperatingSystem.IsMacOS())
