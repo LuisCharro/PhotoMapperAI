@@ -459,9 +459,15 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Spacing="6">
-                      <TextBlock Text="Custom Dimensions" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <CheckBox Content="Use custom dimensions (overrides profile)"
+                      <TextBlock Text="Crop Frame" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Text="Adjust the framing window while keeping the final output size from the batch size settings."
+                                 FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                      <CheckBox Content="Use custom crop frame"
                                 IsChecked="{Binding UseCustomPreviewDimensions}"
+                                FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                      <CheckBox Content="Lock proportions"
+                                IsChecked="{Binding LockCropFrameProportions}"
+                                IsEnabled="{Binding UseCustomPreviewDimensions}"
                                 FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"/>
 
                       <ComboBox ItemsSource="{Binding PreviewDimensionPresets}"
@@ -488,7 +494,7 @@
 
                       <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0"
                             IsEnabled="{Binding UseCustomPreviewDimensions}">
-                        <TextBlock Grid.Column="0" Text="Width:" VerticalAlignment="Center" FontSize="10"
+                        <TextBlock Grid.Column="0" Text="Frame width:" VerticalAlignment="Center" FontSize="10"
                                    Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
                         <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomWidthCommand}"
                                 Width="24" Height="24" Padding="0" FontSize="12"/>
@@ -503,7 +509,7 @@
 
                       <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,2,0,0"
                             IsEnabled="{Binding UseCustomPreviewDimensions}">
-                        <TextBlock Grid.Column="0" Text="Height:" VerticalAlignment="Center" FontSize="10"
+                        <TextBlock Grid.Column="0" Text="Frame height:" VerticalAlignment="Center" FontSize="10"
                                    Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
                         <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomHeightCommand}"
                                 Width="24" Height="24" Padding="0" FontSize="12"/>

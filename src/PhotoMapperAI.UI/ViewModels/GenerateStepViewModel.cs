@@ -82,6 +82,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
     private CancellationTokenSource? _autoPreviewCts;
+    private bool _isUpdatingCropFrameDimensions;
 
     public GenerateStepViewModel()
     {
@@ -261,6 +262,9 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private bool _useCustomPreviewDimensions;
 
+    [ObservableProperty]
+    private bool _lockCropFrameProportions = true;
+
     public ObservableCollection<string> LogLines { get; } = new();
 
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
@@ -372,23 +376,34 @@ public partial class GenerateStepViewModel : ViewModelBase
             return;
         }
 
-        PreviewCustomWidth = value.Width;
-        PreviewCustomHeight = value.Height;
+        SetPreviewCropFrameDimensions(value.Width, value.Height);
         UseCustomPreviewDimensions = true;
     }
 
     partial void OnPreviewCustomWidthChanged(int value)
     {
+        SyncCropFrameHeightFromWidth(value);
         TriggerAutoPreviewIfNeeded();
     }
 
     partial void OnPreviewCustomHeightChanged(int value)
     {
+        SyncCropFrameWidthFromHeight(value);
         TriggerAutoPreviewIfNeeded();
     }
 
     partial void OnUseCustomPreviewDimensionsChanged(bool value)
     {
+        TriggerAutoPreviewIfNeeded();
+    }
+
+    partial void OnLockCropFrameProportionsChanged(bool value)
+    {
+        if (value)
+        {
+            SyncCropFrameHeightFromWidth(PreviewCustomWidth);
+        }
+
         TriggerAutoPreviewIfNeeded();
     }
 
@@ -570,6 +585,83 @@ public partial class GenerateStepViewModel : ViewModelBase
     private void IncrementCustomHeight()
     {
         PreviewCustomHeight += 10;
+    }
+
+    private void SetPreviewCropFrameDimensions(int width, int height)
+    {
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomWidth = width;
+            PreviewCustomHeight = height;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private void SyncCropFrameHeightFromWidth(int width)
+    {
+        if (_isUpdatingCropFrameDimensions || !LockCropFrameProportions || !UseCustomPreviewDimensions || width <= 0)
+        {
+            return;
+        }
+
+        var targetHeight = Math.Max(50, (int)Math.Round(width * GetOutputAspectHeightOverWidth()));
+        if (targetHeight == PreviewCustomHeight)
+        {
+            return;
+        }
+
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomHeight = targetHeight;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private void SyncCropFrameWidthFromHeight(int height)
+    {
+        if (_isUpdatingCropFrameDimensions || !LockCropFrameProportions || !UseCustomPreviewDimensions || height <= 0)
+        {
+            return;
+        }
+
+        var aspect = GetOutputAspectWidthOverHeight();
+        var targetWidth = Math.Max(50, (int)Math.Round(height * aspect));
+        if (targetWidth == PreviewCustomWidth)
+        {
+            return;
+        }
+
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomWidth = targetWidth;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private double GetOutputAspectWidthOverHeight()
+    {
+        var width = Math.Max(1, PortraitWidth);
+        var height = Math.Max(1, PortraitHeight);
+        return (double)width / height;
+    }
+
+    private double GetOutputAspectHeightOverWidth()
+    {
+        var width = Math.Max(1, PortraitWidth);
+        var height = Math.Max(1, PortraitHeight);
+        return (double)height / width;
     }
 
     [RelayCommand]

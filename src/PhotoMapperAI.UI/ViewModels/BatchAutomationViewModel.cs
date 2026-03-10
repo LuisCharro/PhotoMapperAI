@@ -35,6 +35,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     private CancellationTokenSource? _cancellationTokenSource;
     private CancellationTokenSource? _autoPreviewCts;
     private BatchSessionState _sessionState = new();
+    private bool _isUpdatingCropFrameDimensions;
 
     private static readonly string[] DefaultLocalNameModels =
     {
@@ -248,6 +249,9 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _useCustomPreviewDimensions;
+
+    [ObservableProperty]
+    private bool _lockCropFrameProportions = true;
 
     [ObservableProperty]
     private PreviewDimensionPreset? _selectedPreviewDimensionPreset;
@@ -1800,6 +1804,82 @@ public partial class BatchAutomationViewModel : ViewModelBase
         PreviewDisplayHeight = Math.Max(1, height * scale);
     }
 
+    private void SetPreviewCropFrameDimensions(int width, int height)
+    {
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomWidth = width;
+            PreviewCustomHeight = height;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private void SyncCropFrameHeightFromWidth(int width)
+    {
+        if (_isUpdatingCropFrameDimensions || !LockCropFrameProportions || !UseCustomPreviewDimensions || width <= 0)
+        {
+            return;
+        }
+
+        var targetHeight = Math.Max(50, (int)Math.Round(width * GetOutputAspectHeightOverWidth()));
+        if (targetHeight == PreviewCustomHeight)
+        {
+            return;
+        }
+
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomHeight = targetHeight;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private void SyncCropFrameWidthFromHeight(int height)
+    {
+        if (_isUpdatingCropFrameDimensions || !LockCropFrameProportions || !UseCustomPreviewDimensions || height <= 0)
+        {
+            return;
+        }
+
+        var targetWidth = Math.Max(50, (int)Math.Round(height * GetOutputAspectWidthOverHeight()));
+        if (targetWidth == PreviewCustomWidth)
+        {
+            return;
+        }
+
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomWidth = targetWidth;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private double GetOutputAspectWidthOverHeight()
+    {
+        var width = Math.Max(1, DefaultWidth);
+        var height = Math.Max(1, DefaultHeight);
+        return (double)width / height;
+    }
+
+    private double GetOutputAspectHeightOverWidth()
+    {
+        var width = Math.Max(1, DefaultWidth);
+        var height = Math.Max(1, DefaultHeight);
+        return (double)height / width;
+    }
+
     private string? ResolvePreviewPhotoPath(string photosDirectory, string External_Player_ID)
     {
         if (string.IsNullOrWhiteSpace(External_Player_ID))
@@ -2681,24 +2761,35 @@ public partial class BatchAutomationViewModel : ViewModelBase
             return;
         }
 
-        PreviewCustomWidth = value.Width;
-        PreviewCustomHeight = value.Height;
+        SetPreviewCropFrameDimensions(value.Width, value.Height);
         UseCustomPreviewDimensions = true;
         ScheduleAutoPreview();
     }
 
     partial void OnPreviewCustomWidthChanged(int value)
     {
+        SyncCropFrameHeightFromWidth(value);
         ScheduleAutoPreview();
     }
 
     partial void OnPreviewCustomHeightChanged(int value)
     {
+        SyncCropFrameWidthFromHeight(value);
         ScheduleAutoPreview();
     }
 
     partial void OnUseCustomPreviewDimensionsChanged(bool value)
     {
+        ScheduleAutoPreview();
+    }
+
+    partial void OnLockCropFrameProportionsChanged(bool value)
+    {
+        if (value)
+        {
+            SyncCropFrameHeightFromWidth(PreviewCustomWidth);
+        }
+
         ScheduleAutoPreview();
     }
 
