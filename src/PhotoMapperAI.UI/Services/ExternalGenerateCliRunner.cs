@@ -1,23 +1,20 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using PhotoMapperAI.Commands;
 using PhotoMapperAI.Models;
+using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Diagnostics;
+using PhotoMapperAI.Services.Image;
 
 namespace PhotoMapperAI.UI.Execution;
 
 public sealed class ExternalGenerateCliRunner
 {
-    private static readonly Regex LoadedPlayersRegex = new(@"Loaded\s+(?<count>\d+)\s+players", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex GeneratedRegex = new(@"Generated\s+(?<ok>\d+)\s+portraits\s+\((?<failed>\d+)\s+failed\)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     public async Task<GeneratePhotosResult> ExecuteAsync(
         string workingDirectory,
         string inputCsvPath,
@@ -41,96 +38,124 @@ public sealed class ExternalGenerateCliRunner
         IProgress<string>? log,
         IProgress<(int processed, int total, string current)>? progress = null)
     {
-        _ = cropOffsetPreset;
-        _ = progress;
+        var preflight = await PreflightChecker.CheckGenerateAsync(faceDetectionModel, downloadOpenCvModels);
+        if (!preflight.IsOk)
+        {
+            log?.Report(preflight.BuildMessage());
+            return new GeneratePhotosResult { ExitCode = 1 };
+        }
 
-        var args = BuildGenerateArgs(
+        var warningMessage = preflight.BuildWarningMessage();
+        if (!string.IsNullOrWhiteSpace(warningMessage))
+        {
+            log?.Report(warningMessage);
+        }
+
+        var faceDetectionService = FaceDetectionServiceFactory.Create(faceDetectionModel);
+        log?.Report($"Resolved face detection service: {faceDetectionService.ModelName}");
+        await faceDetectionService.InitializeAsync();
+
+        var cachePath = Path.Combine(workingDirectory, ".face-detection-cache.json");
+        var cache = new FaceDetectionCache(cachePath);
+        var imageProcessor = new ImageProcessor();
+        var logic = new GeneratePhotosCommandLogic(
+            faceDetectionService,
+            imageProcessor,
+            cache,
+            cropOffsetPreset,
+            faceDetectionTrace: false);
+
+        if (string.IsNullOrWhiteSpace(sizeProfilePath))
+        {
+            logic.SetPlaceholderImagePath(placeholderImagePath);
+            Directory.CreateDirectory(outputDir);
+            return await logic.ExecuteWithResultAsync(
+                inputCsvPath,
+                photosDir,
+                outputDir,
+                format,
+                faceDetectionModel,
+                crop: "generic",
+                portraitOnly,
+                width,
+                height,
+                parallel: false,
+                parallelDegree: 4,
+                onlyPlayerId: onlyPlayer,
+                placeholderImagePath: placeholderImagePath,
+                progress: progress,
+                cancellationToken: cancellationToken,
+                log: log,
+                cropFrameWidth: cropFrameWidth,
+                cropFrameHeight: cropFrameHeight);
+        }
+
+        var loadedProfile = SizeProfileLoader.LoadFromFile(sizeProfilePath);
+        log?.Report($"Using size profile '{loadedProfile.Name}' from {sizeProfilePath}");
+
+        if (!allSizes)
+        {
+            var firstVariant = loadedProfile.Variants.FirstOrDefault(v =>
+                                   string.Equals(v.Key, "x200x300", StringComparison.OrdinalIgnoreCase)
+                                   || (v.Width == 200 && v.Height == 300))
+                               ?? loadedProfile.Variants.First();
+
+            var resolvedPlaceholder = placeholderImagePath
+                ?? (ignoreProfilePlaceholders ? null : firstVariant.PlaceholderPath);
+
+            logic.SetPlaceholderImagePath(resolvedPlaceholder);
+            Directory.CreateDirectory(outputDir);
+            return await logic.ExecuteWithResultAsync(
+                inputCsvPath,
+                photosDir,
+                outputDir,
+                format,
+                faceDetectionModel,
+                crop: "generic",
+                portraitOnly,
+                firstVariant.Width,
+                firstVariant.Height,
+                parallel: false,
+                parallelDegree: 4,
+                onlyPlayerId: onlyPlayer,
+                placeholderImagePath: resolvedPlaceholder,
+                progress: progress,
+                cancellationToken: cancellationToken,
+                log: log,
+                cropFrameWidth: cropFrameWidth,
+                cropFrameHeight: cropFrameHeight);
+        }
+
+        var variantPlans = loadedProfile.Variants.Select(variant =>
+        {
+            var subfolder = string.IsNullOrWhiteSpace(variant.OutputSubfolder) ? variant.Key : variant.OutputSubfolder;
+            var variantOutput = Path.Combine(outputDir, subfolder);
+            var resolvedPlaceholder = placeholderImagePath
+                ?? (ignoreProfilePlaceholders ? null : variant.PlaceholderPath);
+            return new GeneratePhotosVariantPlan(
+                variant.Key,
+                variant.Width,
+                variant.Height,
+                variantOutput,
+                resolvedPlaceholder);
+        }).ToList();
+
+        return await logic.ExecuteMultiVariantAsync(
             inputCsvPath,
             photosDir,
-            outputDir,
+            variantPlans,
             format,
             faceDetectionModel,
+            crop: "generic",
             portraitOnly,
-            width,
-            height,
-            sizeProfilePath,
-            allSizes,
-            ignoreProfilePlaceholders,
-            downloadOpenCvModels,
-            onlyPlayer,
-            placeholderImagePath,
-            cropFrameWidth,
-            cropFrameHeight,
-            cropOffsetPreset);
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            WorkingDirectory = workingDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (var arg in args)
-        {
-            startInfo.ArgumentList.Add(arg);
-        }
-
-        using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-
-        var result = new GeneratePhotosResult();
-
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (string.IsNullOrWhiteSpace(e.Data))
-                return;
-
-            log?.Report(e.Data);
-            UpdateResultFromOutput(e.Data, result);
-        };
-
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (string.IsNullOrWhiteSpace(e.Data))
-                return;
-
-            log?.Report(e.Data);
-            UpdateResultFromOutput(e.Data, result);
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        using var registration = cancellationToken.Register(() =>
-        {
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch
-            {
-                // Best effort cancellation.
-            }
-        });
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        result.ExitCode = process.ExitCode;
-        result.IsCancelled = cancellationToken.IsCancellationRequested;
-        result.ProcessedPlayers = result.PortraitsGenerated + result.PortraitsFailed;
-
-        if (result.TotalPlayers == 0)
-        {
-            result.TotalPlayers = result.ProcessedPlayers;
-        }
-
-        return result;
+            parallel: false,
+            parallelDegree: 4,
+            onlyPlayerId: onlyPlayer,
+            cropFrameWidth: cropFrameWidth,
+            cropFrameHeight: cropFrameHeight,
+            progress: progress,
+            cancellationToken: cancellationToken,
+            log: log);
     }
 
     public string BuildCommandPreview(
@@ -152,8 +177,27 @@ public sealed class ExternalGenerateCliRunner
         int? cropFrameWidth,
         int? cropFrameHeight)
     {
-        var parts = BuildGenerateArgs(inputCsvPath, photosDir, outputDir, format, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropFrameWidth, cropFrameHeight, cropOffsetPreset: null);
-        return $"Working directory: {workingDirectory}\nExecution mode: external-cli\nCommand: dotnet " + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
+        var parts = BuildGenerateArgs(
+            inputCsvPath,
+            photosDir,
+            outputDir,
+            format,
+            faceDetectionModel,
+            portraitOnly,
+            width,
+            height,
+            sizeProfilePath,
+            allSizes,
+            ignoreProfilePlaceholders,
+            downloadOpenCvModels,
+            onlyPlayer,
+            placeholderImagePath,
+            cropFrameWidth,
+            cropFrameHeight,
+            cropOffsetPreset: null);
+
+        return $"Working directory: {workingDirectory}\nExecution mode: in-process-shared-logic\nEquivalent CLI: dotnet "
+            + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
     }
 
     public string WriteDebugArtifact(
@@ -195,8 +239,25 @@ public sealed class ExternalGenerateCliRunner
             placeholderImagePath,
             cropFrameWidth,
             cropFrameHeight,
-            executionMode = "external-cli",
-            args = BuildGenerateArgs(inputCsvPath, photosDirectory, outputDir, imageFormat, faceDetectionModel, portraitOnly, width, height, sizeProfilePath, allSizes, ignoreProfilePlaceholders, downloadOpenCvModels, onlyPlayer, placeholderImagePath, cropFrameWidth, cropFrameHeight, cropOffsetPreset: null)
+            executionMode = "in-process-shared-logic",
+            args = BuildGenerateArgs(
+                inputCsvPath,
+                photosDirectory,
+                outputDir,
+                imageFormat,
+                faceDetectionModel,
+                portraitOnly,
+                width,
+                height,
+                sizeProfilePath,
+                allSizes,
+                ignoreProfilePlaceholders,
+                downloadOpenCvModels,
+                onlyPlayer,
+                placeholderImagePath,
+                cropFrameWidth,
+                cropFrameHeight,
+                cropOffsetPreset: null)
         };
 
         Directory.CreateDirectory(outputDir);
@@ -231,8 +292,7 @@ public sealed class ExternalGenerateCliRunner
             "--photosDir", photosDir,
             "--processedPhotosOutputPath", outputDir,
             "--format", format,
-            "--faceDetection", faceDetectionModel,
-            "--noCache"
+            "--faceDetection", faceDetectionModel
         };
 
         if (!string.IsNullOrWhiteSpace(sizeProfilePath))
@@ -297,28 +357,5 @@ public sealed class ExternalGenerateCliRunner
         }
 
         return args;
-    }
-
-    private static void UpdateResultFromOutput(string line, GeneratePhotosResult result)
-    {
-        var loadedMatch = LoadedPlayersRegex.Match(line);
-        if (loadedMatch.Success && int.TryParse(loadedMatch.Groups["count"].Value, out var totalPlayers))
-        {
-            result.TotalPlayers = totalPlayers;
-        }
-
-        var generatedMatch = GeneratedRegex.Match(line);
-        if (generatedMatch.Success)
-        {
-            if (int.TryParse(generatedMatch.Groups["ok"].Value, out var portraitsGenerated))
-            {
-                result.PortraitsGenerated = portraitsGenerated;
-            }
-
-            if (int.TryParse(generatedMatch.Groups["failed"].Value, out var portraitsFailed))
-            {
-                result.PortraitsFailed = portraitsFailed;
-            }
-        }
     }
 }
