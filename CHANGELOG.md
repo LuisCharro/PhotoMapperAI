@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-11
+
 ### Added
 
 - Manual unmapped-player mapping dialog for both map and batch flows.
@@ -31,6 +33,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Windows face-detection default selection in the UI.
 - Obsolete Apple Vision CI integration test is now skipped.
 
+[1.3.0]: https://github.com/LuisCharro/PhotoMapperAI/releases/tag/v1.3.0
 ## [1.0.1] - 2026-02-12
 
 ### Added

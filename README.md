@@ -1,6 +1,6 @@
 # PhotoMapperAI
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-production--ready-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 

@@ -1,8 +1,8 @@
 # PhotoMapperAI Release Notes
 
-## Upcoming Release Draft
+## v1.3.0
 
-This file is the working draft for the next release after `v1.0.1`.
+Released: 2026-03-11
 
 ## Highlights
 
@@ -37,10 +37,9 @@ This file is the working draft for the next release after `v1.0.1`.
 
 ## Release Checklist
 
-- Choose the release version number.
-- Move the finalized items from [`CHANGELOG.md`](CHANGELOG.md) `Unreleased` into a dated release entry.
-- Trim internal implementation language before publishing.
+- Finalize release artifacts.
 - Re-run build, tests, and any external validation needed for the release candidate.
+- Publish the release and tag `v1.3.0`.
 
 ---
 
