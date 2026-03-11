@@ -8,15 +8,48 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Platform.Storage;
 using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.UI.Models;
+using PhotoMapperAI.UI.Services;
 using PhotoMapperAI.UI.ViewModels;
 
 namespace PhotoMapperAI.UI.Views;
 
 public partial class BatchAutomationView : UserControl
 {
+    private readonly ManualMappingWorkflowService _manualMappingWorkflow = new();
+    private BatchAutomationViewModel? _boundViewModel;
+
     public BatchAutomationView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested -= OpenManualMappingAsync;
+        }
+
+        _boundViewModel = DataContext as BatchAutomationViewModel;
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested += OpenManualMappingAsync;
+        }
+    }
+
+    private async Task<ManualMappingWorkflowResult> OpenManualMappingAsync(ManualMappingWorkflowRequest request)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null)
+        {
+            return new ManualMappingWorkflowResult
+            {
+                ErrorMessage = "Unable to open manual mapping window."
+            };
+        }
+
+        return await _manualMappingWorkflow.OpenAsync(owner, request);
     }
 
     private async void BrowseTeamsSql_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -300,63 +333,6 @@ public partial class BatchAutomationView : UserControl
         if (DataContext is ViewModels.BatchAutomationViewModel vm)
         {
             vm.RequestAutoPreviewFromUi();
-        }
-    }
-
-    private async void OpenManualMapping_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (DataContext is not ViewModels.BatchAutomationViewModel vm)
-        {
-            return;
-        }
-
-        var team = vm.SelectedTeam;
-        if (team == null)
-        {
-            await ShowInfoDialogAsync("Manual Mapping", "Select a team first.");
-            return;
-        }
-
-        var mappedCsvPath = team.MappedCsvPath;
-        if (string.IsNullOrWhiteSpace(mappedCsvPath))
-        {
-            var teamCsvDir = Path.Combine(vm.BaseCsvDirectory ?? string.Empty, team.TeamName);
-            mappedCsvPath = Path.Combine(teamCsvDir, $"mapped_{team.TeamName}.csv");
-        }
-
-        if (string.IsNullOrWhiteSpace(mappedCsvPath) || !File.Exists(mappedCsvPath))
-        {
-            await ShowInfoDialogAsync("Manual Mapping", $"No mapped CSV found for {team.TeamName}. Run the map step first.");
-            return;
-        }
-
-        var teamPhotoDir = vm.UseTeamPhotoSubdirectories
-            ? Path.Combine(vm.BasePhotoDirectory ?? string.Empty, team.TeamName)
-            : vm.BasePhotoDirectory;
-
-        if (string.IsNullOrWhiteSpace(teamPhotoDir) || !Directory.Exists(teamPhotoDir))
-        {
-            await ShowInfoDialogAsync("Manual Mapping", $"Photo directory not found for {team.TeamName}.");
-            return;
-        }
-
-        var dialogVm = new ManualPhotoMappingDialogViewModel(
-            $"Manual Mapping: {team.TeamName}",
-            mappedCsvPath,
-            teamPhotoDir,
-            vm.FilenamePattern,
-            vm.UsePhotoManifest ? vm.PhotoManifestPath : null);
-        await dialogVm.InitializeAsync();
-
-        var dialog = new ManualPhotoMappingDialog(dialogVm);
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        var saved = owner != null
-            ? await dialog.ShowDialog<bool>(owner)
-            : false;
-
-        if (saved)
-        {
-            await vm.RefreshTeamMappingSummaryAsync(team, mappedCsvPath);
         }
     }
 

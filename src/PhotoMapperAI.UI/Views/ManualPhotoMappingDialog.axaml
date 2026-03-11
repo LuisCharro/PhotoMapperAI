@@ -96,14 +96,6 @@
             </Grid>
           </Border>
 
-          <Button Content="Approve Mapping"
-                  Command="{Binding QueueSelectedAssignmentCommand}"
-                  IsEnabled="{Binding CanQueueSelectedAssignment}"
-                  Padding="12,6"
-                  HorizontalAlignment="Left"
-                  Background="{DynamicResource PrimaryBrush}"
-                  Foreground="{DynamicResource HeaderTextBrush}"/>
-
           <Border Background="{DynamicResource CardBrush}" CornerRadius="8" Padding="6" MinHeight="320">
             <Image Source="{Binding SelectedPhotoPreview}"
                    MaxWidth="420"
@@ -127,6 +119,15 @@
               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedPhoto.FilePath}" TextWrapping="Wrap"/>
             </Grid>
           </Border>
+
+          <Button Content="Approve Mapping"
+                  Command="{Binding QueueSelectedAssignmentCommand}"
+                  IsEnabled="{Binding CanQueueSelectedAssignment}"
+                  Padding="12,6"
+                  HorizontalAlignment="Right"
+                  Margin="0,8,0,0"
+                  Background="{DynamicResource PrimaryBrush}"
+                  Foreground="{DynamicResource HeaderTextBrush}"/>
         </StackPanel>
       </Border>
     </Grid>

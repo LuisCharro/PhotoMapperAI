@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.Input;
 using Avalonia.Platform.Storage;
+using PhotoMapperAI.UI.Models;
+using PhotoMapperAI.UI.Services;
 using PhotoMapperAI.UI.ViewModels;
 using System.IO;
 
@@ -11,9 +13,41 @@ namespace PhotoMapperAI.UI.Views;
 
 public partial class MapStepView : UserControl
 {
+    private readonly ManualMappingWorkflowService _manualMappingWorkflow = new();
+    private MapStepViewModel? _boundViewModel;
+
     public MapStepView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested -= OpenManualMappingAsync;
+        }
+
+        _boundViewModel = DataContext as MapStepViewModel;
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested += OpenManualMappingAsync;
+        }
+    }
+
+    private async Task<ManualMappingWorkflowResult> OpenManualMappingAsync(ManualMappingWorkflowRequest request)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null)
+        {
+            return new ManualMappingWorkflowResult
+            {
+                ErrorMessage = "Unable to open manual mapping window."
+            };
+        }
+
+        return await _manualMappingWorkflow.OpenAsync(owner, request);
     }
 
     private async void BrowseCsvFile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -243,42 +277,5 @@ public partial class MapStepView : UserControl
 
         closeButton.Click += (_, _) => dialog.Close();
         await dialog.ShowDialog(owner);
-    }
-
-    private async void OpenManualMapping_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (DataContext is not MapStepViewModel vm)
-            return;
-
-        if (string.IsNullOrWhiteSpace(vm.OutputCsvPath) || !File.Exists(vm.OutputCsvPath))
-        {
-            await ShowInfoDialogAsync("Manual Mapping", "Run mapping first so there is a mapped CSV to edit.");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(vm.PhotosDirectory) || !Directory.Exists(vm.PhotosDirectory))
-        {
-            await ShowInfoDialogAsync("Manual Mapping", "Configure a valid photos directory first.");
-            return;
-        }
-
-        var dialogVm = new ManualPhotoMappingDialogViewModel(
-            "Manual Player Mapping",
-            vm.OutputCsvPath,
-            vm.PhotosDirectory,
-            vm.FilenamePattern,
-            vm.UsePhotoManifest ? vm.PhotoManifestPath : null);
-        await dialogVm.InitializeAsync();
-
-        var dialog = new ManualPhotoMappingDialog(dialogVm);
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        var saved = owner != null
-            ? await dialog.ShowDialog<bool>(owner)
-            : false;
-
-        if (saved)
-        {
-            await vm.RefreshMappingSummaryAsync();
-        }
     }
 }

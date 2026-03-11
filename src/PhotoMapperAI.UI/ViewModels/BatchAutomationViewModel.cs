@@ -361,6 +361,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     public ObservableCollection<string> LogLines { get; } = new();
 
+    public event Func<ManualMappingWorkflowRequest, Task<ManualMappingWorkflowResult>>? ManualMappingRequested;
+
     public bool CanStart => !IsProcessing && Teams.Count > 0;
     public bool HasSelectedTeamWithUnmappedPlayers => GetSelectedTeamUnmappedCount() > 0;
     public bool CanOpenSelectedTeamManualMapping => !IsProcessing && SelectedTeam != null;
@@ -2240,6 +2242,49 @@ public partial class BatchAutomationViewModel : ViewModelBase
         UpdateErrorSummary();
     }
 
+    [RelayCommand(CanExecute = nameof(CanOpenSelectedTeamManualMapping))]
+    private async Task OpenManualMapping()
+    {
+        var team = SelectedTeam;
+        var handler = ManualMappingRequested;
+        if (team == null || handler == null)
+        {
+            return;
+        }
+
+        var mappedCsvPath = team.MappedCsvPath;
+        if (string.IsNullOrWhiteSpace(mappedCsvPath))
+        {
+            var teamCsvDir = Path.Combine(BaseCsvDirectory ?? string.Empty, team.TeamName);
+            mappedCsvPath = Path.Combine(teamCsvDir, $"mapped_{team.TeamName}.csv");
+        }
+
+        var teamPhotoDir = UseTeamPhotoSubdirectories
+            ? Path.Combine(BasePhotoDirectory ?? string.Empty, team.TeamName)
+            : BasePhotoDirectory;
+
+        var result = await handler(new ManualMappingWorkflowRequest
+        {
+            Title = $"Manual Mapping: {team.TeamName}",
+            MappedCsvPath = mappedCsvPath,
+            PhotosDirectory = teamPhotoDir ?? string.Empty,
+            FilenamePattern = FilenamePattern,
+            PhotoManifestPath = UsePhotoManifest ? PhotoManifestPath : null
+        });
+
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+        {
+            ProcessingStatus = $"{result.ErrorMessage} Team: {team.TeamName}.";
+            AppendLog($"[MAP] {team.TeamName}: {result.ErrorMessage}");
+            return;
+        }
+
+        if (result.Saved)
+        {
+            await RefreshTeamMappingSummaryAsync(team, result.MappedCsvPath);
+        }
+    }
+
     private void UpdateProviderKeyInputVisibility()
     {
         // Unified API key input visibility for all paid providers
@@ -2276,6 +2321,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSelectedTeamWithUnmappedPlayers));
         OnPropertyChanged(nameof(CanOpenSelectedTeamManualMapping));
         OnPropertyChanged(nameof(ManualMappingButtonText));
+        OpenManualMappingCommand.NotifyCanExecuteChanged();
     }
 
     private void UpdateErrorSummary()

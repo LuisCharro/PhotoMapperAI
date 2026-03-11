@@ -13,6 +13,7 @@ using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.Services.Diagnostics;
 using PhotoMapperAI.UI.Configuration;
 using PhotoMapperAI.UI.Execution;
+using PhotoMapperAI.UI.Models;
 
 namespace PhotoMapperAI.UI.ViewModels;
 
@@ -163,6 +164,12 @@ public partial class MapStepViewModel : ViewModelBase
     public ObservableCollection<string> FreeTierNameModels { get; } = new();
 
     public ObservableCollection<string> PaidNameModels { get; } = new();
+
+    public event Func<ManualMappingWorkflowRequest, Task<ManualMappingWorkflowResult>>? ManualMappingRequested;
+
+    public bool CanOpenManualMapping =>
+        !IsProcessing &&
+        !string.IsNullOrWhiteSpace(OutputCsvPath);
 
     public MapStepViewModel()
     {
@@ -777,6 +784,18 @@ public partial class MapStepViewModel : ViewModelBase
         }
     }
 
+    partial void OnOutputCsvPathChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanOpenManualMapping));
+        OpenManualMappingCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsProcessingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanOpenManualMapping));
+        OpenManualMappingCommand.NotifyCanExecuteChanged();
+    }
+
     private void AppendLog(string message)
     {
         if (LogLines.Count >= 200)
@@ -830,6 +849,37 @@ public partial class MapStepViewModel : ViewModelBase
         ProcessingStatus = $"✓ Mapped {PlayersMatched}/{PlayersProcessed} players successfully";
         IsComplete = true;
         AppendLog($"Manual mapping dialog saved updates to: {OutputCsvPath}");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenManualMapping))]
+    private async Task OpenManualMapping()
+    {
+        var handler = ManualMappingRequested;
+        if (handler == null)
+        {
+            return;
+        }
+
+        var result = await handler(new ManualMappingWorkflowRequest
+        {
+            Title = "Manual Player Mapping",
+            MappedCsvPath = OutputCsvPath,
+            PhotosDirectory = PhotosDirectory,
+            FilenamePattern = FilenamePattern,
+            PhotoManifestPath = UsePhotoManifest ? PhotoManifestPath : null
+        });
+
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+        {
+            ProcessingStatus = result.ErrorMessage;
+            AppendLog(result.ErrorMessage);
+            return;
+        }
+
+        if (result.Saved)
+        {
+            await RefreshMappingSummaryAsync();
+        }
     }
 
     private void UpdateProviderKeyInputVisibility()

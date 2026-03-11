@@ -330,7 +330,7 @@
                       Command="{Binding DeselectAllTeamsCommand}"
                       Padding="8,4" FontSize="10"/>
               <Button Content="{Binding ManualMappingButtonText}"
-                      Click="OpenManualMapping_Click"
+                      Command="{Binding OpenManualMappingCommand}"
                       Padding="8,4" FontSize="10"
                       IsEnabled="{Binding CanOpenSelectedTeamManualMapping}"/>
             </StackPanel>
