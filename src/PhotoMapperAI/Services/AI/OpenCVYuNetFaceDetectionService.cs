@@ -67,10 +67,17 @@ public class OpenCVYuNetFaceDetectionService : IFaceDetectionService, IDisposabl
                 }
 
                 var net = CvDnn.ReadNetFromOnnx(_modelPath);
+                if (net == null)
+                {
+                    Console.WriteLine($"OpenCV YuNet failed to load model: {_modelPath}");
+                    _initialized = false;
+                    return false;
+                }
+
                 net.SetPreferableBackend(Backend.OPENCV);
                 net.SetPreferableTarget(Target.CPU);
                 _net = net;
-                var names = _net.GetUnconnectedOutLayersNames();
+                var names = net.GetUnconnectedOutLayersNames();
                 _outputNames = names
                     .Where(name => !string.IsNullOrWhiteSpace(name))
                     .Select(name => name!)

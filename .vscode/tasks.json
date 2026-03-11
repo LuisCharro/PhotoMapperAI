@@ -7,7 +7,8 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/PhotoMapperAI.sln"
+        "${workspaceFolder}/PhotoMapperAI.sln",
+        "-p:UseAppHost=false"
       ],
       "problemMatcher": "$msCompile",
       "group": {

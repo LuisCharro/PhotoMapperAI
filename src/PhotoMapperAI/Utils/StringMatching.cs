@@ -75,7 +75,7 @@ public static class StringMatching
     /// <summary>
     /// Normalizes a name for comparison (removes accents, extra spaces, etc.).
     /// </summary>
-    public static string NormalizeName(string name)
+    public static string NormalizeName(string? name)
     {
         if (string.IsNullOrEmpty(name))
             return string.Empty;
@@ -219,7 +219,7 @@ public static class StringMatching
     /// <summary>
     /// Compares two names using multiple strategies and returns best confidence score.
     /// </summary>
-    public static double CompareNames(string name1, string name2)
+    public static double CompareNames(string? name1, string? name2)
     {
         var norm1 = NormalizeName(name1);
         var norm2 = NormalizeName(name2);

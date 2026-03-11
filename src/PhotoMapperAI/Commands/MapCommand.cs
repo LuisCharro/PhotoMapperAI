@@ -1200,7 +1200,13 @@ public class MapCommandLogic
                 BestRawResponse: bestRawResponse);
         }
 
-        var reason = bestMatch.Metadata.GetValueOrDefault("reason", string.Empty);
+        var reason = string.Empty;
+        if (bestMatch.Metadata != null)
+        {
+            reason = bestMatch.Metadata.TryGetValue("reason", out var metadataReason)
+                ? metadataReason ?? string.Empty
+                : string.Empty;
+        }
         if (string.IsNullOrWhiteSpace(reason))
         {
             reason = $"ai_confidence={bestMatch.Confidence:0.###};margin={margin:0.###};pre_rank_score={bestCandidate.Score:0.###}";
