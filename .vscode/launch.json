@@ -35,19 +35,5 @@
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false
     }
-  ],
-  "compounds": [
-    {
-      "name": ".NET: Build + Debug GUI",
-      "configurations": [
-        ".NET: Debug GUI (PhotoMapperAI.UI)"
-      ]
-    },
-    {
-      "name": ".NET: Build + Debug CLI",
-      "configurations": [
-        ".NET: Debug CLI (PhotoMapperAI)"
-      ]
-    }
   ]
 }
