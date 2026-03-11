@@ -160,6 +160,19 @@ public class StringMatchingTests
         Assert.Equal("michal skoras", StringMatching.NormalizeName("Michał Skóraś"));
     }
 
+    [Fact]
+    public void NormalizeName_NormalizesFullWidthAndAsianSeparators()
+    {
+        Assert.Equal("mina tanaka", StringMatching.NormalizeName("Ｍｉｎａ・Ｔａｎａｋａ"));
+    }
+
+    [Fact]
+    public void NormalizeName_NormalizesCommonAfricanLatinExtensions()
+    {
+        Assert.Equal("osei nkrumah", StringMatching.NormalizeName("Ɔsei Nkrumah"));
+        Assert.Equal("ngolo", StringMatching.NormalizeName("Ŋolo"));
+    }
+
     #endregion
 
     #region CompareNames Tests
@@ -196,6 +209,13 @@ public class StringMatchingTests
     {
         Assert.Equal(1.0, StringMatching.CompareNames("Altay Bayındır", "Altay Bayindir"));
         Assert.Equal(1.0, StringMatching.CompareNames("Michał Skóraś", "Michal Skoras"));
+    }
+
+    [Fact]
+    public void CompareNames_MiddleEastScriptVariants_ReturnOne()
+    {
+        Assert.Equal(1.0, StringMatching.CompareNames("ياسين", "یاسين"));
+        Assert.Equal(1.0, StringMatching.CompareNames("كريم", "کريم"));
     }
 
     [Fact]

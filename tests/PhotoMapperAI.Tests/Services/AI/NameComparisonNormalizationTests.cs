@@ -103,4 +103,25 @@ public class NameComparisonNormalizationTests
         Assert.NotNull(polishAsciiTokens);
         Assert.Equal(polishTokens, polishAsciiTokens);
     }
+
+    [Fact]
+    public void NormalizeWorldCompetitionCharacters_NormalizesAsianMiddleDotsAndFullWidthForms()
+    {
+        var normalized = NameComparisonPromptBuilder.NormalizeWorldCompetitionCharacters("Ｍｉｎａ・Ｔａｎａｋａ");
+        Assert.Equal("Mina Tanaka", normalized);
+    }
+
+    [Fact]
+    public void NormalizeWorldCompetitionCharacters_NormalizesAfricanLatinExtensions()
+    {
+        var normalized = NameComparisonPromptBuilder.NormalizeWorldCompetitionCharacters("Ɔsei Ŋkrumah");
+        Assert.Equal("Osei Ngkrumah", normalized);
+    }
+
+    [Fact]
+    public void NormalizeWorldCompetitionCharacters_NormalizesMiddleEastVariants()
+    {
+        var normalized = NameComparisonPromptBuilder.NormalizeWorldCompetitionCharacters("یاسين ۱۲۳ كريم");
+        Assert.Equal("ياسين 123 كريم", normalized);
+    }
 }

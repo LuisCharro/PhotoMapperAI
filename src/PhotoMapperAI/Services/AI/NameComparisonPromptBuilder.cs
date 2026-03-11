@@ -304,6 +304,144 @@ Return exactly one result per comparison with the same index provided in the inp
         return result.ToString();
     }
 
+    /// <summary>
+    /// Central world-competition normalization pipeline for AI token preparation.
+    /// Keep this aligned with StringMatching so deterministic and AI-assisted matching use the same script buckets.
+    /// </summary>
+    public static string NormalizeWorldCompetitionCharacters(string input)
+    {
+        var result = input;
+
+        result = NormalizeEuropeanCharacters(result);
+        result = NormalizeAsianCharacters(result);
+        result = NormalizeAfricanCharacters(result);
+        result = NormalizeMiddleEastCharacters(result);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Placeholder for future Asian-script normalization and transliteration.
+    /// Intended for CJK, Hangul, kana/romaji variants, and similar competition datasets.
+    /// </summary>
+    public static string NormalizeAsianCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var normalized = input.Normalize(NormalizationForm.FormKC);
+        var result = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            result.Append(c switch
+            {
+                '\u3000' => ' ',
+                '\u30FB' => ' ',
+                '\uFF65' => ' ',
+                '\u00B7' => ' ',
+                '\u0387' => ' ',
+                '\u200B' => '\0',
+                '\u200C' => '\0',
+                '\u200D' => '\0',
+                '\uFEFF' => '\0',
+                _ => c
+            });
+        }
+
+        return result.ToString().Replace("\0", string.Empty);
+    }
+
+    /// <summary>
+    /// Placeholder for future African-language normalization.
+    /// Intended for additional Latin variants, digraphs, and region-specific transliteration rules.
+    /// </summary>
+    public static string NormalizeAfricanCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = new StringBuilder(input.Length);
+        foreach (var c in input)
+        {
+            result.Append(c switch
+            {
+                'ɛ' => "e",
+                'Ɛ' => "E",
+                'ɔ' => "o",
+                'Ɔ' => "O",
+                'ə' => "e",
+                'Ə' => "E",
+                'ɓ' => "b",
+                'Ɓ' => "B",
+                'ɗ' => "d",
+                'Ɗ' => "D",
+                'ŋ' => "ng",
+                'Ŋ' => "Ng",
+                _ => c.ToString()
+            });
+        }
+
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Placeholder for future Middle Eastern script normalization and transliteration.
+    /// Intended for Arabic, Hebrew, Persian, and competition-specific Latin renderings.
+    /// </summary>
+    public static string NormalizeMiddleEastCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = new StringBuilder(input.Length);
+        foreach (var c in input)
+        {
+            result.Append(c switch
+            {
+                '\u0640' => "",
+                '\u200B' => "",
+                '\u200C' => "",
+                '\u200D' => "",
+                '\u200E' => "",
+                '\u200F' => "",
+                '\u061C' => "",
+                'أ' => "ا",
+                'إ' => "ا",
+                'آ' => "ا",
+                'ٱ' => "ا",
+                'ى' => "ي",
+                'ی' => "ي",
+                'ئ' => "ي",
+                'ک' => "ك",
+                'ة' => "ه",
+                '٠' => "0",
+                '١' => "1",
+                '٢' => "2",
+                '٣' => "3",
+                '٤' => "4",
+                '٥' => "5",
+                '٦' => "6",
+                '٧' => "7",
+                '٨' => "8",
+                '٩' => "9",
+                '۰' => "0",
+                '۱' => "1",
+                '۲' => "2",
+                '۳' => "3",
+                '۴' => "4",
+                '۵' => "5",
+                '۶' => "6",
+                '۷' => "7",
+                '۸' => "8",
+                '۹' => "9",
+                _ => c.ToString()
+            });
+        }
+
+        return result.ToString();
+    }
+
     private static string NormalizeEuropeanChar(char c)
     {
         return c switch
@@ -362,11 +500,11 @@ Return exactly one result per comparison with the same index provided in the inp
         if (string.IsNullOrWhiteSpace(raw))
             return new List<string>();
 
-        // First normalize European characters (German, Scandinavian, French variants)
-        var europeanNormalized = NormalizeEuropeanCharacters(raw);
+        // First normalize script/region variants before ASCII folding.
+        var worldNormalized = NormalizeWorldCompetitionCharacters(raw);
 
         // Then fold to ASCII and lowercase
-        var folded = FoldToAsciiLower(europeanNormalized);
+        var folded = FoldToAsciiLower(worldNormalized);
         folded = folded
             .Replace('-', ' ')
             .Replace('\'', ' ')

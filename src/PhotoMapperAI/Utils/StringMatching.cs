@@ -131,16 +131,22 @@ public static class StringMatching
     /// </summary>
     private static string NormalizeCharacters(string input)
     {
+        return NormalizeWorldCompetitionCharacters(input);
+    }
+
+    /// <summary>
+    /// Central world-competition normalization pipeline.
+    /// Keep the ordering stable so future script-specific transliteration rules are predictable.
+    /// </summary>
+    private static string NormalizeWorldCompetitionCharacters(string input)
+    {
         var result = input;
-        
-        // Apply region-specific normalizations (add more as needed for world competitions)
+
         result = NormalizeEuropeanCharacters(result);
-        
-        // Future expansions:
-        // result = NormalizeAsianCharacters(result);    // CJK, Hangul, etc.
-        // result = NormalizeAfricanCharacters(result);  // African languages
-        // result = NormalizeMiddleEastCharacters(result); // Arabic, Hebrew, etc.
-        
+        result = NormalizeAsianCharacters(result);
+        result = NormalizeAfricanCharacters(result);
+        result = NormalizeMiddleEastCharacters(result);
+
         return result;
     }
 
@@ -158,6 +164,140 @@ public static class StringMatching
         {
             result.Append(NormalizeEuropeanChar(c));
         }
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Placeholder for future Asian-script normalization and transliteration.
+    /// Intended for CJK, Hangul, kana/romaji variants, and similar competition datasets.
+    /// </summary>
+    private static string NormalizeAsianCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var normalized = input.Normalize(NormalizationForm.FormKC);
+        var result = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            result.Append(c switch
+            {
+                '\u3000' => ' ', // Ideographic space
+                '\u30FB' => ' ', // Katakana middle dot
+                '\uFF65' => ' ', // Halfwidth katakana middle dot
+                '\u00B7' => ' ', // Middle dot
+                '\u0387' => ' ', // Greek ano teleia, sometimes used as separator
+                '\u200B' => '\0', // Zero width space
+                '\u200C' => '\0', // Zero width non-joiner
+                '\u200D' => '\0', // Zero width joiner
+                '\uFEFF' => '\0', // Zero width no-break space / BOM
+                _ => c
+            });
+        }
+
+        return result.ToString().Replace("\0", string.Empty);
+    }
+
+    /// <summary>
+    /// Placeholder for future African-language normalization.
+    /// Intended for additional Latin variants, digraphs, and region-specific transliteration rules.
+    /// </summary>
+    private static string NormalizeAfricanCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = new StringBuilder(input.Length);
+        foreach (var c in input)
+        {
+            result.Append(c switch
+            {
+                'ɛ' => "e",
+                'Ɛ' => "E",
+                'ɔ' => "o",
+                'Ɔ' => "O",
+                'ə' => "e",
+                'Ə' => "E",
+                'ɓ' => "b",
+                'Ɓ' => "B",
+                'ɗ' => "d",
+                'Ɗ' => "D",
+                'ŋ' => "ng",
+                'Ŋ' => "Ng",
+                _ => c.ToString()
+            });
+        }
+
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Placeholder for future Middle Eastern script normalization and transliteration.
+    /// Intended for Arabic, Hebrew, Persian, and competition-specific Latin renderings.
+    /// </summary>
+    private static string NormalizeMiddleEastCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = new StringBuilder(input.Length);
+        foreach (var c in input)
+        {
+            result.Append(c switch
+            {
+                // Strip Arabic shaping and directional helpers that should not affect matching.
+                '\u0640' => "", // Tatweel
+                '\u200B' => "",
+                '\u200C' => "",
+                '\u200D' => "",
+                '\u200E' => "",
+                '\u200F' => "",
+                '\u061C' => "",
+
+                // Unify alef variants.
+                'أ' => "ا",
+                'إ' => "ا",
+                'آ' => "ا",
+                'ٱ' => "ا",
+
+                // Unify yeh / alef maqsura variants.
+                'ى' => "ي",
+                'ی' => "ي",
+                'ئ' => "ي",
+
+                // Unify kaf variants.
+                'ک' => "ك",
+
+                // Normalize ta marbuta into heh for comparison.
+                'ة' => "ه",
+
+                // Arabic and Eastern Arabic-Indic digits to ASCII.
+                '٠' => "0",
+                '١' => "1",
+                '٢' => "2",
+                '٣' => "3",
+                '٤' => "4",
+                '٥' => "5",
+                '٦' => "6",
+                '٧' => "7",
+                '٨' => "8",
+                '٩' => "9",
+                '۰' => "0",
+                '۱' => "1",
+                '۲' => "2",
+                '۳' => "3",
+                '۴' => "4",
+                '۵' => "5",
+                '۶' => "6",
+                '۷' => "7",
+                '۸' => "8",
+                '۹' => "9",
+
+                _ => c.ToString()
+            });
+        }
+
         return result.ToString();
     }
 
