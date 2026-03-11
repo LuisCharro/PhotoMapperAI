@@ -60,6 +60,13 @@ public class FaceDetectionCache
                 return null;
             }
 
+            if (!IsReusableLandmarks(entry.Landmarks, model))
+            {
+                _cache.Remove(key);
+                _modified = true;
+                return null;
+            }
+
             // Check if cache entry is still valid (file not modified)
             if (entry.FileSize != fileInfo.Length || entry.LastModified != fileInfo.LastWriteTimeUtc)
             {
@@ -82,6 +89,18 @@ public class FaceDetectionCache
     {
         lock (_lock)
         {
+            var key = GetCacheKey(imagePath, model);
+
+            if (!IsReusableLandmarks(landmarks, model))
+            {
+                if (_cache.Remove(key))
+                {
+                    _modified = true;
+                }
+
+                return;
+            }
+
             var fileInfo = new FileInfo(imagePath);
 
             var entry = new CacheEntry
@@ -93,7 +112,6 @@ public class FaceDetectionCache
                 Model = model
             };
 
-            var key = GetCacheKey(imagePath, model);
             _cache[key] = entry;
             _modified = true;
         }
@@ -176,6 +194,39 @@ public class FaceDetectionCache
         return $"{Path.GetFullPath(imagePath).ToLowerInvariant()}|{model.ToLowerInvariant()}";
     }
 
+    private static bool IsReusableLandmarks(FaceLandmarks? landmarks, string model)
+    {
+        if (landmarks == null)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(landmarks.ModelUsed) &&
+            !string.Equals(landmarks.ModelUsed, model, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (landmarks.Metadata == null || landmarks.Metadata.Count == 0)
+        {
+            return true;
+        }
+
+        if (landmarks.Metadata.TryGetValue("error", out var error) &&
+            !string.IsNullOrWhiteSpace(error))
+        {
+            return false;
+        }
+
+        if (landmarks.Metadata.TryGetValue("exception", out var exception) &&
+            !string.IsNullOrWhiteSpace(exception))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// Loads cache from disk.
     /// </summary>
@@ -195,6 +246,12 @@ public class FaceDetectionCache
             {
                 foreach (var entry in entries)
                 {
+                    if (!IsReusableLandmarks(entry.Landmarks, entry.Model))
+                    {
+                        _modified = true;
+                        continue;
+                    }
+
                     var key = GetCacheKey(entry.ImagePath, entry.Model);
                     _cache[key] = entry;
                 }

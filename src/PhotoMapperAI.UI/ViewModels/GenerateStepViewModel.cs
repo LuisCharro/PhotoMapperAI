@@ -79,6 +79,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 {
     private const double PreviewMaxDisplayWidth = 240;
     private const double PreviewMaxDisplayHeight = 180;
+    private const int MinimumCropFrameDimension = 20;
     private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
     private CancellationTokenSource? _autoPreviewCts;
@@ -513,6 +514,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         preset.Width = PreviewCustomWidth;
         preset.Height = PreviewCustomHeight;
+        SortPreviewDimensionPresets();
 
         var settings = BuildCropOffsetSettingsSnapshot(SelectedCropOffsetPreset?.Name ?? "default");
         settings.ActivePreviewDimensionPresetName = presetName;
@@ -552,6 +554,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         };
 
         PreviewDimensionPresets.Add(newPreset);
+        SortPreviewDimensionPresets();
         SelectedPreviewDimensionPreset = newPreset;
         UseCustomPreviewDimensions = true;
         PreviewDimensionStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
@@ -560,10 +563,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     [RelayCommand]
     private void DecrementCustomWidth()
     {
-        if (PreviewCustomWidth > 50)
-        {
-            PreviewCustomWidth -= 10;
-        }
+        PreviewCustomWidth = Math.Max(MinimumCropFrameDimension, PreviewCustomWidth - 10);
     }
 
     [RelayCommand]
@@ -575,10 +575,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     [RelayCommand]
     private void DecrementCustomHeight()
     {
-        if (PreviewCustomHeight > 50)
-        {
-            PreviewCustomHeight -= 10;
-        }
+        PreviewCustomHeight = Math.Max(MinimumCropFrameDimension, PreviewCustomHeight - 10);
     }
 
     [RelayCommand]
@@ -608,7 +605,7 @@ public partial class GenerateStepViewModel : ViewModelBase
             return;
         }
 
-        var targetHeight = Math.Max(50, (int)Math.Round(width * GetOutputAspectHeightOverWidth()));
+        var targetHeight = Math.Max(MinimumCropFrameDimension, (int)Math.Round(width * GetOutputAspectHeightOverWidth()));
         if (targetHeight == PreviewCustomHeight)
         {
             return;
@@ -633,7 +630,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
 
         var aspect = GetOutputAspectWidthOverHeight();
-        var targetWidth = Math.Max(50, (int)Math.Round(height * aspect));
+        var targetWidth = Math.Max(MinimumCropFrameDimension, (int)Math.Round(height * aspect));
         if (targetWidth == PreviewCustomWidth)
         {
             return;
@@ -758,8 +755,8 @@ public partial class GenerateStepViewModel : ViewModelBase
             }
 
             var wantsAllSizes = AllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+            var wantsCustomDimensions = UseCustomPreviewDimensions;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
 
@@ -774,8 +771,15 @@ public partial class GenerateStepViewModel : ViewModelBase
                 var (variantWidth, variantHeight, variantPlaceholder) = ResolvePreviewVariant();
                 previewWidth = variantWidth;
                 previewHeight = variantHeight;
+                if (wantsCustomDimensions)
+                {
+                    previewCropFrameWidth = PreviewCustomWidth;
+                    previewCropFrameHeight = PreviewCustomHeight;
+                }
                 placeholderPath = ignoreProfilePlaceholders ? null : variantPlaceholder;
-                LogDiagnostic($"Using size profile preview dimensions: {previewWidth}x{previewHeight}");
+                LogDiagnostic(previewCropFrameWidth.HasValue || previewCropFrameHeight.HasValue
+                    ? $"Using size profile preview dimensions: {previewWidth}x{previewHeight} with crop frame {previewCropFrameWidth ?? previewWidth}x{previewCropFrameHeight ?? previewHeight}"
+                    : $"Using size profile preview dimensions: {previewWidth}x{previewHeight}");
             }
             else
             {
@@ -1238,11 +1242,11 @@ public partial class GenerateStepViewModel : ViewModelBase
 
             // Determine mode:
             // - If AllSizes is checked -> use the full size profile.
-            // - If custom dimensions are enabled (and AllSizes is off) -> custom dimensions override the profile.
+            // - Custom crop frame is independent from output sizing and may still apply to profile variants.
             // - Otherwise use the selected size profile in single-variant mode.
             var wantsAllSizes = AllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+            var wantsCustomDimensions = UseCustomPreviewDimensions;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var allSizes = wantsAllSizes;
             var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
@@ -1482,6 +1486,8 @@ public partial class GenerateStepViewModel : ViewModelBase
             });
         }
 
+        SortPreviewDimensionPresets();
+
         var activeDimensions = settings.GetActivePreviewDimensionPreset();
         SelectedPreviewDimensionPreset = PreviewDimensionPresets.FirstOrDefault(p =>
             string.Equals(p.Name, activeDimensions.Name, StringComparison.OrdinalIgnoreCase))
@@ -1517,6 +1523,22 @@ public partial class GenerateStepViewModel : ViewModelBase
                 })
                 .ToList()
         };
+    }
+
+    private void SortPreviewDimensionPresets()
+    {
+        var ordered = PreviewDimensionPresets
+            .OrderBy(p => p.Width * p.Height)
+            .ThenBy(p => p.Width)
+            .ThenBy(p => p.Height)
+            .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        PreviewDimensionPresets.Clear();
+        foreach (var preset in ordered)
+        {
+            PreviewDimensionPresets.Add(preset);
+        }
     }
 
     private CropOffsetPreset BuildCurrentCropOffsetPreset()

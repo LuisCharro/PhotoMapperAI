@@ -15,8 +15,12 @@ public class ImageProcessor : IImageProcessor
     private const int DefaultPortraitWidth = 200;
     private const int DefaultPortraitHeight = 300;
     private const double EyeLinePercentFromTop = 0.35;
-    private const double TargetFaceWidthPercent = 0.40;
-    private const double TargetFaceHeightPercent = 0.28;
+    // Keep the default portrait framing looser so already-close source photos
+    // preserve hair, ears, and a bit of chest instead of collapsing into a head crop.
+    private const double TargetFaceWidthPercent = 0.32;
+    private const double TargetFaceHeightPercent = 0.22;
+    private const double MinimumVisibleFaceWidthMultiplier = 1.05;
+    private const double MinimumVisibleFaceHeightMultiplier = 1.05;
 
     public string Name => "ImageSharp";
 
@@ -413,11 +417,13 @@ public class ImageProcessor : IImageProcessor
         double widthScale,
         double heightScale)
     {
-        var minWidth = Math.Max(1, (int)Math.Ceiling(faceRect.Width / TargetFaceWidthPercent));
-        var minHeight = Math.Max(1, (int)Math.Ceiling(faceRect.Height / TargetFaceHeightPercent));
+        var minWidth = Math.Max(1, (int)Math.Ceiling(faceRect.Width * MinimumVisibleFaceWidthMultiplier));
+        var minHeight = Math.Max(1, (int)Math.Ceiling(faceRect.Height * MinimumVisibleFaceHeightMultiplier));
+        var baseMinWidth = Math.Max(1, (int)Math.Ceiling(faceRect.Width / TargetFaceWidthPercent));
+        var baseMinHeight = Math.Max(1, (int)Math.Ceiling(faceRect.Height / TargetFaceHeightPercent));
 
-        var baseCropHeight = Math.Max(minHeight, (int)Math.Ceiling(minWidth / referenceAspectRatio));
-        var baseCropWidth = Math.Max(minWidth, (int)Math.Round(baseCropHeight * referenceAspectRatio));
+        var baseCropHeight = Math.Max(baseMinHeight, (int)Math.Ceiling(baseMinWidth / referenceAspectRatio));
+        var baseCropWidth = Math.Max(baseMinWidth, (int)Math.Round(baseCropHeight * referenceAspectRatio));
         var cropWidth = Math.Max(minWidth, (int)Math.Round(baseCropWidth * widthScale));
         var cropHeight = Math.Max(minHeight, (int)Math.Round(baseCropHeight * heightScale));
 

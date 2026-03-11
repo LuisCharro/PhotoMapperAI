@@ -28,6 +28,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
 {
     private const double PreviewMaxDisplayWidth = 240;
     private const double PreviewMaxDisplayHeight = 180;
+    private const int MinimumCropFrameDimension = 20;
     private const double MinConfidenceThreshold = 0.65;
     private readonly DatabaseExtractor _databaseExtractor;
     private readonly ExternalMapCliRunner _mapRunner;
@@ -586,8 +587,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
             }
 
             var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+            var wantsCustomDimensions = UseCustomPreviewDimensions;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
 
             var (previewWidth, previewHeight) = ResolvePreviewDimensions();
@@ -743,6 +744,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
         preset.Width = PreviewCustomWidth;
         preset.Height = PreviewCustomHeight;
+        SortPreviewDimensionPresets();
 
         var settings = BuildCropOffsetSettingsSnapshot(SelectedCropOffsetPreset?.Name ?? "default");
         settings.ActivePreviewDimensionPresetName = presetName;
@@ -781,6 +783,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         };
 
         PreviewDimensionPresets.Add(newPreset);
+        SortPreviewDimensionPresets();
         SelectedPreviewDimensionPreset = newPreset;
         UseCustomPreviewDimensions = true;
         PreviewDimensionStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
@@ -789,10 +792,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [RelayCommand]
     private void DecrementCustomWidth()
     {
-        if (PreviewCustomWidth > 50)
-        {
-            PreviewCustomWidth -= 10;
-        }
+        PreviewCustomWidth = Math.Max(MinimumCropFrameDimension, PreviewCustomWidth - 10);
     }
 
     [RelayCommand]
@@ -804,10 +804,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [RelayCommand]
     private void DecrementCustomHeight()
     {
-        if (PreviewCustomHeight > 50)
-        {
-            PreviewCustomHeight -= 10;
-        }
+        PreviewCustomHeight = Math.Max(MinimumCropFrameDimension, PreviewCustomHeight - 10);
     }
 
     [RelayCommand]
@@ -1591,8 +1588,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
             } // End of map skip block
 
             var wantsAllSizes = GenerateAllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+            var wantsCustomDimensions = UseCustomPreviewDimensions;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var allSizes = wantsAllSizes;
             var generationOutputDir = useSizeProfile
@@ -1835,7 +1832,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             return;
         }
 
-        var targetHeight = Math.Max(50, (int)Math.Round(width * GetOutputAspectHeightOverWidth()));
+        var targetHeight = Math.Max(MinimumCropFrameDimension, (int)Math.Round(width * GetOutputAspectHeightOverWidth()));
         if (targetHeight == PreviewCustomHeight)
         {
             return;
@@ -1859,7 +1856,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             return;
         }
 
-        var targetWidth = Math.Max(50, (int)Math.Round(height * GetOutputAspectWidthOverHeight()));
+        var targetWidth = Math.Max(MinimumCropFrameDimension, (int)Math.Round(height * GetOutputAspectWidthOverHeight()));
         if (targetWidth == PreviewCustomWidth)
         {
             return;
@@ -2153,7 +2150,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
         if (downloadOpenCvModels)
             args.Add("-downloadOpenCvModels");
 
-        return string.Join(" ", args);
+        return $"external generatephotos (equivalent CLI: dotnet run --project src/PhotoMapperAI -- generatephotos {string.Join(" ", args.Skip(1))})";
     }
 
     [RelayCommand]
@@ -2948,10 +2945,28 @@ public partial class BatchAutomationViewModel : ViewModelBase
             });
         }
 
+        SortPreviewDimensionPresets();
+
         var activeDimensions = settings.GetActivePreviewDimensionPreset();
         SelectedPreviewDimensionPreset = PreviewDimensionPresets.FirstOrDefault(p =>
             string.Equals(p.Name, activeDimensions.Name, StringComparison.OrdinalIgnoreCase))
             ?? PreviewDimensionPresets[0];
+    }
+
+    private void SortPreviewDimensionPresets()
+    {
+        var ordered = PreviewDimensionPresets
+            .OrderBy(p => p.Width * p.Height)
+            .ThenBy(p => p.Width)
+            .ThenBy(p => p.Height)
+            .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        PreviewDimensionPresets.Clear();
+        foreach (var preset in ordered)
+        {
+            PreviewDimensionPresets.Add(preset);
+        }
     }
 
     private void LoadFilenamePatternPresets()
