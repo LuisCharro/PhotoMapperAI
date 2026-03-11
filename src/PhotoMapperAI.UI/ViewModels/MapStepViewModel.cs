@@ -335,7 +335,15 @@ public partial class MapStepViewModel : ViewModelBase
             if (IsPaidModel(effectiveNameModel))
             {
                 usedApiKey = string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey;
-                AppendLog($"  - API Key: {(usedApiKey != null ? "✓ Provided" : "✗ Missing")}");
+                var envVarName = GetProviderEnvVar(effectiveNameModel);
+                var hasEnvKey = !string.IsNullOrWhiteSpace(envVarName) &&
+                                !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envVarName));
+                var apiKeyStatus = usedApiKey != null
+                    ? "✓ Provided in GUI"
+                    : hasEnvKey
+                        ? $"✓ Available via {envVarName}"
+                        : "✗ Missing";
+                AppendLog($"  - API Key: {apiKeyStatus}");
             }
             AppendLog("");
 

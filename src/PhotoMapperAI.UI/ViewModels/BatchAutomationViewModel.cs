@@ -1473,9 +1473,17 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     AppendLog($"[MAP] {team.TeamName}:   - Confidence Threshold: {NameMatchingThreshold:F2}");
                     
                     // Unified API key check for logging
-                    var hasApiKey = !string.IsNullOrWhiteSpace(ApiKey);
                     string providerName = GetProviderName(effectiveNameModel);
-                    AppendLog($"[MAP] {team.TeamName}:   - {providerName} API Key: {(hasApiKey ? "✓ Provided" : "✗ Missing")}");
+                    string envVarName = GetProviderEnvVar(effectiveNameModel);
+                    var hasGuiKey = !string.IsNullOrWhiteSpace(ApiKey);
+                    var hasEnvKey = !string.IsNullOrWhiteSpace(envVarName) &&
+                                    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(envVarName));
+                    var apiKeyStatus = hasGuiKey
+                        ? "✓ Provided in GUI"
+                        : hasEnvKey
+                            ? $"✓ Available via {envVarName}"
+                            : "✗ Missing";
+                    AppendLog($"[MAP] {team.TeamName}:   - {providerName} API Key: {apiKeyStatus}");
 
                     var preflight = await PreflightChecker.CheckMapAsync(
                         UseAiMapping,
