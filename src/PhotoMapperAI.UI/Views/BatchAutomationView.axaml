@@ -284,7 +284,7 @@
 
         <!-- STEP 4: Team List -->
         <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
-          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
             <!-- Header -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
               <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
@@ -329,22 +329,28 @@
               <Button Content="Deselect All" 
                       Command="{Binding DeselectAllTeamsCommand}"
                       Padding="8,4" FontSize="10"/>
-              <Button Content="Manual Map Selected Team"
+              <Button Content="{Binding ManualMappingButtonText}"
                       Click="OpenManualMapping_Click"
                       Padding="8,4" FontSize="10"
-                      IsEnabled="{Binding SelectedTeam, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                      IsEnabled="{Binding CanOpenSelectedTeamManualMapping}"/>
             </StackPanel>
 
-            <!-- Team Count Display -->
             <TextBlock Grid.Row="3" Text="{Binding Teams.Count, StringFormat='Teams count: {0}'}" 
                        FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,4"/>
 
+            <TextBlock Grid.Row="4"
+                       Text="Selected team has unmapped players. Use Manual Fix Unmapped to write corrections back to the mapped CSV."
+                       FontSize="10"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       Margin="0,0,0,4"
+                       IsVisible="{Binding HasSelectedTeamWithUnmappedPlayers}"/>
+
             <!-- Simple test to verify binding works -->
-            <TextBlock Grid.Row="4" Text="Team List:" FontSize="11" FontWeight="Bold" 
+            <TextBlock Grid.Row="5" Text="Team List:" FontSize="11" FontWeight="Bold" 
                        Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,4"/>
 
             <!-- DataGrid with explicit binding -->
-            <DataGrid Grid.Row="5"
+            <DataGrid Grid.Row="6"
                       ItemsSource="{Binding Teams}"
                       SelectedItem="{Binding SelectedTeam, Mode=TwoWay}"
                       AutoGenerateColumns="False"

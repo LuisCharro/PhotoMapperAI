@@ -20,7 +20,7 @@
                  FontSize="20"
                  FontWeight="Bold"
                  Foreground="{DynamicResource PrimaryBrush}"/>
-      <TextBlock Text="Click one unmapped player, then click one unused photo. That queues a manual mapping. Save writes the mapped CSV."
+      <TextBlock Text="Click one unmapped player, then click one unused photo. Review the preview, then click Add Mapping to queue it. Save writes the mapped CSV."
                  FontSize="12"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource SecondaryTextBrush}"/>
@@ -82,10 +82,27 @@
 
       <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
         <StackPanel Spacing="8">
-          <TextBlock Text="Selected Photo Preview"
+          <TextBlock Text="Review Selected Mapping"
                      FontSize="13"
                      FontWeight="SemiBold"
                      Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+          <Border Background="{DynamicResource CardBrush}" CornerRadius="8" Padding="10">
+            <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto" RowSpacing="4">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Player:" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedPlayer.FullName}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Player ID:" Foreground="{DynamicResource SecondaryTextBrush}"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedPlayer.PlayerId}" TextWrapping="Wrap"/>
+            </Grid>
+          </Border>
+
+          <Button Content="Approve Mapping"
+                  Command="{Binding QueueSelectedAssignmentCommand}"
+                  IsEnabled="{Binding CanQueueSelectedAssignment}"
+                  Padding="12,6"
+                  HorizontalAlignment="Left"
+                  Background="{DynamicResource PrimaryBrush}"
+                  Foreground="{DynamicResource HeaderTextBrush}"/>
 
           <Border Background="{DynamicResource CardBrush}" CornerRadius="8" Padding="6" MinHeight="320">
             <Image Source="{Binding SelectedPhotoPreview}"

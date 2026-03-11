@@ -74,6 +74,7 @@ public partial class ManualPhotoMappingDialogViewModel : ObservableObject
     public int UnmappedCount => UnmappedPlayers.Count;
     public int AvailablePhotoCount => AvailablePhotos.Count;
     public bool HasPendingAssignments => PendingAssignments.Count > 0;
+    public bool CanQueueSelectedAssignment => !_isApplyingSelection && SelectedPlayer != null && SelectedPhoto != null;
     public string CsvPath => _mappedCsvPath;
     public string PhotosDirectory => _photosDirectory;
 
@@ -149,13 +150,15 @@ public partial class ManualPhotoMappingDialogViewModel : ObservableObject
 
     partial void OnSelectedPlayerChanged(ManualMappingPlayerItem? value)
     {
-        TryCreateAssignmentFromSelection();
+        OnPropertyChanged(nameof(CanQueueSelectedAssignment));
+        QueueSelectedAssignmentCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedPhotoChanged(ManualMappingPhotoItem? value)
     {
         LoadSelectedPhotoPreview(value);
-        TryCreateAssignmentFromSelection();
+        OnPropertyChanged(nameof(CanQueueSelectedAssignment));
+        QueueSelectedAssignmentCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -170,6 +173,13 @@ public partial class ManualPhotoMappingDialogViewModel : ObservableObject
         InsertSorted(UnmappedPlayers, assignment.Player, static p => $"{p.FamilyName}|{p.SurName}|{p.PlayerId}");
         InsertSorted(AvailablePhotos, assignment.Photo, static p => $"{p.FileName}|{p.External_Player_ID}");
         StatusMessage = $"Removed queued mapping for {assignment.Player.FullName}.";
+        OnPropertyChanged(nameof(CanQueueSelectedAssignment));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanQueueSelectedAssignment))]
+    private void QueueSelectedAssignment()
+    {
+        TryCreateAssignmentFromSelection();
     }
 
     public async Task<bool> SaveChangesAsync()
@@ -227,20 +237,27 @@ public partial class ManualPhotoMappingDialogViewModel : ObservableObject
             return;
         }
 
+        var selectedPlayer = SelectedPlayer;
+        var selectedPhoto = SelectedPhoto;
+        if (selectedPlayer == null || selectedPhoto == null)
+        {
+            return;
+        }
+
         try
         {
             _isApplyingSelection = true;
 
             var assignment = new ManualMappingAssignmentItem
             {
-                Player = SelectedPlayer,
-                Photo = SelectedPhoto
+                Player = selectedPlayer,
+                Photo = selectedPhoto
             };
 
             PendingAssignments.Add(assignment);
-            UnmappedPlayers.Remove(SelectedPlayer);
-            AvailablePhotos.Remove(SelectedPhoto);
-            StatusMessage = $"Queued {SelectedPlayer.FullName} -> {SelectedPhoto.External_Player_ID}.";
+            UnmappedPlayers.Remove(selectedPlayer);
+            AvailablePhotos.Remove(selectedPhoto);
+            StatusMessage = $"Queued {selectedPlayer.FullName} -> {selectedPhoto.External_Player_ID}.";
 
             SelectedPlayer = null;
             SelectedPhoto = null;
@@ -249,6 +266,8 @@ public partial class ManualPhotoMappingDialogViewModel : ObservableObject
         finally
         {
             _isApplyingSelection = false;
+            OnPropertyChanged(nameof(CanQueueSelectedAssignment));
+            QueueSelectedAssignmentCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -318,6 +337,8 @@ public partial class ManualPhotoMappingDialogViewModel : ObservableObject
         OnPropertyChanged(nameof(UnmappedCount));
         OnPropertyChanged(nameof(AvailablePhotoCount));
         OnPropertyChanged(nameof(HasPendingAssignments));
+        OnPropertyChanged(nameof(CanQueueSelectedAssignment));
+        QueueSelectedAssignmentCommand.NotifyCanExecuteChanged();
     }
 }
 

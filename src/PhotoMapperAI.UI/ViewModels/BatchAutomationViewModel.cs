@@ -362,6 +362,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
     public ObservableCollection<string> LogLines { get; } = new();
 
     public bool CanStart => !IsProcessing && Teams.Count > 0;
+    public bool HasSelectedTeamWithUnmappedPlayers => GetSelectedTeamUnmappedCount() > 0;
+    public bool CanOpenSelectedTeamManualMapping => !IsProcessing && SelectedTeam != null;
+    public string ManualMappingButtonText => HasSelectedTeamWithUnmappedPlayers
+        ? "Manual Fix Unmapped"
+        : "Manual Map Selected Team";
 
     public bool CanRenameMissingPhotoFolder =>
         !IsProcessing &&
@@ -2035,13 +2040,24 @@ public partial class BatchAutomationViewModel : ViewModelBase
         {
             team.Status = status;
             team.StatusMessage = message;
+            if (ReferenceEquals(team, SelectedTeam))
+            {
+                NotifySelectedTeamManualMappingStateChanged();
+            }
             UpdateErrorSummary();
         });
     }
     
     private void UpdateTeamProperty(BatchTeamItem team, Action<BatchTeamItem> updateAction)
     {
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => updateAction(team));
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            updateAction(team);
+            if (ReferenceEquals(team, SelectedTeam))
+            {
+                NotifySelectedTeamManualMappingStateChanged();
+            }
+        });
     }
 
     private void AppendLog(string message)
@@ -2239,6 +2255,28 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     private static int GetUnmappedCount(int playersExtracted, int playersMapped)
         => Math.Max(0, playersExtracted - playersMapped);
+
+    private int GetSelectedTeamUnmappedCount()
+    {
+        if (SelectedTeam == null)
+        {
+            return 0;
+        }
+
+        if (SelectedTeam.UnmappedPlayerNames.Count > 0)
+        {
+            return SelectedTeam.UnmappedPlayerNames.Count;
+        }
+
+        return GetUnmappedCount(SelectedTeam.PlayersExtracted, SelectedTeam.PlayersMapped);
+    }
+
+    private void NotifySelectedTeamManualMappingStateChanged()
+    {
+        OnPropertyChanged(nameof(HasSelectedTeamWithUnmappedPlayers));
+        OnPropertyChanged(nameof(CanOpenSelectedTeamManualMapping));
+        OnPropertyChanged(nameof(ManualMappingButtonText));
+    }
 
     private void UpdateErrorSummary()
     {
@@ -2859,6 +2897,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
     }
 
+    partial void OnSelectedTeamChanged(BatchTeamItem? value)
+    {
+        NotifySelectedTeamManualMappingStateChanged();
+    }
+
     partial void OnSelectedPhotoFolderChanged(string? value)
     {
         OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
@@ -2867,6 +2910,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
     partial void OnIsProcessingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanRenameMissingPhotoFolder));
+        OnPropertyChanged(nameof(CanStart));
+        NotifySelectedTeamManualMappingStateChanged();
     }
 
     private static int GetTierIndexForModel(string modelName)
