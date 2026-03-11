@@ -2015,20 +2015,25 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
     private async Task DebouncedAutoPreviewAsync(CancellationToken token)
     {
-        try
+        await Task.Delay(250);
+
+        if (token.IsCancellationRequested)
         {
-            await Task.Delay(250, token);
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            return;
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (token.IsCancellationRequested)
             {
-                if (GeneratePreviewCommand.CanExecute(null))
-                {
-                    GeneratePreviewCommand.Execute(null);
-                }
-            });
-        }
-        catch (OperationCanceledException)
-        {
-        }
+                return;
+            }
+
+            if (GeneratePreviewCommand.CanExecute(null))
+            {
+                GeneratePreviewCommand.Execute(null);
+            }
+        });
     }
 
     public void RequestAutoPreviewFromUi()
