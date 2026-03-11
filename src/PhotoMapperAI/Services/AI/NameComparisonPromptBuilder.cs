@@ -331,6 +331,18 @@ Return exactly one result per comparison with the same index provided in the inp
             'ð' => "d",
             'Ð' => "D",
 
+            // South Slavic latin letters
+            'đ' => "dj",
+            'Đ' => "Dj",
+
+            // Turkish
+            'ı' => "i",
+            'İ' => "I",
+
+            // Polish
+            'ł' => "l",
+            'Ł' => "L",
+
             // French
             'œ' => "oe",
             'Œ' => "Oe",
@@ -410,4 +422,3 @@ Return exactly one result per comparison with the same index provided in the inp
         return current;
     }
 }
-

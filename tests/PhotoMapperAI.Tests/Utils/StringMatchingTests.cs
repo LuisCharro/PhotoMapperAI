@@ -146,6 +146,20 @@ public class StringMatchingTests
         Assert.Equal("ana lopez", StringMatching.NormalizeName("Ana López"));
     }
 
+    [Fact]
+    public void NormalizeName_NormalizesSouthSlavicLatinLetters()
+    {
+        Assert.Equal("djordje petrovic", StringMatching.NormalizeName("Đorđe Petrović"));
+        Assert.Equal("djordje petrovic", StringMatching.NormalizeName("Djordje Petrovic"));
+    }
+
+    [Fact]
+    public void NormalizeName_NormalizesTurkishAndPolishLetters()
+    {
+        Assert.Equal("altay bayindir", StringMatching.NormalizeName("Altay Bayındır"));
+        Assert.Equal("michal skoras", StringMatching.NormalizeName("Michał Skóraś"));
+    }
+
     #endregion
 
     #region CompareNames Tests
@@ -169,6 +183,19 @@ public class StringMatchingTests
     {
         Assert.Equal(1.0, StringMatching.CompareNames("Juan Rodriguez", "Juan Rodríguez"));
         Assert.Equal(1.0, StringMatching.CompareNames("Martínez García", "Martinez Garcia"));
+    }
+
+    [Fact]
+    public void CompareNames_SouthSlavicLatinVariants_ReturnsOne()
+    {
+        Assert.Equal(1.0, StringMatching.CompareNames("Đorđe Petrović", "Djordje Petrovic"));
+    }
+
+    [Fact]
+    public void CompareNames_TurkishAndPolishVariants_ReturnOne()
+    {
+        Assert.Equal(1.0, StringMatching.CompareNames("Altay Bayındır", "Altay Bayindir"));
+        Assert.Equal(1.0, StringMatching.CompareNames("Michał Skóraś", "Michal Skoras"));
     }
 
     [Fact]

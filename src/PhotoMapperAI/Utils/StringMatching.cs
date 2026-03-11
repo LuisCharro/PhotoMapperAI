@@ -188,6 +188,18 @@ public static class StringMatching
             'å' => "aa",
             'Å' => "Aa",
 
+            // South Slavic latin letters
+            'đ' => "dj",
+            'Đ' => "Dj",
+
+            // Turkish
+            'ı' => "i",
+            'İ' => "I",
+
+            // Polish
+            'ł' => "l",
+            'Ł' => "L",
+
             // French special characters
             'œ' => "oe",
             'Œ' => "Oe",

@@ -69,4 +69,38 @@ public class NameComparisonNormalizationTests
         Assert.Single(fullNameTokens);
         Assert.Equal(fullNameTokens[0], nicknameTokens[0]);
     }
+
+    [Fact]
+    public void ToCoreTokens_NormalizesSouthSlavicLatinLetters()
+    {
+        var method = typeof(NameComparisonPromptBuilder).GetMethod("ToCoreTokens",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        var tokens1 = (System.Collections.Generic.List<string>?)method?.Invoke(null, new object[] { "Đorđe Petrović" });
+        var tokens2 = (System.Collections.Generic.List<string>?)method?.Invoke(null, new object[] { "Djordje Petrovic" });
+
+        Assert.NotNull(tokens1);
+        Assert.NotNull(tokens2);
+        Assert.Equal(tokens1, tokens2);
+    }
+
+    [Fact]
+    public void ToCoreTokens_NormalizesTurkishAndPolishLetters()
+    {
+        var method = typeof(NameComparisonPromptBuilder).GetMethod("ToCoreTokens",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        var turkishTokens = (System.Collections.Generic.List<string>?)method?.Invoke(null, new object[] { "Altay Bayındır" });
+        var turkishAsciiTokens = (System.Collections.Generic.List<string>?)method?.Invoke(null, new object[] { "Altay Bayindir" });
+        var polishTokens = (System.Collections.Generic.List<string>?)method?.Invoke(null, new object[] { "Michał Skóraś" });
+        var polishAsciiTokens = (System.Collections.Generic.List<string>?)method?.Invoke(null, new object[] { "Michal Skoras" });
+
+        Assert.NotNull(turkishTokens);
+        Assert.NotNull(turkishAsciiTokens);
+        Assert.Equal(turkishTokens, turkishAsciiTokens);
+
+        Assert.NotNull(polishTokens);
+        Assert.NotNull(polishAsciiTokens);
+        Assert.Equal(polishTokens, polishAsciiTokens);
+    }
 }
