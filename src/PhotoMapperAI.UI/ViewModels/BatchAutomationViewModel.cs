@@ -2612,6 +2612,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
         foreach (var model in merged)
         {
+            if (ShouldExcludeNameModel(model))
+            {
+                continue;
+            }
+
             if (IsPaidModel(model))
             {
                 paid.Add(model);
@@ -2693,6 +2698,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
         => !string.IsNullOrWhiteSpace(modelName) &&
            (modelName.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase) ||
             modelName.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase));
+
+    private static bool ShouldExcludeNameModel(string modelName)
+        => !string.IsNullOrWhiteSpace(modelName) &&
+           modelName.Contains("embed", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsFreeTierModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
