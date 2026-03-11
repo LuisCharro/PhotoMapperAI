@@ -15,6 +15,10 @@ public class ImageProcessor : IImageProcessor
     private const int DefaultPortraitWidth = 200;
     private const int DefaultPortraitHeight = 300;
     private const double EyeLinePercentFromTop = 0.35;
+    private const double FaceCenterPercentFromTop = 0.41;
+    private const double EyeAnchorWeight = 0.45;
+    private const double EstimatedFaceWidthPerEyeDistance = 2.15;
+    private const double EstimatedFaceHeightPerEyeDistance = 3.70;
     // Keep the default portrait framing looser so already-close source photos
     // preserve hair, ears, and a bit of chest instead of collapsing into a head crop.
     private const double TargetFaceWidthPercent = 0.32;
@@ -289,8 +293,9 @@ public class ImageProcessor : IImageProcessor
         if (landmarks.BothEyesDetected && landmarks.EyeMidpoint != null && landmarks.FaceRect != null)
         {
             var faceRect = landmarks.FaceRect;
+            var eyeDistance = CalculateEyeDistance(landmarks.LeftEye!, landmarks.RightEye!);
 
-            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, referenceAspectRatio, widthScale, heightScale);
+            (cropWidth, cropHeight) = CalculateFaceBasedCropSize(faceRect, referenceAspectRatio, widthScale, heightScale, eyeDistance);
             centerX = landmarks.EyeMidpoint.X;
             eyeY = landmarks.EyeMidpoint.Y;
         }
@@ -375,8 +380,9 @@ public class ImageProcessor : IImageProcessor
         // Keep more headroom so top hair is not cut (closer to legacy framing).
         var cropX = centerX - (cropWidth / 2);
 
-        // Keep the eye line in the upper third of the portrait for consistent legacy-style framing.
-        var cropY = eyeY - (int)Math.Round(cropHeight * EyeLinePercentFromTop);
+        // Keep the eye line stable, but blend with face-center anchoring so players
+        // from slightly different source compositions keep a more uniform apparent scale.
+        var cropY = CalculateCropTop(eyeY, cropHeight, landmarks.FaceRect);
         
         // Ensure crop stays within image bounds
         cropX = Math.Max(0, Math.Min(cropX, imageWidth - cropWidth));
@@ -415,12 +421,24 @@ public class ImageProcessor : IImageProcessor
         PhotoMapperAI.Models.Rectangle faceRect,
         double referenceAspectRatio,
         double widthScale,
-        double heightScale)
+        double heightScale,
+        double? eyeDistance = null)
     {
-        var minWidth = Math.Max(1, (int)Math.Ceiling(faceRect.Width * MinimumVisibleFaceWidthMultiplier));
-        var minHeight = Math.Max(1, (int)Math.Ceiling(faceRect.Height * MinimumVisibleFaceHeightMultiplier));
-        var baseMinWidth = Math.Max(1, (int)Math.Ceiling(faceRect.Width / TargetFaceWidthPercent));
-        var baseMinHeight = Math.Max(1, (int)Math.Ceiling(faceRect.Height / TargetFaceHeightPercent));
+        var effectiveFaceWidth = (double)faceRect.Width;
+        var effectiveFaceHeight = (double)faceRect.Height;
+
+        if (eyeDistance.HasValue && eyeDistance.Value > 0)
+        {
+            var estimatedFaceWidth = eyeDistance.Value * EstimatedFaceWidthPerEyeDistance;
+            var estimatedFaceHeight = eyeDistance.Value * EstimatedFaceHeightPerEyeDistance;
+            effectiveFaceWidth = (effectiveFaceWidth + estimatedFaceWidth) / 2.0;
+            effectiveFaceHeight = (effectiveFaceHeight + estimatedFaceHeight) / 2.0;
+        }
+
+        var minWidth = Math.Max(1, (int)Math.Ceiling(effectiveFaceWidth * MinimumVisibleFaceWidthMultiplier));
+        var minHeight = Math.Max(1, (int)Math.Ceiling(effectiveFaceHeight * MinimumVisibleFaceHeightMultiplier));
+        var baseMinWidth = Math.Max(1, (int)Math.Ceiling(effectiveFaceWidth / TargetFaceWidthPercent));
+        var baseMinHeight = Math.Max(1, (int)Math.Ceiling(effectiveFaceHeight / TargetFaceHeightPercent));
 
         var baseCropHeight = Math.Max(baseMinHeight, (int)Math.Ceiling(baseMinWidth / referenceAspectRatio));
         var baseCropWidth = Math.Max(baseMinWidth, (int)Math.Round(baseCropHeight * referenceAspectRatio));
@@ -428,6 +446,27 @@ public class ImageProcessor : IImageProcessor
         var cropHeight = Math.Max(minHeight, (int)Math.Round(baseCropHeight * heightScale));
 
         return (cropWidth, cropHeight);
+    }
+
+    private static int CalculateCropTop(int eyeY, int cropHeight, PhotoMapperAI.Models.Rectangle? faceRect)
+    {
+        var eyeAnchoredTop = eyeY - (int)Math.Round(cropHeight * EyeLinePercentFromTop);
+        if (faceRect == null)
+        {
+            return eyeAnchoredTop;
+        }
+
+        var faceCenterY = faceRect.Y + (faceRect.Height / 2.0);
+        var faceCenterAnchoredTop = (int)Math.Round(faceCenterY - (cropHeight * FaceCenterPercentFromTop));
+
+        return (int)Math.Round((eyeAnchoredTop * EyeAnchorWeight) + (faceCenterAnchoredTop * (1.0 - EyeAnchorWeight)));
+    }
+
+    private static double CalculateEyeDistance(PhotoMapperAI.Models.Point leftEye, PhotoMapperAI.Models.Point rightEye)
+    {
+        var dx = leftEye.X - rightEye.X;
+        var dy = leftEye.Y - rightEye.Y;
+        return Math.Sqrt((dx * dx) + (dy * dy));
     }
 
     #endregion
