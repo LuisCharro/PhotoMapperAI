@@ -637,6 +637,15 @@ public partial class MapStepViewModel : ViewModelBase
     private static bool IsPaidModel(string modelName)
         => IsOpenAiModel(modelName) || IsAnthropicModel(modelName) || IsZaiModel(modelName) || IsMiniMaxModel(modelName);
 
+    private static string GetProviderEnvVar(string modelName)
+    {
+        if (IsMiniMaxModel(modelName)) return "MINIMAX_API_KEY";
+        if (IsZaiModel(modelName)) return "ZAI_API_KEY";
+        if (IsOpenAiModel(modelName)) return "OPENAI_API_KEY";
+        if (IsAnthropicModel(modelName)) return "ANTHROPIC_API_KEY";
+        return string.Empty;
+    }
+
     private static bool IsOpenAiModel(string modelName)
         => !string.IsNullOrWhiteSpace(modelName) &&
            modelName.StartsWith("openai:", StringComparison.OrdinalIgnoreCase);
