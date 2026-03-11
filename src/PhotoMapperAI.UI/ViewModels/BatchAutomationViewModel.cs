@@ -2150,7 +2150,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
         if (downloadOpenCvModels)
             args.Add("-downloadOpenCvModels");
 
-        return $"external generatephotos (equivalent CLI: dotnet run --project src/PhotoMapperAI -- generatephotos {string.Join(" ", args.Skip(1))})";
+        var cliAssemblyPath = ExternalGenerateCliRunner.ResolveCliAssemblyPath(Directory.GetCurrentDirectory());
+        return $"external generatephotos (equivalent CLI: dotnet \"{cliAssemblyPath}\" generatephotos {string.Join(" ", args.Skip(1))})";
     }
 
     [RelayCommand]

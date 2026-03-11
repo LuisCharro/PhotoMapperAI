@@ -17,6 +17,34 @@ public sealed class ExternalGenerateCliRunner
     private static readonly Regex LoadedPlayersRegex = new(@"Loaded\s+(?<count>\d+)\s+players", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex GeneratedRegex = new(@"Generated\s+(?<ok>\d+)\s+portraits\s+\((?<failed>\d+)\s+failed\)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    public static string ResolveCliAssemblyPath(string? workingDirectory = null)
+    {
+        var candidates = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            candidates.Add(Path.Combine(workingDirectory, "src", "PhotoMapperAI", "bin", "Debug", "net10.0", "PhotoMapperAI.dll"));
+            candidates.Add(Path.Combine(workingDirectory, "src", "PhotoMapperAI", "bin", "Release", "net10.0", "PhotoMapperAI.dll"));
+        }
+
+        var assemblyPath = typeof(GeneratePhotosCommand).Assembly.Location;
+        if (!string.IsNullOrWhiteSpace(assemblyPath))
+        {
+            candidates.Add(assemblyPath);
+        }
+
+        foreach (var candidate in candidates.Where(c => !string.IsNullOrWhiteSpace(c)))
+        {
+            var fullPath = Path.GetFullPath(candidate);
+            if (File.Exists(fullPath))
+            {
+                return fullPath;
+            }
+        }
+
+        throw new FileNotFoundException("Could not locate the PhotoMapperAI CLI assembly.", assemblyPath);
+    }
+
     public async Task<GeneratePhotosResult> ExecuteAsync(
         string workingDirectory,
         string inputCsvPath,
@@ -43,7 +71,8 @@ public sealed class ExternalGenerateCliRunner
         _ = cropOffsetPreset;
         _ = progress;
 
-        var args = BuildGenerateArgs(
+        var cliAssemblyPath = ResolveCliAssemblyPath(workingDirectory);
+        var args = BuildCliArguments(
             inputCsvPath,
             photosDir,
             outputDir,
@@ -71,6 +100,8 @@ public sealed class ExternalGenerateCliRunner
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        startInfo.ArgumentList.Add(cliAssemblyPath);
 
         foreach (var arg in args)
         {
@@ -151,7 +182,8 @@ public sealed class ExternalGenerateCliRunner
         int? cropFrameWidth,
         int? cropFrameHeight)
     {
-        var parts = BuildGenerateArgs(
+        var cliAssemblyPath = ResolveCliAssemblyPath(workingDirectory);
+        var parts = BuildCliArguments(
             inputCsvPath,
             photosDir,
             outputDir,
@@ -171,7 +203,8 @@ public sealed class ExternalGenerateCliRunner
             cropOffsetPreset: null);
 
         return $"Working directory: {workingDirectory}\nExecution mode: external-cli\nCommand: dotnet "
-            + string.Join(" ", parts.Select(p => p.Contains(' ') ? $"\"{p}\"" : p));
+            + $"{QuoteArgument(cliAssemblyPath)} "
+            + string.Join(" ", parts.Select(QuoteArgument));
     }
 
     public string WriteDebugArtifact(
@@ -193,6 +226,7 @@ public sealed class ExternalGenerateCliRunner
         int? cropFrameWidth,
         int? cropFrameHeight)
     {
+        var cliAssemblyPath = ResolveCliAssemblyPath(workingDirectory);
         var payload = new
         {
             utc = DateTime.UtcNow,
@@ -213,8 +247,9 @@ public sealed class ExternalGenerateCliRunner
             placeholderImagePath,
             cropFrameWidth,
             cropFrameHeight,
+            cliAssemblyPath,
             executionMode = "external-cli",
-            args = BuildGenerateArgs(
+            args = BuildCliArguments(
                 inputCsvPath,
                 photosDirectory,
                 outputDir,
@@ -240,7 +275,7 @@ public sealed class ExternalGenerateCliRunner
         return path;
     }
 
-    private static List<string> BuildGenerateArgs(
+    private static List<string> BuildCliArguments(
         string inputCsvPath,
         string photosDir,
         string outputDir,
@@ -261,13 +296,12 @@ public sealed class ExternalGenerateCliRunner
     {
         var args = new List<string>
         {
-            "run", "--project", "src/PhotoMapperAI", "--", "generatephotos",
+            "generatephotos",
             "--inputCsvPath", inputCsvPath,
             "--photosDir", photosDir,
             "--processedPhotosOutputPath", outputDir,
             "--format", format,
-            "--faceDetection", faceDetectionModel,
-            "--noCache"
+            "--faceDetection", faceDetectionModel
         };
 
         if (!string.IsNullOrWhiteSpace(sizeProfilePath))
@@ -333,6 +367,11 @@ public sealed class ExternalGenerateCliRunner
         }
 
         return args;
+    }
+
+    private static string QuoteArgument(string value)
+    {
+        return value.Contains(' ') ? $"\"{value}\"" : value;
     }
 
     private static void UpdateResultFromOutput(string line, GeneratePhotosResult result)
