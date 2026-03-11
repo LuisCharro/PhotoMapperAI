@@ -141,6 +141,84 @@
               <TextBlock Text="Processing Settings" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             </StackPanel>
 
+            <!-- Photo Filename Parsing -->
+            <Expander Header="Photo Filename Parsing"
+                      IsExpanded="False"
+                      HorizontalAlignment="Stretch"
+                      Background="{DynamicResource BackgroundBrush}">
+              <Border CornerRadius="6"
+                      Padding="10"
+                      Margin="0,6,0,0"
+                      HorizontalAlignment="Stretch">
+                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+                  <TextBlock Text="How photos are matched to players"
+                             FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <TextBlock Text="The system extracts player ID and name from photo filenames. Auto-detection works for common patterns."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+
+                  <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="8" Margin="0,4,0,0">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="• 123_Smith_John.png  →  ID=123, Family=Smith, SurName=John" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Text="• Maria-Garcia-789.jpg  →  SurName=Maria, Family=Garcia, ID=789" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Text="• 456.jpg  →  ID=456 (simple ID-only naming)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    </StackPanel>
+                  </Border>
+
+                  <TextBlock Text="Custom Filename Pattern" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,8,0,0"/>
+                  <TextBlock Text="Override auto-detection for non-standard naming. Leave empty for auto-detect."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+
+                  <ComboBox ItemsSource="{Binding FilenamePatternPresets}"
+                            SelectedItem="{Binding SelectedFilenamePatternPreset}"
+                            Height="28"
+                            Margin="0,4,0,0"
+                            HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+
+                  <TextBox Text="{Binding FilenamePattern}"
+                           Watermark="e.g., {id}_{family}_{sur}.png"
+                           Height="28" Margin="0,4,0,0"
+                           HorizontalAlignment="Stretch"
+                           Background="{DynamicResource InputBackgroundBrush}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <TextBlock Text="Placeholders: {id} = player ID, {first} = first name, {last} = last name"
+                             FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"/>
+
+                  <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <Button Content="Save Preset" Command="{Binding SaveFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"/>
+                    <Button Content="New" Command="{Binding NewFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"
+                            ToolTip.Tip="Create a new preset with current pattern"/>
+                  </StackPanel>
+                  <TextBlock Text="{Binding FilenamePatternStatus}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+
+                  <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
+
+                  <CheckBox Content="Use Photo Manifest File (JSON with explicit photo metadata)"
+                            IsChecked="{Binding UsePhotoManifest}"
+                            FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <Grid ColumnDefinitions="*,Auto"
+                        IsEnabled="{Binding UsePhotoManifest}"
+                        Margin="0,4,0,0"
+                        HorizontalAlignment="Stretch">
+                    <TextBox Grid.Column="0" Text="{Binding PhotoManifestPath}"
+                             Watermark="Path to photo manifest JSON..."
+                             IsReadOnly="True" Height="28"
+                             HorizontalAlignment="Stretch"
+                             Background="{DynamicResource InputBackgroundBrush}"
+                             Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    <Button Grid.Column="1" Content="Browse"
+                            Click="BrowsePhotoManifest_Click"
+                            Margin="6,0,0,0" Padding="12,5" FontSize="10"/>
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </Expander>
+
             <!-- Confidence Threshold Slider -->
             <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
               <StackPanel Spacing="4">
@@ -665,72 +743,6 @@
               </StackPanel>
             </Border>
 
-            <!-- Photo Filename Parsing -->
-            <Expander Header="Photo Filename Parsing" IsExpanded="False"
-                      Background="{DynamicResource BackgroundBrush}">
-              <Border CornerRadius="6" Padding="10" Margin="0,6,0,0">
-                <StackPanel Spacing="6">
-                  <TextBlock Text="How photos are matched to players"
-                             FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                  <TextBlock Text="The system extracts player ID and name from photo filenames. Auto-detection works for common patterns."
-                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
-                  
-                  <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="8" Margin="0,4,0,0">
-                    <StackPanel Spacing="2">
-                      <TextBlock Text="• 123_Smith_John.png  →  ID=123, Family=Smith, SurName=John" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <TextBlock Text="• Maria-Garcia-789.jpg  →  SurName=Maria, Family=Garcia, ID=789" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <TextBlock Text="• 456.jpg  →  ID=456 (simple ID-only naming)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                    </StackPanel>
-                  </Border>
-
-                  <TextBlock Text="Custom Filename Pattern" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,8,0,0"/>
-                  <TextBlock Text="Override auto-detection for non-standard naming. Leave empty for auto-detect."
-                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
-                  
-                  <ComboBox ItemsSource="{Binding FilenamePatternPresets}"
-                            SelectedItem="{Binding SelectedFilenamePatternPreset}"
-                            Height="28" Margin="0,4,0,0">
-                    <ComboBox.ItemTemplate>
-                      <DataTemplate>
-                        <TextBlock Text="{Binding Name}"/>
-                      </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                  </ComboBox>
-                  
-                  <TextBox Text="{Binding FilenamePattern}" 
-                           Watermark="e.g., {id}_{family}_{sur}.png"
-                           Height="28" Margin="0,4,0,0"
-                           HorizontalAlignment="Stretch"
-                           Background="{DynamicResource InputBackgroundBrush}"
-                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-                  <TextBlock Text="Placeholders: {id} = player ID, {first} = first name, {last} = last name"
-                             FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"/>
-                  
-                  <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
-                    <Button Content="Save Preset" Command="{Binding SaveFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"/>
-                    <Button Content="New" Command="{Binding NewFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"
-                            ToolTip.Tip="Create a new preset with current pattern"/>
-                  </StackPanel>
-                  <TextBlock Text="{Binding FilenamePatternStatus}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-
-                  <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
-
-                  <CheckBox Content="Use Photo Manifest File (JSON with explicit photo metadata)" 
-                            IsChecked="{Binding UsePhotoManifest}"
-                            FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                  <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding UsePhotoManifest}" Margin="0,4,0,0">
-                    <TextBox Grid.Column="0" Text="{Binding PhotoManifestPath}" 
-                             Watermark="Path to photo manifest JSON..."
-                             IsReadOnly="True" Height="28"
-                             Background="{DynamicResource InputBackgroundBrush}"
-                             Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <Button Grid.Column="1" Content="Browse" 
-                            Click="BrowsePhotoManifest_Click"
-                            Margin="6,0,0,0" Padding="12,5" FontSize="10"/>
-                  </Grid>
-                </StackPanel>
-              </Border>
-            </Expander>
           </StackPanel>
         </Border>
 
