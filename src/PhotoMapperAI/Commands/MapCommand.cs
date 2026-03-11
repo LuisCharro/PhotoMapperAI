@@ -15,7 +15,11 @@ public class MapResult
     public int PlayersMatched { get; set; }
     public int DirectIdMatches { get; set; }
     public int StringMatches { get; set; }
+    public int FirstRoundMatches { get; set; }
+    public int AiFirstPassMatches { get; set; }
+    public int AiSecondPassMatches { get; set; }
     public int AiMatches { get; set; }
+    public int ManualEditsPreserved { get; set; }
     public string OutputPath { get; set; } = string.Empty;
 }
 
@@ -135,6 +139,7 @@ public class MapCommandLogic
             var aiSecondPassCompletionTokens = 0;
             var aiFirstPassTotalTokens = 0;
             var aiSecondPassTotalTokens = 0;
+            var aiQuotaExceeded = false;
 
             var photoCandidates = BuildPhotoCandidates(photos, photosDir, filenamePattern, manifest);
             var remainingCandidates = new List<PhotoCandidate>(photoCandidates);
@@ -190,69 +195,103 @@ public class MapCommandLogic
             }
 
             // Phase 3: AI fallback passes
+            if (useAi)
+            {
+                if (unmatchedPlayers.Count == 0)
+                {
+                    LogLine("AI matching skipped: no unmatched players after deterministic/ID passes.");
+                }
+                else if (remainingCandidates.Count == 0)
+                {
+                    LogLine("AI matching skipped: no remaining photo candidates.");
+                }
+                else
+                {
+                    LogLine($"AI matching candidates: {unmatchedPlayers.Count} players, {remainingCandidates.Count} photos.");
+                }
+            }
+            else
+            {
+                LogLine("AI matching is disabled (Use AI Mapping is off).");
+            }
+
             if (useAi && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
             {
-                LogLine(string.Empty);
-                LogLine("Running AI pass 1 for unresolved players...");
-                var aiFirstPass = await ApplyAiGlobalMatchesAsync(
-                    unmatchedPlayers,
-                    remainingCandidates,
-                    remainingByExternal_Player_ID,
-                    confidenceThreshold,
-                    nameModel,
-                    results,
-                    maxCandidates: 8,
-                    minPreselectScore: 0.40,
-                    maxGapFromTop: 0.30,
-                    ambiguityMargin: 0.08,
-                    progressLabel: "AI Pass 1",
-                    uiProgress: uiProgress,
-                    log: log,
-                    aiTrace: aiTrace,
-                    passNumber: 1,
-                    cancellationToken: cancellationToken);
-                aiFirstPassMatches = aiFirstPass.Applied;
-                aiFirstPassPlayersEvaluated = aiFirstPass.PlayersEvaluated;
-                aiFirstPassComparisons = aiFirstPass.ModelComparisons;
-                aiFirstPassUsageCalls = aiFirstPass.UsageCalls;
-                aiFirstPassPromptTokens = aiFirstPass.PromptTokens;
-                aiFirstPassCompletionTokens = aiFirstPass.CompletionTokens;
-                aiFirstPassTotalTokens = aiFirstPass.TotalTokens;
-
-                if (aiSecondPass && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
+                try
                 {
                     LogLine(string.Empty);
-                    LogLine("Running AI pass 2 for remaining unresolved players...");
-                    var aiSecondPassResult = await ApplyAiGlobalMatchesAsync(
+                    LogLine("Running AI pass 1 for unresolved players...");
+                    var aiFirstPass = await ApplyAiGlobalMatchesAsync(
                         unmatchedPlayers,
                         remainingCandidates,
                         remainingByExternal_Player_ID,
                         confidenceThreshold,
                         nameModel,
                         results,
-                        maxCandidates: 12,
-                        minPreselectScore: 0.25,
-                        maxGapFromTop: 0.40,
-                        ambiguityMargin: 0.05,
-                        progressLabel: "AI Pass 2",
+                        maxCandidates: 8,
+                        minPreselectScore: 0.40,
+                        maxGapFromTop: 0.30,
+                        ambiguityMargin: 0.08,
+                        progressLabel: "AI Pass 1",
                         uiProgress: uiProgress,
                         log: log,
                         aiTrace: aiTrace,
-                        passNumber: 2,
+                        passNumber: 1,
                         cancellationToken: cancellationToken);
-                    aiSecondPassMatches = aiSecondPassResult.Applied;
-                    aiSecondPassPlayersEvaluated = aiSecondPassResult.PlayersEvaluated;
-                    aiSecondPassComparisons = aiSecondPassResult.ModelComparisons;
-                    aiSecondPassUsageCalls = aiSecondPassResult.UsageCalls;
-                    aiSecondPassPromptTokens = aiSecondPassResult.PromptTokens;
-                    aiSecondPassCompletionTokens = aiSecondPassResult.CompletionTokens;
-                    aiSecondPassTotalTokens = aiSecondPassResult.TotalTokens;
+                    aiFirstPassMatches = aiFirstPass.Applied;
+                    aiFirstPassPlayersEvaluated = aiFirstPass.PlayersEvaluated;
+                    aiFirstPassComparisons = aiFirstPass.ModelComparisons;
+                    aiFirstPassUsageCalls = aiFirstPass.UsageCalls;
+                    aiFirstPassPromptTokens = aiFirstPass.PromptTokens;
+                    aiFirstPassCompletionTokens = aiFirstPass.CompletionTokens;
+                    aiFirstPassTotalTokens = aiFirstPass.TotalTokens;
+
+                    if (aiSecondPass && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
+                    {
+                        LogLine(string.Empty);
+                        LogLine("Running AI pass 2 for remaining unresolved players...");
+                        var aiSecondPassResult = await ApplyAiGlobalMatchesAsync(
+                            unmatchedPlayers,
+                            remainingCandidates,
+                            remainingByExternal_Player_ID,
+                            confidenceThreshold,
+                            nameModel,
+                            results,
+                            maxCandidates: 12,
+                            minPreselectScore: 0.25,
+                            maxGapFromTop: 0.40,
+                            ambiguityMargin: 0.05,
+                            progressLabel: "AI Pass 2",
+                            uiProgress: uiProgress,
+                            log: log,
+                            aiTrace: aiTrace,
+                            passNumber: 2,
+                            cancellationToken: cancellationToken);
+                        aiSecondPassMatches = aiSecondPassResult.Applied;
+                        aiSecondPassPlayersEvaluated = aiSecondPassResult.PlayersEvaluated;
+                        aiSecondPassComparisons = aiSecondPassResult.ModelComparisons;
+                        aiSecondPassUsageCalls = aiSecondPassResult.UsageCalls;
+                        aiSecondPassPromptTokens = aiSecondPassResult.PromptTokens;
+                        aiSecondPassCompletionTokens = aiSecondPassResult.CompletionTokens;
+                        aiSecondPassTotalTokens = aiSecondPassResult.TotalTokens;
+                    }
+                }
+                catch (OllamaQuotaExceededException ex)
+                {
+                    aiQuotaExceeded = true;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠ AI matching stopped: {ex.Message}");
+                    Console.ResetColor();
+                    log?.Report($"⚠ AI matching stopped: {ex.Message}");
                 }
             }
 
             foreach (var player in unmatchedPlayers)
             {
-                results.Add(BuildNoMatchResult(player, confidenceThreshold, useAi ? "No AI match" : "No match"));
+                results.Add(BuildNoMatchResult(
+                    player,
+                    confidenceThreshold,
+                    aiQuotaExceeded ? "AI quota exhausted" : useAi ? "No AI match" : "No match"));
             }
 
             var firstRoundMapped = directIdMatches + stringMatches;
@@ -293,13 +332,62 @@ public class MapCommandLogic
             }
             log?.Report($"✓ Left unmapped: {unmappedCount}");
 
-            // Step 5: Write updated CSV
+            // Step 5: Write updated CSV (with intelligent merge to preserve manual edits)
             var outputFileName = BuildMappedFileName(inputCsvPath);
             var baseOutputDir = string.IsNullOrWhiteSpace(outputDirectory)
                 ? Directory.GetCurrentDirectory()
                 : outputDirectory;
             Directory.CreateDirectory(baseOutputDir);
             var outputPath = Path.Combine(baseOutputDir, outputFileName);
+
+            // Load existing mapped CSV if it exists (to preserve manual edits)
+            var existingMappings = await Services.Database.DatabaseExtractor.ReadExistingMappedCsvAsync(outputPath);
+            int preservedCount = 0;
+            if (existingMappings.Count > 0)
+            {
+                LogLine($"Found existing mapped file with {existingMappings.Count} records - preserving manual edits for unmatched players");
+                
+                // Merge logic: for each player in the new result
+                // - If new mapping found (External_Player_ID is set) → use new mapping
+                // - If no new mapping found BUT exists in old mapped file → preserve existing data
+                var preservedPlayerNames = new List<string>();
+                foreach (var player in players)
+                {
+                    // Check if this player has NO new mapping
+                    if (string.IsNullOrEmpty(player.External_Player_ID))
+                    {
+                        // Check if there's existing mapped data from manual edits
+                        if (existingMappings.TryGetValue(player.PlayerId, out var existingPlayer))
+                        {
+                            // Preserve the existing mapping data (manual edits)
+                            player.External_Player_ID = existingPlayer.External_Player_ID;
+                            player.ValidMapping = existingPlayer.ValidMapping;
+                            player.Confidence = existingPlayer.Confidence;
+                            preservedCount++;
+                            preservedPlayerNames.Add(player.FullName);
+                        }
+                    }
+                }
+                
+                if (preservedCount > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"✓ Preserved manual edits for {preservedCount} unmatched players");
+                    Console.ResetColor();
+                    log?.Report($"✓ Preserved manual edits for {preservedCount} unmatched players");
+                    
+                    // Log the player names that had their edits preserved (limit to first 10 for readability)
+                    var namesToLog = preservedPlayerNames.Take(10).ToList();
+                    var namesText = string.Join(", ", namesToLog);
+                    if (preservedPlayerNames.Count > 10)
+                    {
+                        namesText += $" ... and {preservedPlayerNames.Count - 10} more";
+                    }
+                    LogLine($"  → Preserved players: {namesText}");
+                    log?.Report($"  → Preserved players: {namesText}");
+                }
+            }
+
             LogLine(string.Empty);
             LogLine($"Writing results to: {outputPath}");
             await Services.Database.DatabaseExtractor.WriteCsvAsync(players, outputPath);
@@ -315,7 +403,11 @@ public class MapCommandLogic
                 PlayersMatched = results.Count(r => r.IsValidMatch),
                 DirectIdMatches = directIdMatches,
                 StringMatches = stringMatches,
+                FirstRoundMatches = firstRoundMapped,
+                AiFirstPassMatches = aiFirstPassMatches,
+                AiSecondPassMatches = aiSecondPassMatches,
                 AiMatches = aiMatches,
+                ManualEditsPreserved = preservedCount,
                 OutputPath = outputPath
             };
         }
@@ -360,6 +452,7 @@ public class MapCommandLogic
     private sealed record NameSignature(string Normalized, string[] Tokens, HashSet<string> TokenSet);
     private sealed record RankedCandidate(PhotoCandidate Candidate, double Score);
     private sealed record MatchProposal(PlayerRecord Player, PhotoCandidate Candidate, double Confidence, string? Reason = null);
+    private sealed record AiComparison(PlayerRecord Player, RankedCandidate Ranked, int Index);
     private sealed record AiPassResult(
         int Applied,
         int PlayersEvaluated,
@@ -384,7 +477,12 @@ public class MapCommandLogic
         double? Margin = null,
         string? SelectedExternal_Player_ID = null,
         string? SelectedName = null,
-        double? SelectedConfidence = null);
+        double? SelectedConfidence = null,
+        string? Provider = null,
+        string? Model = null,
+        string? ApiStyle = null,
+        string? BestError = null,
+        string? BestRawResponse = null);
 
     private List<PhotoCandidate> BuildPhotoCandidates(
         List<string> photos,
@@ -543,6 +641,9 @@ public class MapCommandLogic
         if (unmatchedPlayers.Count == 0 || remainingCandidates.Count == 0)
             return new AiPassResult(0, 0, 0, 0, 0, 0, 0);
 
+        // Keep prompts smaller so hosted models stay consistent on team-wide runs.
+        const int MaxBatchComparisons = 24;
+
         var snapshot = unmatchedPlayers.ToList();
         var proposals = new List<MatchProposal>(snapshot.Count);
         var aiProgress = new ProgressIndicator(progressLabel, snapshot.Count, useBar: true);
@@ -552,6 +653,91 @@ public class MapCommandLogic
         var promptTokens = 0;
         var completionTokens = 0;
         var totalTokens = 0;
+        var comparisonsByPlayer = new Dictionary<PlayerRecord, List<AiComparison>>();
+        var allComparisons = new List<AiComparison>();
+
+        foreach (var player in snapshot)
+        {
+            var ranked = RankCandidatesForPlayer(
+                player,
+                remainingCandidates,
+                maxCandidates,
+                minPreselectScore,
+                maxGapFromTop);
+
+            ranked = ranked
+                .GroupBy(r => r.Candidate.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.OrderByDescending(r => r.Score).First())
+                .ToList();
+
+            if (ranked.Count == 0)
+                continue;
+
+            if (!comparisonsByPlayer.TryGetValue(player, out var list))
+            {
+                list = new List<AiComparison>(ranked.Count);
+                comparisonsByPlayer[player] = list;
+            }
+
+            foreach (var rankedCandidate in ranked)
+            {
+                var comparison = new AiComparison(player, rankedCandidate, allComparisons.Count);
+                allComparisons.Add(comparison);
+                list.Add(comparison);
+            }
+        }
+
+        var matchResultsByIndex = new Dictionary<int, MatchResult>(allComparisons.Count);
+        if (allComparisons.Count > 0)
+        {
+            foreach (var teamGroup in allComparisons.GroupBy(c => c.Player.TeamId))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var batch = new List<AiComparison>(MaxBatchComparisons);
+                foreach (var comparison in teamGroup)
+                {
+                    batch.Add(comparison);
+                    if (batch.Count >= MaxBatchComparisons)
+                    {
+                        var usage = await ExecuteBatchComparisonsAsync(
+                            batch,
+                            matchResultsByIndex,
+                            cancellationToken);
+                        usageCalls += usage.UsageCalls;
+                        promptTokens += usage.PromptTokens;
+                        completionTokens += usage.CompletionTokens;
+                        totalTokens += usage.TotalTokens;
+                        modelComparisons += batch.Count;
+                        batch.Clear();
+                    }
+                }
+
+                if (batch.Count > 0)
+                {
+                    var usage = await ExecuteBatchComparisonsAsync(
+                        batch,
+                        matchResultsByIndex,
+                        cancellationToken);
+                    usageCalls += usage.UsageCalls;
+                    promptTokens += usage.PromptTokens;
+                    completionTokens += usage.CompletionTokens;
+                    totalTokens += usage.TotalTokens;
+                    modelComparisons += batch.Count;
+                }
+            }
+
+            var errorCount = matchResultsByIndex.Values.Count(r =>
+                r.Metadata != null && r.Metadata.ContainsKey("error"));
+            if (errorCount > 0)
+            {
+                log?.Report($"AI note: {errorCount} comparison(s) returned errors. Enable AI trace for per-player details.");
+            }
+            else if (usageCalls == 0 && modelComparisons > 0)
+            {
+                log?.Report("AI note: model comparisons ran but usage/tokens reported as zero.");
+            }
+        }
 
         foreach (var player in snapshot)
         {
@@ -560,20 +746,37 @@ public class MapCommandLogic
             processed++;
             uiProgress?.Report((processed, snapshot.Count, $"AI: {player.FullName}"));
 
-            var attempt = await TryBuildAiProposalAsync(
+            var attempt = BuildAiProposalFromBatch(
                 player,
-                remainingCandidates,
+                comparisonsByPlayer,
+                matchResultsByIndex,
                 confidenceThreshold,
-                maxCandidates,
-                minPreselectScore,
-                maxGapFromTop,
-                ambiguityMargin,
-                cancellationToken);
-            modelComparisons += attempt.Comparisons;
-            usageCalls += attempt.UsageCalls;
-            promptTokens += attempt.PromptTokens;
-            completionTokens += attempt.CompletionTokens;
-            totalTokens += attempt.TotalTokens;
+                ambiguityMargin);
+
+            if (ShouldRetryIndividualAiEvaluation(attempt))
+            {
+                var individualAttempt = await TryBuildAiProposalAsync(
+                    player,
+                    remainingCandidates,
+                    confidenceThreshold,
+                    maxCandidates,
+                    minPreselectScore,
+                    maxGapFromTop,
+                    ambiguityMargin,
+                    cancellationToken);
+
+                modelComparisons += individualAttempt.Comparisons;
+                usageCalls += individualAttempt.UsageCalls;
+                promptTokens += individualAttempt.PromptTokens;
+                completionTokens += individualAttempt.CompletionTokens;
+                totalTokens += individualAttempt.TotalTokens;
+
+                attempt = PreferIndividualAttempt(attempt, individualAttempt)
+                    ? individualAttempt
+                    : attempt;
+            }
+
+            LogAiSummary(passNumber, player, attempt, log);
 
             if (aiTrace)
             {
@@ -617,6 +820,223 @@ public class MapCommandLogic
         }
 
         return new AiPassResult(applied, snapshot.Count, modelComparisons, usageCalls, promptTokens, completionTokens, totalTokens);
+    }
+
+    private async Task<NameComparisonBatchResult> ExecuteBatchComparisonsAsync(
+        List<AiComparison> batch,
+        Dictionary<int, MatchResult> matchResultsByIndex,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var pairs = batch
+            .Select(b => new NameComparisonPair(b.Player.FullName, b.Ranked.Candidate.DisplayName))
+            .ToList();
+
+        var batchResult = await _nameMatchingService.CompareNamePairsBatchAsync(pairs);
+        for (var i = 0; i < batch.Count; i++)
+        {
+            var result = i < batchResult.Results.Count ? batchResult.Results[i] : BuildMissingBatchResult();
+            matchResultsByIndex[batch[i].Index] = result;
+        }
+
+        return batchResult;
+    }
+
+    private AiProposalAttempt BuildAiProposalFromBatch(
+        PlayerRecord player,
+        Dictionary<PlayerRecord, List<AiComparison>> comparisonsByPlayer,
+        Dictionary<int, MatchResult> matchResultsByIndex,
+        double confidenceThreshold,
+        double ambiguityMargin)
+    {
+        if (!comparisonsByPlayer.TryGetValue(player, out var comparisons) || comparisons.Count == 0)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: 0,
+                Outcome: "rejected",
+                Reason: "no_ranked_candidates");
+        }
+
+        var ranked = comparisons.Select(c => c.Ranked).ToList();
+        var matches = new List<MatchResult>(comparisons.Count);
+        foreach (var comparison in comparisons)
+        {
+            if (matchResultsByIndex.TryGetValue(comparison.Index, out var match))
+            {
+                matches.Add(match);
+            }
+            else
+            {
+                matches.Add(BuildMissingBatchResult());
+            }
+        }
+
+        return BuildAiProposalFromMatches(
+            player,
+            ranked,
+            matches,
+            confidenceThreshold,
+            ambiguityMargin);
+    }
+
+    private static MatchResult BuildMissingBatchResult()
+    {
+        return new MatchResult
+        {
+            Confidence = 0.0,
+            IsMatch = false,
+            Metadata = new Dictionary<string, string> { { "error", "missing_batch_result" } }
+        };
+    }
+
+    private AiProposalAttempt BuildAiProposalFromMatches(
+        PlayerRecord player,
+        List<RankedCandidate> ranked,
+        List<MatchResult> matches,
+        double confidenceThreshold,
+        double ambiguityMargin)
+    {
+        if (ranked.Count == 0 || matches.Count == 0)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "no_ranked_candidates");
+        }
+
+        RankedCandidate? bestCandidate = null;
+        MatchResult? bestMatch = null;
+        var secondBestConfidence = 0.0;
+
+        for (var i = 0; i < ranked.Count; i++)
+        {
+            var match = i < matches.Count ? matches[i] : BuildMissingBatchResult();
+            var rankedCandidate = ranked[i];
+
+            if (bestMatch == null || match.Confidence > bestMatch.Confidence)
+            {
+                secondBestConfidence = bestMatch?.Confidence ?? secondBestConfidence;
+                bestMatch = match;
+                bestCandidate = rankedCandidate;
+            }
+            else if (match.Confidence > secondBestConfidence)
+            {
+                secondBestConfidence = match.Confidence;
+            }
+        }
+
+        if (bestMatch == null || bestCandidate == null)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "no_model_result");
+        }
+
+        var provider = bestMatch.Metadata?.GetValueOrDefault("provider");
+        var model = bestMatch.Metadata?.GetValueOrDefault("model");
+        var apiStyle = bestMatch.Metadata?.GetValueOrDefault("api_style");
+        var bestError = bestMatch.Metadata?.GetValueOrDefault("error");
+        var bestRawResponse = bestMatch.Metadata?.GetValueOrDefault("raw_response");
+
+        if (bestMatch.Confidence < confidenceThreshold)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "below_threshold",
+                BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+                BestName: bestCandidate.Candidate.DisplayName,
+                BestConfidence: bestMatch.Confidence,
+                SecondBestConfidence: secondBestConfidence,
+                Margin: bestMatch.Confidence - secondBestConfidence,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
+        }
+
+        var margin = bestMatch.Confidence - secondBestConfidence;
+        if (ranked.Count > 1 && margin < ambiguityMargin && bestMatch.Confidence < 0.90)
+        {
+            return new AiProposalAttempt(
+                Proposal: null,
+                Comparisons: ranked.Count,
+                Outcome: "rejected",
+                Reason: "ambiguous",
+                BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+                BestName: bestCandidate.Candidate.DisplayName,
+                BestConfidence: bestMatch.Confidence,
+                SecondBestConfidence: secondBestConfidence,
+                Margin: margin,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
+        }
+
+        var reason = bestMatch.Metadata?.GetValueOrDefault("reason", string.Empty) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            reason = $"ai_confidence={bestMatch.Confidence:0.###};margin={margin:0.###};pre_rank_score={bestCandidate.Score:0.###}";
+        }
+
+        return new AiProposalAttempt(
+            Proposal: new MatchProposal(player, bestCandidate.Candidate, bestMatch.Confidence, reason),
+            Comparisons: ranked.Count,
+            Outcome: "accepted",
+            Reason: "accepted",
+            BestExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+            BestName: bestCandidate.Candidate.DisplayName,
+            BestConfidence: bestMatch.Confidence,
+            SecondBestConfidence: secondBestConfidence,
+            Margin: margin,
+            SelectedExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
+            SelectedName: bestCandidate.Candidate.DisplayName,
+            SelectedConfidence: bestMatch.Confidence,
+            Provider: provider,
+            Model: model,
+            ApiStyle: apiStyle,
+            BestError: bestError,
+            BestRawResponse: bestRawResponse);
+    }
+
+    private static bool ShouldRetryIndividualAiEvaluation(AiProposalAttempt batchAttempt)
+    {
+        if (batchAttempt.Proposal != null)
+            return false;
+
+        return batchAttempt.Reason is "below_threshold" or "ambiguous" or "no_model_result";
+    }
+
+    private static bool PreferIndividualAttempt(AiProposalAttempt batchAttempt, AiProposalAttempt individualAttempt)
+    {
+        if (individualAttempt.Proposal != null)
+            return true;
+
+        if (batchAttempt.Proposal != null)
+            return false;
+
+        var batchConfidence = batchAttempt.BestConfidence ?? 0.0;
+        var individualConfidence = individualAttempt.BestConfidence ?? 0.0;
+
+        if (individualConfidence > batchConfidence)
+            return true;
+
+        if (individualConfidence < batchConfidence)
+            return false;
+
+        if (batchAttempt.Reason == "no_model_result" && individualAttempt.Reason != "no_model_result")
+            return true;
+
+        return false;
     }
 
     private bool TryBuildDeterministicProposal(
@@ -723,8 +1143,14 @@ public class MapCommandLogic
                 UsageCalls: usageCalls,
                 PromptTokens: promptTokens,
                 CompletionTokens: completionTokens,
-                TotalTokens: totalTokens);
+            TotalTokens: totalTokens);
         }
+
+        var provider = bestMatch.Metadata?.GetValueOrDefault("provider");
+        var model = bestMatch.Metadata?.GetValueOrDefault("model");
+        var apiStyle = bestMatch.Metadata?.GetValueOrDefault("api_style");
+        var bestError = bestMatch.Metadata?.GetValueOrDefault("error");
+        var bestRawResponse = bestMatch.Metadata?.GetValueOrDefault("raw_response");
 
         if (bestMatch.Confidence < confidenceThreshold)
         {
@@ -741,7 +1167,12 @@ public class MapCommandLogic
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
-                Margin: bestMatch.Confidence - secondBestConfidence);
+                Margin: bestMatch.Confidence - secondBestConfidence,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
         }
 
         // If only one candidate was evaluated, no ambiguity is possible - skip ambiguity check
@@ -761,10 +1192,21 @@ public class MapCommandLogic
                 BestName: bestCandidate.Candidate.DisplayName,
                 BestConfidence: bestMatch.Confidence,
                 SecondBestConfidence: secondBestConfidence,
-                Margin: margin);
+                Margin: margin,
+                Provider: provider,
+                Model: model,
+                ApiStyle: apiStyle,
+                BestError: bestError,
+                BestRawResponse: bestRawResponse);
         }
 
-        var reason = bestMatch.Metadata.GetValueOrDefault("reason", string.Empty);
+        var reason = string.Empty;
+        if (bestMatch.Metadata != null)
+        {
+            reason = bestMatch.Metadata.TryGetValue("reason", out var metadataReason)
+                ? metadataReason ?? string.Empty
+                : string.Empty;
+        }
         if (string.IsNullOrWhiteSpace(reason))
         {
             reason = $"ai_confidence={bestMatch.Confidence:0.###};margin={margin:0.###};pre_rank_score={bestCandidate.Score:0.###}";
@@ -786,7 +1228,12 @@ public class MapCommandLogic
             Margin: margin,
             SelectedExternal_Player_ID: bestCandidate.Candidate.Metadata.External_Player_ID,
             SelectedName: bestCandidate.Candidate.DisplayName,
-            SelectedConfidence: bestMatch.Confidence);
+            SelectedConfidence: bestMatch.Confidence,
+            Provider: provider,
+            Model: model,
+            ApiStyle: apiStyle,
+            BestError: bestError,
+            BestRawResponse: bestRawResponse);
     }
 
     private static void LogAiTrace(int passNumber, PlayerRecord player, AiProposalAttempt attempt)
@@ -809,6 +1256,37 @@ public class MapCommandLogic
             $"|selected_conf={FormatTraceDouble(attempt.SelectedConfidence)}");
     }
 
+    private static void LogAiSummary(int passNumber, PlayerRecord player, AiProposalAttempt attempt, IProgress<string>? log)
+    {
+        var line =
+            "AI_SUMMARY" +
+            $"|pass={passNumber}" +
+            $"|player_id={FormatTraceValue(player.PlayerId.ToString(CultureInfo.InvariantCulture))}" +
+            $"|player_name={FormatTraceValue(player.FullName)}" +
+            $"|outcome={FormatTraceValue(attempt.Outcome)}" +
+            $"|reason={FormatTraceValue(attempt.Reason)}" +
+            $"|compared={attempt.Comparisons}" +
+            $"|provider={FormatTraceValue(attempt.Provider)}" +
+            $"|model={FormatTraceValue(attempt.Model)}" +
+            $"|api_style={FormatTraceValue(attempt.ApiStyle)}" +
+            $"|error={FormatTraceValue(attempt.BestError)}" +
+            $"|raw={FormatTraceSnippet(attempt.BestRawResponse)}" +
+            $"|best_name={FormatTraceValue(attempt.BestName)}" +
+            $"|best_conf={FormatTraceDouble(attempt.BestConfidence)}" +
+            $"|second_conf={FormatTraceDouble(attempt.SecondBestConfidence)}" +
+            $"|margin={FormatTraceDouble(attempt.Margin)}" +
+            $"|selected_name={FormatTraceValue(attempt.SelectedName)}" +
+            $"|selected_conf={FormatTraceDouble(attempt.SelectedConfidence)}";
+
+        if (log == null)
+        {
+            Console.WriteLine(line);
+            return;
+        }
+
+        log.Report(line);
+    }
+
     private static string FormatTraceValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -823,6 +1301,19 @@ public class MapCommandLogic
             return string.Empty;
 
         return value.Value.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatTraceSnippet(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var cleaned = value.Replace('|', '/').Replace('\n', ' ').Replace('\r', ' ').Trim();
+        const int maxLen = 220;
+        if (cleaned.Length <= maxLen)
+            return cleaned;
+
+        return cleaned.Substring(0, maxLen) + "...";
     }
 
     private static void AddUsage(
@@ -909,10 +1400,17 @@ public class MapCommandLogic
             return cached;
 
         var normalized = StringMatching.NormalizeName(key);
-        var tokens = normalized
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        var tokens = NameComparisonPromptBuilder.ToCoreTokens(key)
             .Where(token => !token.All(char.IsDigit))
             .ToArray();
+
+        if (tokens.Length == 0)
+        {
+            tokens = normalized
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(token => !token.All(char.IsDigit))
+                .ToArray();
+        }
 
         var signature = new NameSignature(
             normalized,
@@ -935,6 +1433,10 @@ public class MapCommandLogic
         if (IsNearIdentical(left.Normalized, right.Normalized))
             return 0.95;
 
+        // Check for substring/nickname matching (e.g., "rodrigo" ↔ "rodri", "jose" ↔ "joselu")
+        // This handles nicknames and diminutives without hardcoded rules
+        var substringBoost = CheckSubstringMatch(left.Tokens, right.Tokens);
+
         var intersectionCount = left.TokenSet.Intersect(right.TokenSet).Count();
         var unionCount = left.TokenSet.Count + right.TokenSet.Count - intersectionCount;
         var minTokenCount = Math.Min(left.TokenSet.Count, right.TokenSet.Count);
@@ -956,6 +1458,22 @@ public class MapCommandLogic
         if (intersectionCount == minTokenCount && minTokenCount >= 2)
         {
             score = Math.Max(score, 0.93);
+        }
+
+        // Mononyms such as "Pepe" should still match a longer legal name
+        // when the canonical token appears exactly in the longer name.
+        if (intersectionCount == 1 && minTokenCount == 1)
+        {
+            var singleToken = left.TokenSet.Count == 1
+                ? left.TokenSet.First()
+                : right.TokenSet.First();
+            var shortNormalizedLength = Math.Min(left.Normalized.Length, right.Normalized.Length);
+            var longTokenCount = Math.Max(left.TokenSet.Count, right.TokenSet.Count);
+
+            if (singleToken.Length >= 4 && shortNormalizedLength <= 8 && longTokenCount >= 3)
+            {
+                score = Math.Max(score, 0.88);
+            }
         }
 
         var nearVariantBoosted = false;
@@ -999,6 +1517,12 @@ public class MapCommandLogic
         else if (intersectionCount == 1 && minTokenCount >= 2 && !nearVariantBoosted)
         {
             score = Math.Min(score, 0.79);
+        }
+
+        // Apply substring match boost if found (nicknames like "rodri" for "rodrigo")
+        if (substringBoost > 0 && score < substringBoost)
+        {
+            score = Math.Max(score, substringBoost);
         }
 
         return Math.Clamp(score, 0.0, 1.0);
@@ -1060,6 +1584,51 @@ public class MapCommandLogic
         }
 
         return total / smaller.Length;
+    }
+
+    /// <summary>
+    /// Checks if any token from one set is a substring of any token from the other set.
+    /// This handles nicknames and diminutives like "Rodri" for "Rodrigo".
+    /// Returns a boost score (0.90+) if a substring match is found, 0 otherwise.
+    /// </summary>
+    private static double CheckSubstringMatch(string[] tokens1, string[] tokens2)
+    {
+        const int MinLength = 4;
+        const double MinRatio = 0.5;
+
+        if (!tokens1.Intersect(tokens2, StringComparer.Ordinal).Any())
+        {
+            return 0;
+        }
+
+        foreach (var token1 in tokens1)
+        {
+            if (token1.Length < MinLength)
+                continue;
+
+            foreach (var token2 in tokens2)
+            {
+                if (token2.Length < MinLength)
+                    continue;
+
+                if (string.Equals(token1, token2, StringComparison.Ordinal))
+                    continue;
+
+                // Check if one token contains the other (substring match)
+                // and the shorter is at least 50% of the longer
+                if (token1.Contains(token2) && token2.Length >= token1.Length * MinRatio)
+                {
+                    return 0.90; // High confidence for substring match
+                }
+
+                if (token2.Contains(token1) && token1.Length >= token2.Length * MinRatio)
+                {
+                    return 0.90; // High confidence for substring match
+                }
+            }
+        }
+
+        return 0;
     }
 
     private static int GetCommonPrefixLength(string left, string right)

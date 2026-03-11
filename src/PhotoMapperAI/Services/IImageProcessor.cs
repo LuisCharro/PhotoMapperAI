@@ -33,6 +33,8 @@ public interface IImageProcessor
         FaceLandmarks landmarks,
         int portraitWidth,
         int portraitHeight,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null,
         CropOffsetPreset? cropOffset = null);
 
     /// <summary>

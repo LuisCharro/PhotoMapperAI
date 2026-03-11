@@ -21,14 +21,15 @@ Write-Host ""
 
 # Ask user which models to download
 Write-Host "Which models do you want to download?"
-Write-Host "1) OpenCV DNN (Caffe) - Recommended (good speed/accuracy)"
-Write-Host "2) Haar Cascades - Fastest, lower accuracy (includes eye detection)"
-Write-Host "3) YOLOv8-Face - Best accuracy, slower"
-Write-Host "4) All of the above"
-Write-Host "5) Exit"
+Write-Host "1) OpenCV DNN (Caffe) - Legacy (good speed/accuracy)"
+Write-Host "2) OpenCV YuNet (ONNX) - Recommended (face + eye landmarks)"
+Write-Host "3) Haar Cascades - Fastest, lower accuracy (includes eye detection)"
+Write-Host "4) YOLOv8-Face - Best accuracy, slower"
+Write-Host "5) All of the above"
+Write-Host "6) Exit"
 Write-Host ""
 
-$Choice = Read-Host "Enter your choice (1-5)"
+$Choice = Read-Host "Enter your choice (1-6)"
 
 function Download-File {
     param(
@@ -55,6 +56,18 @@ switch ($Choice) {
 
     "2" {
         Write-Host ""
+        Write-Host "Downloading OpenCV YuNet model..." -ForegroundColor Green
+        Write-Host ""
+
+        Download-File -Url "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" -OutFile "face_detection_yunet_2023mar.onnx"
+
+        Write-Host ""
+        Write-Host "✓ OpenCV YuNet model downloaded successfully!" -ForegroundColor Green
+        Write-Host ""
+    }
+
+    "3" {
+        Write-Host ""
         Write-Host "Downloading Haar Cascade models..." -ForegroundColor Green
         Write-Host ""
 
@@ -68,7 +81,7 @@ switch ($Choice) {
         Write-Host ""
     }
 
-    "3" {
+    "4" {
         Write-Host ""
         Write-Host "YOLOv8-Face model" -ForegroundColor Yellow
         Write-Host ""
@@ -79,7 +92,7 @@ switch ($Choice) {
         Write-Host "After downloading, place the .onnx file in: $ModelsDir"
     }
 
-    "4" {
+    "5" {
         Write-Host ""
         Write-Host "Downloading ALL models..." -ForegroundColor Green
         Write-Host ""
@@ -87,6 +100,9 @@ switch ($Choice) {
         # DNN
         Download-File -Url "https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_ssd_deploy.prototxt" -OutFile "res10_ssd_deploy.prototxt"
         Download-File -Url "https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel" -OutFile "res10_300x300_ssd_iter_140000.caffemodel"
+
+        # YuNet
+        Download-File -Url "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" -OutFile "face_detection_yunet_2023mar.onnx"
 
         # Haar
         Download-File -Url "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml" -OutFile "haarcascade_frontalface_default.xml"
@@ -99,7 +115,7 @@ switch ($Choice) {
         Write-Host ""
     }
 
-    "5" {
+    "6" {
         Write-Host "Exiting..." -ForegroundColor Yellow
     }
 

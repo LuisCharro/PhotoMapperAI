@@ -77,9 +77,13 @@ public class PhotoPreviewItem : ObservableObject
 
 public partial class GenerateStepViewModel : ViewModelBase
 {
+    private const double PreviewMaxDisplayWidth = 240;
+    private const double PreviewMaxDisplayHeight = 180;
+    private const int MinimumCropFrameDimension = 20;
     private readonly ExternalGenerateCliRunner _cliRunner;
     private CancellationTokenSource? _cancellationTokenSource;
     private CancellationTokenSource? _autoPreviewCts;
+    private bool _isUpdatingCropFrameDimensions;
 
     public GenerateStepViewModel()
     {
@@ -93,7 +97,9 @@ public partial class GenerateStepViewModel : ViewModelBase
             SizeProfilePath = defaultProfile;
         }
 
-        SelectedFaceModelTierIndex = GetTierIndexForModel(FaceDetectionModel);
+        ConfigureFaceDetectionModelsForPlatform();
+
+        SelectedFaceModelTierIndex = GetFaceTierIndexForModel(FaceDetectionModel);
 
         var configuredPaidModels = UiModelConfigLoader.Load().GeneratePaidModels;
         if (configuredPaidModels.Count == 0)
@@ -122,7 +128,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     private string _imageFormat = "jpg";
 
     [ObservableProperty]
-    private string _faceDetectionModel = "opencv-dnn";
+    private string _faceDetectionModel = "opencv-yunet";
 
     [ObservableProperty]
     private string _sizeProfilePath = string.Empty;
@@ -188,6 +194,12 @@ public partial class GenerateStepViewModel : ViewModelBase
     private Bitmap? _previewImage;
 
     [ObservableProperty]
+    private double _previewDisplayWidth;
+
+    [ObservableProperty]
+    private double _previewDisplayHeight;
+
+    [ObservableProperty]
     private string _previewStatus = string.Empty;
 
     [ObservableProperty]
@@ -251,19 +263,20 @@ public partial class GenerateStepViewModel : ViewModelBase
     [ObservableProperty]
     private bool _useCustomPreviewDimensions;
 
+    [ObservableProperty]
+    private bool _lockCropFrameProportions = true;
+
     public ObservableCollection<string> LogLines { get; } = new();
 
     public List<string> ImageFormats { get; } = new() { "jpg", "png" };
 
     public List<string> OutputProfiles { get; } = new() { "none", "test", "prod" };
 
-    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new()
-    {
-        "opencv-dnn"
-    };
+    public ObservableCollection<string> RecommendedFaceDetectionModels { get; } = new();
 
     public ObservableCollection<string> LocalVisionFaceDetectionModels { get; } = new()
     {
+        "apple-vision",
         "llava:7b",
         "qwen3-vl"
     };
@@ -343,7 +356,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
     partial void OnFaceDetectionModelChanged(string value)
     {
-        SelectedFaceModelTierIndex = GetTierIndexForModel(value);
+        SelectedFaceModelTierIndex = GetFaceTierIndexForModel(value);
     }
 
     partial void OnSelectedCropOffsetPresetChanged(CropOffsetPreset? value)
@@ -364,24 +377,40 @@ public partial class GenerateStepViewModel : ViewModelBase
             return;
         }
 
-        PreviewCustomWidth = value.Width;
-        PreviewCustomHeight = value.Height;
+        SetPreviewCropFrameDimensions(value.Width, value.Height);
         UseCustomPreviewDimensions = true;
     }
 
     partial void OnPreviewCustomWidthChanged(int value)
     {
+        SyncCropFrameHeightFromWidth(value);
         TriggerAutoPreviewIfNeeded();
     }
 
     partial void OnPreviewCustomHeightChanged(int value)
     {
+        SyncCropFrameWidthFromHeight(value);
         TriggerAutoPreviewIfNeeded();
     }
 
     partial void OnUseCustomPreviewDimensionsChanged(bool value)
     {
         TriggerAutoPreviewIfNeeded();
+    }
+
+    partial void OnLockCropFrameProportionsChanged(bool value)
+    {
+        if (value)
+        {
+            SyncCropFrameHeightFromWidth(PreviewCustomWidth);
+        }
+
+        TriggerAutoPreviewIfNeeded();
+    }
+
+    partial void OnPreviewImageChanged(Bitmap? value)
+    {
+        UpdatePreviewDisplaySize(value);
     }
 
     private void TriggerAutoPreviewIfNeeded()
@@ -485,6 +514,7 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         preset.Width = PreviewCustomWidth;
         preset.Height = PreviewCustomHeight;
+        SortPreviewDimensionPresets();
 
         var settings = BuildCropOffsetSettingsSnapshot(SelectedCropOffsetPreset?.Name ?? "default");
         settings.ActivePreviewDimensionPresetName = presetName;
@@ -524,6 +554,7 @@ public partial class GenerateStepViewModel : ViewModelBase
         };
 
         PreviewDimensionPresets.Add(newPreset);
+        SortPreviewDimensionPresets();
         SelectedPreviewDimensionPreset = newPreset;
         UseCustomPreviewDimensions = true;
         PreviewDimensionStatus = $"Created new preset '{newName}'. Click 'Update Preset' to persist.";
@@ -532,10 +563,7 @@ public partial class GenerateStepViewModel : ViewModelBase
     [RelayCommand]
     private void DecrementCustomWidth()
     {
-        if (PreviewCustomWidth > 50)
-        {
-            PreviewCustomWidth -= 10;
-        }
+        PreviewCustomWidth = Math.Max(MinimumCropFrameDimension, PreviewCustomWidth - 10);
     }
 
     [RelayCommand]
@@ -547,16 +575,90 @@ public partial class GenerateStepViewModel : ViewModelBase
     [RelayCommand]
     private void DecrementCustomHeight()
     {
-        if (PreviewCustomHeight > 50)
-        {
-            PreviewCustomHeight -= 10;
-        }
+        PreviewCustomHeight = Math.Max(MinimumCropFrameDimension, PreviewCustomHeight - 10);
     }
 
     [RelayCommand]
     private void IncrementCustomHeight()
     {
         PreviewCustomHeight += 10;
+    }
+
+    private void SetPreviewCropFrameDimensions(int width, int height)
+    {
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomWidth = width;
+            PreviewCustomHeight = height;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private void SyncCropFrameHeightFromWidth(int width)
+    {
+        if (_isUpdatingCropFrameDimensions || !LockCropFrameProportions || !UseCustomPreviewDimensions || width <= 0)
+        {
+            return;
+        }
+
+        var targetHeight = Math.Max(MinimumCropFrameDimension, (int)Math.Round(width * GetOutputAspectHeightOverWidth()));
+        if (targetHeight == PreviewCustomHeight)
+        {
+            return;
+        }
+
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomHeight = targetHeight;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private void SyncCropFrameWidthFromHeight(int height)
+    {
+        if (_isUpdatingCropFrameDimensions || !LockCropFrameProportions || !UseCustomPreviewDimensions || height <= 0)
+        {
+            return;
+        }
+
+        var aspect = GetOutputAspectWidthOverHeight();
+        var targetWidth = Math.Max(MinimumCropFrameDimension, (int)Math.Round(height * aspect));
+        if (targetWidth == PreviewCustomWidth)
+        {
+            return;
+        }
+
+        _isUpdatingCropFrameDimensions = true;
+        try
+        {
+            PreviewCustomWidth = targetWidth;
+        }
+        finally
+        {
+            _isUpdatingCropFrameDimensions = false;
+        }
+    }
+
+    private double GetOutputAspectWidthOverHeight()
+    {
+        var width = Math.Max(1, PortraitWidth);
+        var height = Math.Max(1, PortraitHeight);
+        return (double)width / height;
+    }
+
+    private double GetOutputAspectHeightOverWidth()
+    {
+        var width = Math.Max(1, PortraitWidth);
+        var height = Math.Max(1, PortraitHeight);
+        return (double)height / width;
     }
 
     [RelayCommand]
@@ -652,23 +754,46 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
-            // Determine preview dimensions: custom or from profile variant
-            int previewWidth, previewHeight;
-            string? placeholderPath = null;
+            var wantsAllSizes = AllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var wantsCustomDimensions = UseCustomPreviewDimensions;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
+            var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
+            var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
 
-            if (UseCustomPreviewDimensions)
-            {
-                previewWidth = PreviewCustomWidth;
-                previewHeight = PreviewCustomHeight;
-                LogDiagnostic($"Using custom preview dimensions: {previewWidth}x{previewHeight}");
-            }
-            else
+            int previewWidth;
+            int previewHeight;
+            int? previewCropFrameWidth = null;
+            int? previewCropFrameHeight = null;
+            string? placeholderPath;
+
+            if (useSizeProfile)
             {
                 var (variantWidth, variantHeight, variantPlaceholder) = ResolvePreviewVariant();
                 previewWidth = variantWidth;
                 previewHeight = variantHeight;
-                placeholderPath = variantPlaceholder;
-                LogDiagnostic($"Using profile variant dimensions: {previewWidth}x{previewHeight}");
+                if (wantsCustomDimensions)
+                {
+                    previewCropFrameWidth = PreviewCustomWidth;
+                    previewCropFrameHeight = PreviewCustomHeight;
+                }
+                placeholderPath = ignoreProfilePlaceholders ? null : variantPlaceholder;
+                LogDiagnostic(previewCropFrameWidth.HasValue || previewCropFrameHeight.HasValue
+                    ? $"Using size profile preview dimensions: {previewWidth}x{previewHeight} with crop frame {previewCropFrameWidth ?? previewWidth}x{previewCropFrameHeight ?? previewHeight}"
+                    : $"Using size profile preview dimensions: {previewWidth}x{previewHeight}");
+            }
+            else
+            {
+                previewWidth = PortraitWidth;
+                previewHeight = PortraitHeight;
+                if (wantsCustomDimensions)
+                {
+                    previewCropFrameWidth = PreviewCustomWidth;
+                    previewCropFrameHeight = PreviewCustomHeight;
+                }
+                placeholderPath = UsePlaceholderImages ? PlaceholderImagePath : null;
+                LogDiagnostic(previewCropFrameWidth.HasValue || previewCropFrameHeight.HasValue
+                    ? $"Using manual output {previewWidth}x{previewHeight} with crop frame {previewCropFrameWidth ?? previewWidth}x{previewCropFrameHeight ?? previewHeight}"
+                    : $"Using manual preview dimensions: {previewWidth}x{previewHeight}");
             }
 
             var photoPath = ResolvePreviewPhotoPath(player.External_Player_ID);
@@ -688,63 +813,62 @@ public partial class GenerateStepViewModel : ViewModelBase
                 return;
             }
 
+            LogDiagnostic($"Preview generation path: external-cli");
             LogDiagnostic($"Face detection model requested: {FaceDetectionModel}");
-            var faceDetectionService = FaceDetectionServiceFactory.Create(FaceDetectionModel);
-            LogDiagnostic($"Detector initialization result: {faceDetectionService.ModelName}");
-            if (string.Equals(FaceDetectionModel, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
-            {
-                var openCvService = faceDetectionService as PhotoMapperAI.Services.AI.OpenCVDNNFaceDetectionService;
-                if (openCvService != null)
-                {
-                    LogDiagnostic("OpenCV-DNN model: using res10_300x300_ssd_iter_140000.caffemodel");
-                }
-            }
-            await faceDetectionService.InitializeAsync();
-            LogDiagnostic("OpenCV runtime status: initialized");
+            PreviewStatus = "Generating preview...";
 
-            FaceLandmarks landmarks;
-            if (PortraitOnly)
-            {
-                landmarks = new FaceLandmarks { FaceDetected = false };
-            }
-            else
-            {
-                PreviewStatus = "Detecting face for preview...";
-                landmarks = await faceDetectionService.DetectFaceLandmarksAsync(photoPath);
-                if (landmarks != null)
-                {
-                    LogDiagnostic($"Face detected: rect={landmarks.FaceRect}, confidence={landmarks.FaceConfidence}, center={landmarks.FaceCenter}");
-                }
-                else
-                {
-                    LogDiagnostic("Face not detected, using image center");
-                }
-            }
+            var previewOutputDir = Path.Combine(
+                Path.GetTempPath(),
+                "PhotoMapperAI",
+                "preview",
+                "generate",
+                Guid.NewGuid().ToString("N"));
 
-            var imageProcessor = new ImageProcessor();
-            using var image = await imageProcessor.LoadImageAsync(photoPath);
-            LogDiagnostic($"Source image dimensions: {image.Width}x{image.Height}");
+            Directory.CreateDirectory(previewOutputDir);
 
-            var cropOffset = BuildCurrentCropOffsetPreset();
-            LogDiagnostic($"Crop offset preset: {cropOffset.Name} ({cropOffset.HorizontalPercent}%, {cropOffset.VerticalPercent}%)");
-
-            using var cropped = await imageProcessor.CropPortraitAsync(
-                image,
-                landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(image.Width / 2, image.Height / 2) },
+            var previewResult = await _cliRunner.ExecuteAsync(
+                Directory.GetCurrentDirectory(),
+                InputCsvPath,
+                PhotosDirectory,
+                previewOutputDir,
+                ImageFormat,
+                FaceDetectionModel,
+                PortraitOnly,
                 previewWidth,
                 previewHeight,
-                cropOffset);
+                sizeProfilePath,
+                allSizes: false,
+                ignoreProfilePlaceholders,
+                DownloadOpenCvModels,
+                player.PlayerId.ToString(),
+                placeholderPath,
+                previewCropFrameWidth,
+                previewCropFrameHeight,
+                BuildCurrentCropOffsetPreset(),
+                _cancellationTokenSource?.Token ?? CancellationToken.None,
+                new Progress<string>(msg => LogDiagnostic(msg)));
 
-            LogDiagnostic($"Computed crop rectangle: {cropped.Width}x{cropped.Height}");
-            LogDiagnostic($"Output dimensions: {previewWidth}x{previewHeight}");
+            if (previewResult.ExitCode != 0)
+            {
+                PreviewStatus = $"Preview failed: external generation exited with {previewResult.ExitCode}.";
+                return;
+            }
 
-            using var stream = new MemoryStream();
-            cropped.Save(stream, new JpegEncoder { Quality = 92 });
-            stream.Position = 0;
-            PreviewImage = new Bitmap(stream);
+            var previewFileName = $"{player.PlayerId}.{NormalizePreviewExtension(ImageFormat)}";
+            var previewFilePath = Path.Combine(previewOutputDir, previewFileName);
+            if (!File.Exists(previewFilePath))
+            {
+                PreviewStatus = $"Preview failed: generated file not found ({previewFileName}).";
+                return;
+            }
+
+            await using var previewStream = File.OpenRead(previewFilePath);
+            PreviewImage = new Bitmap(previewStream);
 
             PreviewPlayerLabel = BuildPreviewPlayerLabel(player);
-            PreviewStatus = $"Preview generated ({previewWidth}x{previewHeight}).";
+            PreviewStatus = previewCropFrameWidth.HasValue || previewCropFrameHeight.HasValue
+                ? $"Preview generated (output {previewWidth}x{previewHeight}, crop frame {previewCropFrameWidth ?? previewWidth}x{previewCropFrameHeight ?? previewHeight})."
+                : $"Preview generated ({previewWidth}x{previewHeight}).";
             LogDiagnostic($"Preview encoded message: {PreviewStatus}");
 
             if (StrictModeEnabled && diagnostics.Count > 0)
@@ -1116,14 +1240,13 @@ public partial class GenerateStepViewModel : ViewModelBase
                 AppendLog($"Using output profile '{OutputProfile}' => {baseOutputDirectory}");
             }
 
-            // Determine mode: AllSizes takes precedence over CustomDimensions
-            // - If AllSizes is checked → use size profile with all variants
-            // - If UseCustomPreviewDimensions is checked (and not AllSizes) → use custom dimensions
-            // - Otherwise → use size profile with first variant OR manual dimensions
+            // Determine mode:
+            // - If AllSizes is checked -> use the full size profile.
+            // - Custom crop frame is independent from output sizing and may still apply to profile variants.
+            // - Otherwise use the selected size profile in single-variant mode.
             var wantsAllSizes = AllSizes && !string.IsNullOrWhiteSpace(SizeProfilePath);
-            var wantsCustomDimensions = UseCustomPreviewDimensions && !wantsAllSizes;
-            
-            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath) && !wantsCustomDimensions;
+            var wantsCustomDimensions = UseCustomPreviewDimensions;
+            var useSizeProfile = !string.IsNullOrWhiteSpace(SizeProfilePath);
             var sizeProfilePath = useSizeProfile ? SizeProfilePath : null;
             var allSizes = wantsAllSizes;
             var ignoreProfilePlaceholders = useSizeProfile && !UsePlaceholderImages;
@@ -1131,11 +1254,15 @@ public partial class GenerateStepViewModel : ViewModelBase
 
             // Determine actual dimensions to use for generation
             int effectiveWidth, effectiveHeight;
+            int? cropFrameWidth = null;
+            int? cropFrameHeight = null;
             if (wantsCustomDimensions)
             {
-                effectiveWidth = PreviewCustomWidth;
-                effectiveHeight = PreviewCustomHeight;
-                AppendLog($"Using custom dimensions: {effectiveWidth}x{effectiveHeight} (size profile ignored)");
+                effectiveWidth = PortraitWidth;
+                effectiveHeight = PortraitHeight;
+                cropFrameWidth = PreviewCustomWidth;
+                cropFrameHeight = PreviewCustomHeight;
+                AppendLog($"Using custom crop frame: {cropFrameWidth}x{cropFrameHeight} with output size {effectiveWidth}x{effectiveHeight}");
             }
             else
             {
@@ -1148,6 +1275,16 @@ public partial class GenerateStepViewModel : ViewModelBase
                 var profile = LoadSizeProfile(SizeProfilePath);
                 var variantMode = allSizes ? "all variants" : "single variant";
                 AppendLog($"Using size profile '{profile.Name}' ({variantMode})");
+                if (!allSizes)
+                {
+                    baseOutputDirectory = ResolveSingleProfileOutputDirectory(baseOutputDirectory, profile);
+                    AppendLog($"Single-profile output folder => {baseOutputDirectory}");
+                }
+            }
+            else
+            {
+                baseOutputDirectory = ResolveDefaultSingleVariantOutputDirectory(baseOutputDirectory);
+                AppendLog($"Single-size output folder => {baseOutputDirectory}");
             }
 
             Directory.CreateDirectory(baseOutputDirectory);
@@ -1175,7 +1312,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                 ignoreProfilePlaceholders,
                 DownloadOpenCvModels,
                 OnlyPlayerId,
-                placeholderPath));
+                placeholderPath,
+                cropFrameWidth,
+                cropFrameHeight));
 
             var log = new Progress<string>(AppendLog);
             var progress = new Progress<(int processed, int total, string current)>(state =>
@@ -1210,7 +1349,9 @@ public partial class GenerateStepViewModel : ViewModelBase
                         ignoreProfilePlaceholders,
                         DownloadOpenCvModels,
                         OnlyPlayerId,
-                        placeholderPath);
+                        placeholderPath,
+                        cropFrameWidth,
+                        cropFrameHeight);
                     AppendLog($"Debug artifact: {debugPath}");
                 }
                 catch (Exception ex)
@@ -1235,6 +1376,8 @@ public partial class GenerateStepViewModel : ViewModelBase
                 DownloadOpenCvModels,
                 OnlyPlayerId,
                 placeholderPath,
+                cropFrameWidth,
+                cropFrameHeight,
                 BuildCurrentCropOffsetPreset(),
                 _cancellationTokenSource.Token,
                 log,
@@ -1343,6 +1486,8 @@ public partial class GenerateStepViewModel : ViewModelBase
             });
         }
 
+        SortPreviewDimensionPresets();
+
         var activeDimensions = settings.GetActivePreviewDimensionPreset();
         SelectedPreviewDimensionPreset = PreviewDimensionPresets.FirstOrDefault(p =>
             string.Equals(p.Name, activeDimensions.Name, StringComparison.OrdinalIgnoreCase))
@@ -1378,6 +1523,22 @@ public partial class GenerateStepViewModel : ViewModelBase
                 })
                 .ToList()
         };
+    }
+
+    private void SortPreviewDimensionPresets()
+    {
+        var ordered = PreviewDimensionPresets
+            .OrderBy(p => p.Width * p.Height)
+            .ThenBy(p => p.Width)
+            .ThenBy(p => p.Height)
+            .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        PreviewDimensionPresets.Clear();
+        foreach (var preset in ordered)
+        {
+            PreviewDimensionPresets.Add(preset);
+        }
     }
 
     private CropOffsetPreset BuildCurrentCropOffsetPreset()
@@ -1427,6 +1588,60 @@ public partial class GenerateStepViewModel : ViewModelBase
 
         var manualPlaceholder = UsePlaceholderImages ? PlaceholderImagePath : null;
         return (PortraitWidth, PortraitHeight, manualPlaceholder);
+    }
+
+    private static string ResolveSingleProfileOutputDirectory(string baseOutputDirectory, UiSizeProfile profile)
+    {
+        var folderName = SanitizeOutputFolderName(profile.Name);
+        return Path.Combine(baseOutputDirectory, folderName);
+    }
+
+    private void UpdatePreviewDisplaySize(Bitmap? bitmap)
+    {
+        if (bitmap == null || bitmap.PixelSize.Width <= 0 || bitmap.PixelSize.Height <= 0)
+        {
+            PreviewDisplayWidth = 0;
+            PreviewDisplayHeight = 0;
+            return;
+        }
+
+        var width = (double)bitmap.PixelSize.Width;
+        var height = (double)bitmap.PixelSize.Height;
+        var scale = Math.Min(1d, Math.Min(PreviewMaxDisplayWidth / width, PreviewMaxDisplayHeight / height));
+
+        PreviewDisplayWidth = Math.Max(1, width * scale);
+        PreviewDisplayHeight = Math.Max(1, height * scale);
+    }
+
+    private static string ResolveDefaultSingleVariantOutputDirectory(string baseOutputDirectory)
+    {
+        var normalizedBasePath = baseOutputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.Equals(Path.GetFileName(normalizedBasePath), "default", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalizedBasePath;
+        }
+
+        return Path.Combine(baseOutputDirectory, "default");
+    }
+
+    private static string SanitizeOutputFolderName(string? folderName)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(folderName) ? "default" : folderName.Trim();
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitizedChars = trimmed.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray();
+        var sanitized = new string(sanitizedChars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "default" : sanitized;
+    }
+
+    private static string NormalizePreviewExtension(string imageFormat)
+    {
+        var normalized = (imageFormat ?? "jpg").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "jpeg" => "jpg",
+            "png" => "png",
+            _ => "jpg"
+        };
     }
 
     private string? ResolvePreviewPhotoPath(string External_Player_ID)
@@ -1681,9 +1896,15 @@ public partial class GenerateStepViewModel : ViewModelBase
         ScheduleAutoPreview();
     }
 
-    private static int GetTierIndexForModel(string modelName)
+    private static int GetFaceTierIndexForModel(string modelName)
     {
-        if (string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(modelName, "opencv-yunet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "yunet", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "opencv-dnn", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        if (string.Equals(modelName, "apple-vision", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(modelName, "vision", StringComparison.OrdinalIgnoreCase))
             return 0;
 
         if (string.Equals(modelName, "llava:7b", StringComparison.OrdinalIgnoreCase) ||
@@ -1752,6 +1973,53 @@ public partial class GenerateStepViewModel : ViewModelBase
         }
 
         return profile;
+    }
+
+    private void ConfigureFaceDetectionModelsForPlatform()
+    {
+        var isWindows = OperatingSystem.IsWindows();
+        var isMacOS = OperatingSystem.IsMacOS();
+        var isLinux = OperatingSystem.IsLinux();
+
+        if (isWindows)
+        {
+            // Windows: OpenCV works fine
+            RecommendedFaceDetectionModels.Add("opencv-yunet");
+            RecommendedFaceDetectionModels.Add("opencv-dnn");
+            FaceDetectionModel = "opencv-yunet";
+        }
+        else if (isMacOS)
+        {
+            // macOS: prefer Apple Vision, keep Ollama and center as fallbacks
+            RecommendedFaceDetectionModels.Add("apple-vision");
+            RecommendedFaceDetectionModels.Add("qwen3-vl");
+            RecommendedFaceDetectionModels.Add("llava:7b");
+            RecommendedFaceDetectionModels.Add("center");
+            LocalVisionFaceDetectionModels.Clear();
+            LocalVisionFaceDetectionModels.Add("apple-vision");
+            LocalVisionFaceDetectionModels.Add("llava:7b");
+            LocalVisionFaceDetectionModels.Add("qwen3-vl");
+            AdvancedFaceDetectionModels.Clear();
+            AdvancedFaceDetectionModels.Add("apple-vision");
+            AdvancedFaceDetectionModels.Add("qwen3-vl");
+            AdvancedFaceDetectionModels.Add("llava:7b");
+            AdvancedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "apple-vision";
+        }
+        else if (isLinux)
+        {
+            // Linux: Try OpenCV, fallback to center
+            RecommendedFaceDetectionModels.Add("opencv-yunet");
+            RecommendedFaceDetectionModels.Add("opencv-dnn");
+            RecommendedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "opencv-yunet";
+        }
+        else
+        {
+            // Unknown platform: Use center as safe default
+            RecommendedFaceDetectionModels.Add("center");
+            FaceDetectionModel = "center";
+        }
     }
 
     private sealed class UiSizeProfile

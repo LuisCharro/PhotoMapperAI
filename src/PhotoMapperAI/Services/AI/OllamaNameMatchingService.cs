@@ -124,6 +124,115 @@ public class OllamaNameMatchingService : INameMatchingService
         return ordered;
     }
 
+    public async Task<NameComparisonBatchResult> CompareNamePairsBatchAsync(IReadOnlyList<NameComparisonPair> comparisons)
+    {
+        if (comparisons.Count == 0)
+            return new NameComparisonBatchResult(new List<MatchResult>(), 0, 0, 0, 0);
+
+        var results = new MatchResult[comparisons.Count];
+        var pending = new List<NameComparisonPromptBuilder.BatchComparison>(comparisons.Count);
+
+        for (var i = 0; i < comparisons.Count; i++)
+        {
+            var comparison = comparisons[i];
+            var tokens1 = NameComparisonPromptBuilder.ToCoreTokens(comparison.Name1);
+            var tokens2 = NameComparisonPromptBuilder.ToCoreTokens(comparison.Name2);
+            if (TokensAreIdentical(tokens1, tokens2))
+            {
+                results[i] = new MatchResult
+                {
+                    IsMatch = true,
+                    Confidence = 0.99,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "provider", "ollama" },
+                        { "model", _modelName },
+                        { "precheck_applied", "true" },
+                        { "reason", "Identical token sets (pre-check)" }
+                    }
+                };
+            }
+            else
+            {
+                pending.Add(new NameComparisonPromptBuilder.BatchComparison(i, comparison.Name1, comparison.Name2));
+            }
+        }
+
+        if (pending.Count == 0)
+            return new NameComparisonBatchResult(results.ToList(), 0, 0, 0, 0);
+
+        var prompt = NameComparisonPromptBuilder.BuildBatch(pending);
+
+        try
+        {
+            var chat = await _client.ChatWithUsageAsync(_modelName, prompt, temperature: 0.0);
+            var metadata = new Dictionary<string, string>
+            {
+                { "provider", "ollama" },
+                { "model", _modelName },
+                { "usage_prompt_tokens", chat.PromptEvalCount.ToString() },
+                { "usage_completion_tokens", chat.EvalCount.ToString() },
+                { "usage_total_tokens", chat.TotalTokens.ToString() },
+                { "usage_total_duration_ns", chat.TotalDurationNs.ToString() },
+                { "usage_prompt_eval_duration_ns", chat.PromptEvalDurationNs.ToString() },
+                { "usage_eval_duration_ns", chat.EvalDurationNs.ToString() },
+                { "usage_load_duration_ns", chat.LoadDurationNs.ToString() }
+            };
+
+            var parsed = NameComparisonBatchResultParser.Parse(
+                chat.Content,
+                _confidenceThreshold,
+                metadata,
+                _jsonOptions,
+                out var parseError,
+                out var rawJson);
+
+            if (!string.IsNullOrWhiteSpace(parseError))
+            {
+                return await FallbackToIndividualAsync(results, comparisons, pending, rawJson ?? chat.Content);
+            }
+
+            foreach (var item in parsed)
+            {
+                results[item.Key] = item.Value;
+            }
+
+            var usageCalls = 1;
+            var promptTokens = chat.PromptEvalCount;
+            var completionTokens = chat.EvalCount;
+            var totalTokens = chat.TotalTokens;
+
+            var missing = pending.Where(p => results[p.Index] == null).ToList();
+            if (missing.Count > 0)
+            {
+                foreach (var missingItem in missing)
+                {
+                    var comparison = comparisons[missingItem.Index];
+                    var match = await CompareNamesAsync(comparison.Name1, comparison.Name2);
+                    results[missingItem.Index] = match;
+                    AddUsage(match, ref usageCalls, ref promptTokens, ref completionTokens, ref totalTokens);
+                }
+            }
+
+            FillMissingResults(results, comparisons.Count, metadata, _confidenceThreshold, rawJson ?? chat.Content);
+
+            return new NameComparisonBatchResult(
+                results.ToList(),
+                usageCalls,
+                promptTokens,
+                completionTokens,
+                totalTokens);
+        }
+        catch (OllamaQuotaExceededException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return await FallbackToIndividualAsync(results, comparisons, pending, "Ollama batch call failed.");
+        }
+    }
+
 
     #region Pre-check helpers
 
@@ -157,6 +266,84 @@ public class OllamaNameMatchingService : INameMatchingService
 
         return sorted1.SequenceEqual(sorted2);
     }
+
+    private async Task<NameComparisonBatchResult> FallbackToIndividualAsync(
+        MatchResult[] results,
+        IReadOnlyList<NameComparisonPair> comparisons,
+        List<NameComparisonPromptBuilder.BatchComparison> pending,
+        string error)
+    {
+        var usageCalls = 0;
+        var promptTokens = 0;
+        var completionTokens = 0;
+        var totalTokens = 0;
+
+        foreach (var pendingItem in pending)
+        {
+            var comparison = comparisons[pendingItem.Index];
+            var match = await CompareNamesAsync(comparison.Name1, comparison.Name2);
+            results[pendingItem.Index] = match;
+            AddUsage(match, ref usageCalls, ref promptTokens, ref completionTokens, ref totalTokens);
+        }
+
+        FillMissingResults(results, comparisons.Count, BuildMetadata(), _confidenceThreshold, error);
+
+        return new NameComparisonBatchResult(results.ToList(), usageCalls, promptTokens, completionTokens, totalTokens);
+    }
+
+    private static void AddUsage(
+        MatchResult match,
+        ref int usageCalls,
+        ref int promptTokens,
+        ref int completionTokens,
+        ref int totalTokens)
+    {
+        if (match.Metadata == null || match.Metadata.Count == 0)
+            return;
+
+        var hasPrompt = TryGetInt(match.Metadata, "usage_prompt_tokens", out var prompt);
+        var hasCompletion = TryGetInt(match.Metadata, "usage_completion_tokens", out var completion);
+        var hasTotal = TryGetInt(match.Metadata, "usage_total_tokens", out var total);
+        if (!hasPrompt && !hasCompletion && !hasTotal)
+            return;
+
+        usageCalls++;
+        promptTokens += hasPrompt ? prompt : 0;
+        completionTokens += hasCompletion ? completion : 0;
+        totalTokens += hasTotal ? total : (hasPrompt ? prompt : 0) + (hasCompletion ? completion : 0);
+    }
+
+    private static bool TryGetInt(IDictionary<string, string> metadata, string key, out int value)
+    {
+        value = 0;
+        return metadata.TryGetValue(key, out var raw) && int.TryParse(raw, out value);
+    }
+
+    private static void FillMissingResults(
+        MatchResult[] results,
+        int totalCount,
+        Dictionary<string, string> baseMetadata,
+        double confidenceThreshold,
+        string rawResponse)
+    {
+        for (var i = 0; i < totalCount; i++)
+        {
+            if (results[i] != null)
+                continue;
+
+            results[i] = NameComparisonBatchResultParser.BuildError(
+                "Missing batch result.",
+                confidenceThreshold,
+                baseMetadata,
+                rawResponse);
+        }
+    }
+
+    private Dictionary<string, string> BuildMetadata() => new()
+    {
+        { "provider", "ollama" },
+        { "model", _modelName }
+    };
 
     #endregion
 }

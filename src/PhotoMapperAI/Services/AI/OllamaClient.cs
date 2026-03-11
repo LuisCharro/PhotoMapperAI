@@ -280,10 +280,10 @@ public class OllamaClient
             ? "no response body"
             : responseBody.Replace('\n', ' ').Replace('\r', ' ').Trim();
 
-        if (response.StatusCode == HttpStatusCode.Conflict)
+        if (response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.TooManyRequests)
         {
             throw new OllamaQuotaExceededException(
-                $"Ollama Cloud quota exhausted for model '{modelName}' (HTTP 409). " +
+                $"Ollama Cloud quota exhausted for model '{modelName}' (HTTP {statusCode}). " +
                 "Wait for quota reset or switch model. " +
                 $"Endpoint: {endpoint}. Response: {compactBody}");
         }

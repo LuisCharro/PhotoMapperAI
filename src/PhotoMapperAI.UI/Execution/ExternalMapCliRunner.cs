@@ -14,6 +14,13 @@ public sealed class ExternalMapCliRunner
         public int ExitCode { get; set; }
         public int PlayersProcessed { get; set; }
         public int PlayersMatched { get; set; }
+        public int PlayersMappedDirectId { get; set; }
+        public int PlayersMappedDeterministic { get; set; }
+        public int PlayersMappedFirstRound { get; set; }
+        public int PlayersMappedAiPass1 { get; set; }
+        public int PlayersMappedAiPass2 { get; set; }
+        public int PlayersMappedAiTotal { get; set; }
+        public int ManualEditsPreserved { get; set; }
         public string OutputCsvPath { get; set; } = string.Empty;
     }
 
@@ -29,8 +36,11 @@ public sealed class ExternalMapCliRunner
         bool useAi,
         bool aiSecondPass,
         bool aiOnly,
+        bool aiTrace,
         string? openAiApiKey,
         string? anthropicApiKey,
+        string? zaiApiKey,
+        string? minimaxApiKey,
         CancellationToken cancellationToken,
         IProgress<string>? log,
         IProgress<(int processed, int total, string current)>? uiProgress = null)
@@ -41,7 +51,9 @@ public sealed class ExternalMapCliRunner
             nameModel,
             confidenceThreshold: confidenceThreshold,
             openAiApiKey: openAiApiKey,
-            anthropicApiKey: anthropicApiKey);
+            anthropicApiKey: anthropicApiKey,
+            zaiApiKey: zaiApiKey,
+            minimaxApiKey: minimaxApiKey);
         var imageProcessor = new ImageProcessor();
         var logic = new MapCommandLogic(nameMatchingService, imageProcessor);
 
@@ -57,7 +69,7 @@ public sealed class ExternalMapCliRunner
             aiSecondPass,
             uiProgress: uiProgress,
             cancellationToken: cancellationToken,
-            aiTrace: false,
+            aiTrace: aiTrace,
             aiOnly: aiOnly,
             log: log);
 
@@ -66,6 +78,13 @@ public sealed class ExternalMapCliRunner
             ExitCode = 0,
             PlayersProcessed = result.PlayersProcessed,
             PlayersMatched = result.PlayersMatched,
+            PlayersMappedDirectId = result.DirectIdMatches,
+            PlayersMappedDeterministic = result.StringMatches,
+            PlayersMappedFirstRound = result.FirstRoundMatches,
+            PlayersMappedAiPass1 = result.AiFirstPassMatches,
+            PlayersMappedAiPass2 = result.AiSecondPassMatches,
+            PlayersMappedAiTotal = result.AiMatches,
+            ManualEditsPreserved = result.ManualEditsPreserved,
             OutputCsvPath = result.OutputPath
         };
     }

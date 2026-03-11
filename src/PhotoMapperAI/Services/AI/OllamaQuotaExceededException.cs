@@ -1,7 +1,7 @@
 namespace PhotoMapperAI.Services.AI;
 
 /// <summary>
-/// Raised when Ollama cloud returns HTTP 409 due to quota/limit exhaustion.
+/// Raised when Ollama cloud returns HTTP 409/429 due to quota/limit exhaustion.
 /// </summary>
 public sealed class OllamaQuotaExceededException : Exception
 {

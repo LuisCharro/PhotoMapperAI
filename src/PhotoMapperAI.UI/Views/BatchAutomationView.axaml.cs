@@ -8,14 +8,48 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Platform.Storage;
 using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.UI.Models;
+using PhotoMapperAI.UI.Services;
+using PhotoMapperAI.UI.ViewModels;
 
 namespace PhotoMapperAI.UI.Views;
 
 public partial class BatchAutomationView : UserControl
 {
+    private readonly ManualMappingWorkflowService _manualMappingWorkflow = new();
+    private BatchAutomationViewModel? _boundViewModel;
+
     public BatchAutomationView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested -= OpenManualMappingAsync;
+        }
+
+        _boundViewModel = DataContext as BatchAutomationViewModel;
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested += OpenManualMappingAsync;
+        }
+    }
+
+    private async Task<ManualMappingWorkflowResult> OpenManualMappingAsync(ManualMappingWorkflowRequest request)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null)
+        {
+            return new ManualMappingWorkflowResult
+            {
+                ErrorMessage = "Unable to open manual mapping window."
+            };
+        }
+
+        return await _manualMappingWorkflow.OpenAsync(owner, request);
     }
 
     private async void BrowseTeamsSql_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -300,5 +334,51 @@ public partial class BatchAutomationView : UserControl
         {
             vm.RequestAutoPreviewFromUi();
         }
+    }
+
+    private async Task ShowInfoDialogAsync(string title, string message)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null)
+        {
+            return;
+        }
+
+        var closeButton = new Button
+        {
+            Content = "OK",
+            Width = 100,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+        };
+
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 760,
+            Height = 220,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Border
+            {
+                Padding = new Avalonia.Thickness(16),
+                Child = new StackPanel
+                {
+                    Spacing = 14,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                            FontSize = 14
+                        },
+                        closeButton
+                    }
+                }
+            }
+        };
+
+        closeButton.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(owner);
     }
 }

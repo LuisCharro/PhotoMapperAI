@@ -40,6 +40,7 @@ public class GeneratePhotosCommandLogic
     private readonly IImageProcessor _imageProcessor;
     private readonly FaceDetectionCache? _cache;
     private readonly CropOffsetPreset? _cropOffsetPreset;
+    private readonly bool _faceDetectionTrace;
     private string? _placeholderImagePath;
 
     /// <summary>
@@ -49,12 +50,14 @@ public class GeneratePhotosCommandLogic
         IFaceDetectionService faceDetectionService,
         IImageProcessor imageProcessor,
         FaceDetectionCache? cache = null,
-        CropOffsetPreset? cropOffsetPreset = null)
+        CropOffsetPreset? cropOffsetPreset = null,
+        bool faceDetectionTrace = false)
     {
         _faceDetectionService = faceDetectionService;
         _imageProcessor = imageProcessor;
         _cache = cache;
         _cropOffsetPreset = cropOffsetPreset;
+        _faceDetectionTrace = faceDetectionTrace;
     }
 
     /// <summary>
@@ -81,7 +84,9 @@ public class GeneratePhotosCommandLogic
         bool parallel,
         int parallelDegree,
         string? onlyPlayerId = null,
-        string? placeholderImagePath = null)
+        string? placeholderImagePath = null,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null)
     {
         var result = await ExecuteWithResultAsync(
             inputCsvPath,
@@ -96,7 +101,9 @@ public class GeneratePhotosCommandLogic
             parallel,
             parallelDegree,
             onlyPlayerId,
-            placeholderImagePath: placeholderImagePath
+            placeholderImagePath: placeholderImagePath,
+            cropFrameWidth: cropFrameWidth,
+            cropFrameHeight: cropFrameHeight
         );
 
         return result.ExitCode;
@@ -121,7 +128,9 @@ public class GeneratePhotosCommandLogic
         string? placeholderImagePath = null,
         IProgress<(int processed, int total, string current)>? progress = null,
         CancellationToken cancellationToken = default,
-        IProgress<string>? log = null)
+        IProgress<string>? log = null,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null)
     {
         var totalPlayers = 0;
         var successCount = 0;
@@ -141,9 +150,14 @@ public class GeneratePhotosCommandLogic
         LogLine($"Output Dir: {processedPhotosOutputPath}");
         LogLine($"Format: {format}");
         LogLine($"Face Detection: {faceDetectionModel}");
+        LogLine($"Face Detection Trace: {_faceDetectionTrace}");
         LogLine($"Crop Method: {crop}");
         LogLine($"Portrait Only: {portraitOnly}");
         LogLine($"Portrait Size: {portraitWidth}x{portraitHeight}");
+        if (cropFrameWidth.HasValue || cropFrameHeight.HasValue)
+        {
+            LogLine($"Crop Frame: {cropFrameWidth ?? portraitWidth}x{cropFrameHeight ?? portraitHeight}");
+        }
         LogLine($"Parallel: {parallel} (Degree: {parallelDegree})");
         if (!string.IsNullOrWhiteSpace(onlyPlayerId))
         {
@@ -243,6 +257,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitWidth,
                         portraitHeight,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         portraitOnly,
                         faceDetectionModel,
                         cancellationToken
@@ -283,6 +299,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitWidth,
                         portraitHeight,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         portraitOnly,
                         faceDetectionModel,
                         cancellationToken
@@ -442,6 +460,8 @@ public class GeneratePhotosCommandLogic
         bool parallel,
         int parallelDegree,
         string? onlyPlayerId = null,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null,
         IProgress<(int processed, int total, string current)>? progress = null,
         CancellationToken cancellationToken = default,
         IProgress<string>? log = null)
@@ -476,6 +496,10 @@ public class GeneratePhotosCommandLogic
         LogLine($"Portrait Only: {portraitOnly}");
         LogLine($"Parallel: {parallel} (Degree: {parallelDegree})");
         LogLine($"Variants: {string.Join(", ", variants.Select(v => $"{v.Key}:{v.Width}x{v.Height}"))}");
+        if (cropFrameWidth.HasValue || cropFrameHeight.HasValue)
+        {
+            LogLine($"Crop Frame: {cropFrameWidth ?? baseVariant.Width}x{cropFrameHeight ?? baseVariant.Height}");
+        }
         LogLine(string.Empty);
 
         try
@@ -564,6 +588,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitOnly,
                         faceDetectionModel,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         cancellationToken);
 
                     var currentProcessed = Interlocked.Increment(ref processedCount);
@@ -601,6 +627,8 @@ public class GeneratePhotosCommandLogic
                         format,
                         portraitOnly,
                         faceDetectionModel,
+                        cropFrameWidth,
+                        cropFrameHeight,
                         cancellationToken);
 
                     processedCount++;
@@ -709,6 +737,8 @@ public class GeneratePhotosCommandLogic
         string format,
         int portraitWidth,
         int portraitHeight,
+        int? cropFrameWidth,
+        int? cropFrameHeight,
         bool portraitOnly,
         string faceDetectionModel,
         CancellationToken cancellationToken = default)
@@ -756,6 +786,7 @@ public class GeneratePhotosCommandLogic
         try
         {
             FaceLandmarks landmarks;
+            var usedCache = false;
 
             // Step 4a: Detect faces (unless portrait-only mode)
             if (!portraitOnly)
@@ -768,6 +799,7 @@ public class GeneratePhotosCommandLogic
                     {
                         landmarks = cached;
                         Console.WriteLine("  ✓ Using cached face detection");
+                        usedCache = true;
                     }
                     else
                     {
@@ -790,6 +822,11 @@ public class GeneratePhotosCommandLogic
                 landmarks = new FaceLandmarks { FaceDetected = false };
             }
 
+            if (_faceDetectionTrace)
+            {
+                LogFaceDetectionTrace(player, photoPath, faceDetectionModel, landmarks, usedCache);
+            }
+
             // Step 5: Generate portrait
             var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
 
@@ -800,6 +837,8 @@ public class GeneratePhotosCommandLogic
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                 portraitWidth,
                 portraitHeight,
+                cropFrameWidth,
+                cropFrameHeight,
                 _cropOffsetPreset
             );
 
@@ -823,6 +862,8 @@ public class GeneratePhotosCommandLogic
         string format,
         bool portraitOnly,
         string faceDetectionModel,
+        int? cropFrameWidth = null,
+        int? cropFrameHeight = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -872,6 +913,7 @@ public class GeneratePhotosCommandLogic
         try
         {
             FaceLandmarks landmarks;
+            var usedCache = false;
 
             if (!portraitOnly)
             {
@@ -882,6 +924,7 @@ public class GeneratePhotosCommandLogic
                     {
                         landmarks = cached;
                         Console.WriteLine("  ✓ Using cached face detection");
+                        usedCache = true;
                     }
                     else
                     {
@@ -901,6 +944,11 @@ public class GeneratePhotosCommandLogic
                 landmarks = new FaceLandmarks { FaceDetected = false };
             }
 
+            if (_faceDetectionTrace)
+            {
+                LogFaceDetectionTrace(player, photoPath, faceDetectionModel, landmarks, usedCache);
+            }
+
             var (imageWidth, imageHeight) = await _imageProcessor.GetImageDimensionsAsync(photoPath);
 
             using var image = await _imageProcessor.LoadImageAsync(photoPath);
@@ -909,6 +957,8 @@ public class GeneratePhotosCommandLogic
                 landmarks ?? new FaceLandmarks { FaceCenter = new PhotoMapperAI.Models.Point(imageWidth / 2, imageHeight / 2) },
                 baseVariant.Width,
                 baseVariant.Height,
+                cropFrameWidth,
+                cropFrameHeight,
                 _cropOffsetPreset);
 
             var baseOutputPath = Path.Combine(baseVariant.OutputDir, $"{player.PlayerId}.{format}");
@@ -934,6 +984,47 @@ public class GeneratePhotosCommandLogic
         }
     }
 
+    private static void LogFaceDetectionTrace(
+        PlayerRecord player,
+        string photoPath,
+        string faceDetectionModel,
+        FaceLandmarks landmarks,
+        bool usedCache)
+    {
+        var fileName = Path.GetFileName(photoPath);
+        var eyeMid = landmarks.EyeMidpoint;
+        var faceRect = landmarks.FaceRect;
+        var faceRectText = faceRect == null
+            ? "none"
+            : $"{faceRect.X},{faceRect.Y},{faceRect.Width},{faceRect.Height}";
+        var leftEyeText = landmarks.LeftEye == null
+            ? "none"
+            : $"{landmarks.LeftEye.X},{landmarks.LeftEye.Y}";
+        var rightEyeText = landmarks.RightEye == null
+            ? "none"
+            : $"{landmarks.RightEye.X},{landmarks.RightEye.Y}";
+        var eyeMidText = eyeMid == null
+            ? "none"
+            : $"{eyeMid.X},{eyeMid.Y}";
+
+        Console.WriteLine(
+            $"[FaceTrace] Model={faceDetectionModel} UsedModel={landmarks.ModelUsed} Cached={usedCache} " +
+            $"Player={player.PlayerId}/{player.External_Player_ID} File={fileName} " +
+            $"FaceDetected={landmarks.FaceDetected} BothEyes={landmarks.BothEyesDetected} " +
+            $"FaceRect={faceRectText} LeftEye={leftEyeText} RightEye={rightEyeText} EyeMid={eyeMidText}");
+
+        if (!landmarks.FaceDetected)
+        {
+            Console.WriteLine("[FaceTrace] Warning: no face detected.");
+            return;
+        }
+
+        if (!landmarks.BothEyesDetected)
+        {
+            Console.WriteLine("[FaceTrace] Warning: both eyes not detected.");
+        }
+    }
+
     #endregion
 }
 
@@ -942,16 +1033,19 @@ public class GeneratePhotosCommandLogic
 /// </summary>
 [Command("generatephotos", Description = "Generate portraits with face detection", ExtendedHelpText = @"
 Generates portrait photos from full-body images using face and eye detection.
-Supports OpenCV DNN, Haar Cascades, YOLOv8-Face, and Ollama Vision models.
+Supports Apple Vision, OpenCV, YOLOv8-Face, center crop, and Ollama Vision models.
 
 Fallback mode: Provide comma-separated models to try each in order.
-Example: llava:7b will try llava:7b first, fall back to qwen3-vl if it fails.
+Example: opencv-yunet,llava:7b,center will try each model in order until one succeeds.
 
 Examples:
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg
+  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-yunet
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-dnn
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection qwen3-vl
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection llava:7b
+  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -faceDetection opencv-yunet,llava:7b,center
+  photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -sizeProfile size_profiles.json -allSizes
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg -portraitOnly
   photomapperai generatephotos -inputCsvPath players.csv -processedPhotosOutputPath ./portraits -format jpg --onlyPlayer 12345
 ")]
@@ -969,8 +1063,8 @@ public class GeneratePhotosCommand
     [Option(ShortName = "f", LongName = "format", Description = "Image format: jpg, png (default: jpg)")]
     public string Format { get; set; } = "jpg";
 
-    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list (default: llava:7b)")]
-    public string FaceDetection { get; set; } = "llava:7b";
+    [Option(ShortName = "d", LongName = "faceDetection", Description = "Face detection model: apple-vision (macOS), opencv-yunet, opencv-dnn, yolov8-face, llava:7b, qwen3-vl, or comma-separated fallback list")]
+    public string FaceDetection { get; set; } = OperatingSystem.IsMacOS() ? "apple-vision" : "llava:7b";
 
     [Option(ShortName = "c", LongName = "crop", Description = "Crop method: generic, ai (default: generic)")]
     public string Crop { get; set; } = "generic";
@@ -983,6 +1077,12 @@ public class GeneratePhotosCommand
 
     [Option(ShortName = "fh", LongName = "faceHeight", Description = "Portrait height in pixels (default: 300)")]
     public int FaceHeight { get; set; } = 300;
+
+    [Option(Template = "--cropFrameWidth <WIDTH>", Description = "Optional crop-frame width override used for framing while keeping the final output size.")]
+    public int? CropFrameWidth { get; set; }
+
+    [Option(Template = "--cropFrameHeight <HEIGHT>", Description = "Optional crop-frame height override used for framing while keeping the final output size.")]
+    public int? CropFrameHeight { get; set; }
 
     [Option(ShortName = "sp", LongName = "sizeProfile", Description = "Path to a size profile JSON.")]
     public string? SizeProfile { get; set; }
@@ -1008,6 +1108,9 @@ public class GeneratePhotosCommand
     [Option(ShortName = "dl", LongName = "downloadOpenCvModels", Description = "Download missing OpenCV DNN model files if needed")]
     public bool DownloadOpenCvModels { get; set; } = false;
 
+    [Option(ShortName = "fdtr", LongName = "faceDetectionTrace", Description = "Log detailed face detection output per image")]
+    public bool FaceDetectionTrace { get; set; } = false;
+
     [Option(ShortName = "opl", LongName = "onlyPlayer", Description = "Process only the specified player ID (internal PlayerId or External_Player_ID)")]
     public string? OnlyPlayer { get; set; }
 
@@ -1016,6 +1119,12 @@ public class GeneratePhotosCommand
 
     [Option(ShortName = "npp", LongName = "noProfilePlaceholders", Description = "Ignore placeholder paths defined in size profile variants")]
     public bool NoProfilePlaceholders { get; set; } = false;
+
+    [Option(ShortName = "ox", LongName = "cropOffsetX", Description = "Horizontal crop offset percentage override.")]
+    public double? CropOffsetX { get; set; }
+
+    [Option(ShortName = "oy", LongName = "cropOffsetY", Description = "Vertical crop offset percentage override.")]
+    public double? CropOffsetY { get; set; }
 
     public async Task<int> OnExecuteAsync()
     {
@@ -1071,8 +1180,15 @@ public class GeneratePhotosCommand
         var imageProcessor = new Services.Image.ImageProcessor();
 
         // Create generate photos command logic handler
-        var cropOffsetPreset = CropOffsetSettingsLoader.LoadActivePreset();
-        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache, cropOffsetPreset);
+        var cropOffsetPreset = CropOffsetX.HasValue || CropOffsetY.HasValue
+            ? new CropOffsetPreset
+            {
+                Name = "cli",
+                HorizontalPercent = CropOffsetX ?? 0,
+                VerticalPercent = CropOffsetY ?? 0
+            }
+            : CropOffsetSettingsLoader.LoadActivePreset();
+        var logic = new GeneratePhotosCommandLogic(faceDetectionService, imageProcessor, cache, cropOffsetPreset, FaceDetectionTrace);
 
         var baseOutputPath = ProcessedPhotosOutputPath;
         if (!string.IsNullOrWhiteSpace(OutputProfile))
@@ -1121,7 +1237,9 @@ public class GeneratePhotosCommand
                 Parallel,
                 ParallelDegree,
                 OnlyPlayer,
-                placeholderForVariant
+                placeholderForVariant,
+                CropFrameWidth,
+                CropFrameHeight
             );
         }
 
@@ -1160,7 +1278,9 @@ public class GeneratePhotosCommand
             PortraitOnly,
             Parallel,
             ParallelDegree,
-            OnlyPlayer);
+            OnlyPlayer,
+            cropFrameWidth: CropFrameWidth,
+            cropFrameHeight: CropFrameHeight);
 
         return multiResult.ExitCode;
     }

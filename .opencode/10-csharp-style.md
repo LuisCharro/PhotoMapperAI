@@ -1,0 +1,1 @@
+../.kilocode/rules/10-csharp-style.md

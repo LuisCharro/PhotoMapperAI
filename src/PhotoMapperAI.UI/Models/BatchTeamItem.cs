@@ -35,15 +35,16 @@ public partial class BatchTeamItem : ObservableObject
     private string? _csvPath;
 
     [ObservableProperty]
+    private string? _mappedCsvPath;
+
+    [ObservableProperty]
     private string? _photoPath;
     
     [ObservableProperty]
     private bool _hasPhotoDirectory;
 
-    /// <summary>
-    /// Names of players that could not be mapped (populated after mapping step).
-    /// </summary>
-    public System.Collections.Generic.List<string> UnmappedPlayerNames { get; set; } = new();
+    [ObservableProperty]
+    private System.Collections.Generic.List<string> _unmappedPlayerNames = new();
     
     /// <summary>
     /// Gets the status as a display string for the DataGrid.

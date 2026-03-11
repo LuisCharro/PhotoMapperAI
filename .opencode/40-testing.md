@@ -1,0 +1,1 @@
+../.kilocode/rules/40-testing.md

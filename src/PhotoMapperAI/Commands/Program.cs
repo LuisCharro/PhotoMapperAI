@@ -172,6 +172,8 @@ Examples:
   photomapperai map -inputCsvPath players.csv -photosDir ./photos
   photomapperai map -inputCsvPath players.csv -photosDir ./photos -filenamePattern '{id}_{family}_{sur}.png'
   photomapperai map -inputCsvPath players.csv -photosDir ./photos -photoManifest manifest.json
+  photomapperai map -inputCsvPath players.csv -photosDir ./photos -useAI -aiSecondPass -nameModel qwen2.5:7b
+  photomapperai map -inputCsvPath players.csv -photosDir ./photos -useAI -nameModel openai:gpt-5-mini
 ")]
 public class MapCommand
 {
@@ -188,7 +190,7 @@ public class MapCommand
     [Option(ShortName = "m", LongName = "photoManifest", Description = "Path to photo manifest JSON file")]
     public string? PhotoManifest { get; set; }
 
-    [Option(ShortName = "n", LongName = "nameModel", Description = "Name matching model identifier (e.g., qwen2.5:7b, ollama:qwen2.5:7b, openai:gpt-4o-mini, anthropic:claude-3-5-sonnet)")]
+    [Option(ShortName = "n", LongName = "nameModel", Description = "Name matching model identifier (e.g., qwen2.5:7b, ollama:qwen2.5:7b, openai:gpt-5-mini, anthropic:claude-3-5-sonnet)")]
     public string NameModel { get; set; } = "qwen2.5:7b";
 
     [Option(ShortName = "t", LongName = "confidenceThreshold", Description = "Minimum confidence for valid match (default: 0.8)")]
@@ -212,6 +214,12 @@ public class MapCommand
     [Option(ShortName = "aak", LongName = "anthropicApiKey", Description = "Anthropic API key override (optional, in-memory only for this command run)")]
     public string? AnthropicApiKey { get; set; }
 
+    [Option(ShortName = "zak", LongName = "zaiApiKey", Description = "Z.AI API key override (optional, in-memory only for this command run)")]
+    public string? ZaiApiKey { get; set; }
+
+    [Option(ShortName = "mmk", LongName = "minimaxApiKey", Description = "MiniMax API key override (optional, in-memory only for this command run)")]
+    public string? MiniMaxApiKey { get; set; }
+
     public async Task<int> OnExecuteAsync()
     {
         if (AiOnly && !UseAi)
@@ -230,7 +238,9 @@ public class MapCommand
             UseAi,
             NameModel,
             openAiApiKey: OpenAiApiKey,
-            anthropicApiKey: AnthropicApiKey);
+            anthropicApiKey: AnthropicApiKey,
+            zaiApiKey: ZaiApiKey,
+            minimaxApiKey: MiniMaxApiKey);
         if (!preflight.IsOk)
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -251,7 +261,9 @@ public class MapCommand
             NameModel,
             confidenceThreshold: ConfidenceThreshold,
             openAiApiKey: OpenAiApiKey,
-            anthropicApiKey: AnthropicApiKey
+            anthropicApiKey: AnthropicApiKey,
+            zaiApiKey: ZaiApiKey,
+            minimaxApiKey: MiniMaxApiKey
         );
 
         // Create image processor

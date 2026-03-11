@@ -391,11 +391,18 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6">
-                  <TextBlock Text="Custom Dimensions" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                  <CheckBox Content="Use custom dimensions (overrides profile)"
+                  <TextBlock Text="Crop Frame" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                  <TextBlock Text="Adjust the framing window while keeping the final output size from Step 4."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                  <CheckBox Content="Use custom crop frame"
                             IsChecked="{Binding UseCustomPreviewDimensions}"
                             FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"
-                            ToolTip.Tip="When enabled, use custom width/height instead of profile dimensions"/>
+                            ToolTip.Tip="When enabled, custom frame values adjust portrait framing without changing the final export size."/>
+                  <CheckBox Content="Lock proportions"
+                            IsChecked="{Binding LockCropFrameProportions}"
+                            IsEnabled="{Binding UseCustomPreviewDimensions}"
+                            FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"
+                            ToolTip.Tip="Keep the crop frame aligned to the output portrait ratio."/>
 
                   <ComboBox ItemsSource="{Binding PreviewDimensionPresets}"
                             SelectedItem="{Binding SelectedPreviewDimensionPreset}"
@@ -413,7 +420,7 @@
                             Command="{Binding NewPreviewDimensionPresetCommand}"
                             Padding="10,5" FontSize="10"
                             IsEnabled="{Binding UseCustomPreviewDimensions}"
-                            ToolTip.Tip="Create a new preset with current dimensions"/>
+                            ToolTip.Tip="Create a new preset with the current crop frame."/>
                     <Button Content="Update Preset"
                             Command="{Binding SavePreviewDimensionPresetCommand}"
                             Padding="10,5" FontSize="10"
@@ -422,7 +429,7 @@
 
                   <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0"
                         IsEnabled="{Binding UseCustomPreviewDimensions}">
-                    <TextBlock Grid.Column="0" Text="Width:" VerticalAlignment="Center" FontSize="10"
+                    <TextBlock Grid.Column="0" Text="Frame width:" VerticalAlignment="Center" FontSize="10"
                                Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
                     <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomWidthCommand}"
                             Width="24" Height="24" Padding="0" FontSize="12"/>
@@ -437,7 +444,7 @@
 
                   <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,2,0,0"
                         IsEnabled="{Binding UseCustomPreviewDimensions}">
-                    <TextBlock Grid.Column="0" Text="Height:" VerticalAlignment="Center" FontSize="10"
+                    <TextBlock Grid.Column="0" Text="Frame height:" VerticalAlignment="Center" FontSize="10"
                                Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
                     <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomHeightCommand}"
                             Width="24" Height="24" Padding="0" FontSize="12"/>
@@ -475,8 +482,9 @@
                 <Border Background="{DynamicResource LogBackgroundBrush}" CornerRadius="6" Padding="6"
                         MinHeight="150" VerticalAlignment="Stretch" HorizontalAlignment="Center">
                   <Image Source="{Binding PreviewImage}"
-                         MaxHeight="180"
-                         Stretch="Uniform"
+                         Width="{Binding PreviewDisplayWidth}"
+                         Height="{Binding PreviewDisplayHeight}"
+                         Stretch="Fill"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center"/>
                 </Border>

@@ -12,6 +12,9 @@ public static class CropOffsetSettingsLoader
 {
     public static CropOffsetSettings Load()
     {
+        var settings = CropOffsetSettings.CreateDefault();
+        var loadedAny = false;
+
         foreach (var path in ResolveConfigPaths())
         {
             if (!File.Exists(path))
@@ -19,9 +22,11 @@ public static class CropOffsetSettingsLoader
 
             try
             {
-                var settings = TryRead(path);
-                if (settings != null)
-                    return settings;
+                using var doc = JsonDocument.Parse(File.ReadAllText(path));
+                if (ApplyFromDocument(settings, doc.RootElement))
+                {
+                    loadedAny = true;
+                }
             }
             catch
             {
@@ -29,7 +34,8 @@ public static class CropOffsetSettingsLoader
             }
         }
 
-        return CropOffsetSettings.CreateDefault();
+        EnsureDefaults(settings);
+        return loadedAny ? settings : CropOffsetSettings.CreateDefault();
     }
 
     public static CropOffsetPreset LoadActivePreset()
@@ -106,67 +112,73 @@ public static class CropOffsetSettingsLoader
         File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    private static CropOffsetSettings? TryRead(string path)
+    private static bool ApplyFromDocument(CropOffsetSettings settings, JsonElement root)
     {
-        using var doc = JsonDocument.Parse(File.ReadAllText(path));
-        if (!doc.RootElement.TryGetProperty("ImageProcessing", out var imageRoot))
-            return null;
-
-        if (!imageRoot.TryGetProperty("CropOffsets", out var offsetsRoot))
-            return null;
-
-        var settings = new CropOffsetSettings();
-
-        if (offsetsRoot.TryGetProperty("ActivePresetName", out var activeElement) &&
-            activeElement.ValueKind == JsonValueKind.String)
+        if (!root.TryGetProperty("ImageProcessing", out var imageRoot) ||
+            imageRoot.ValueKind != JsonValueKind.Object)
         {
-            settings.ActivePresetName = activeElement.GetString() ?? settings.ActivePresetName;
+            return false;
         }
 
-        if (offsetsRoot.TryGetProperty("Presets", out var presetsElement) &&
-            presetsElement.ValueKind == JsonValueKind.Array)
+        var applied = false;
+
+        if (imageRoot.TryGetProperty("CropOffsets", out var offsetsRoot) &&
+            offsetsRoot.ValueKind == JsonValueKind.Object)
         {
-            foreach (var presetElement in presetsElement.EnumerateArray())
+            applied = true;
+
+            if (offsetsRoot.TryGetProperty("ActivePresetName", out var activeElement) &&
+                activeElement.ValueKind == JsonValueKind.String)
             {
-                if (presetElement.ValueKind != JsonValueKind.Object)
-                    continue;
+                settings.ActivePresetName = activeElement.GetString() ?? settings.ActivePresetName;
+            }
 
-                var preset = new CropOffsetPreset();
-
-                if (presetElement.TryGetProperty("Name", out var nameElement) &&
-                    nameElement.ValueKind == JsonValueKind.String)
+            if (offsetsRoot.TryGetProperty("Presets", out var presetsElement) &&
+                presetsElement.ValueKind == JsonValueKind.Array)
+            {
+                var presets = new List<CropOffsetPreset>();
+                foreach (var presetElement in presetsElement.EnumerateArray())
                 {
-                    preset.Name = nameElement.GetString() ?? preset.Name;
+                    if (presetElement.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var preset = new CropOffsetPreset();
+
+                    if (presetElement.TryGetProperty("Name", out var nameElement) &&
+                        nameElement.ValueKind == JsonValueKind.String)
+                    {
+                        preset.Name = nameElement.GetString() ?? preset.Name;
+                    }
+
+                    if (presetElement.TryGetProperty("HorizontalPercent", out var horizElement) &&
+                        horizElement.ValueKind == JsonValueKind.Number)
+                    {
+                        preset.HorizontalPercent = horizElement.GetDouble();
+                    }
+
+                    if (presetElement.TryGetProperty("VerticalPercent", out var vertElement) &&
+                        vertElement.ValueKind == JsonValueKind.Number)
+                    {
+                        preset.VerticalPercent = vertElement.GetDouble();
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(preset.Name))
+                    {
+                        presets.Add(preset);
+                    }
                 }
 
-                if (presetElement.TryGetProperty("HorizontalPercent", out var horizElement) &&
-                    horizElement.ValueKind == JsonValueKind.Number)
+                if (presets.Count > 0)
                 {
-                    preset.HorizontalPercent = horizElement.GetDouble();
-                }
-
-                if (presetElement.TryGetProperty("VerticalPercent", out var vertElement) &&
-                    vertElement.ValueKind == JsonValueKind.Number)
-                {
-                    preset.VerticalPercent = vertElement.GetDouble();
-                }
-
-                if (!string.IsNullOrWhiteSpace(preset.Name))
-                {
-                    settings.Presets.Add(preset);
+                    settings.Presets = presets;
                 }
             }
         }
 
-        if (settings.Presets.Count == 0)
-        {
-            settings.Presets.Add(new CropOffsetPreset { Name = "default" });
-        }
-
-        // Load PreviewCustomDimensions if present
         if (imageRoot.TryGetProperty("PreviewCustomDimensions", out var dimensionsRoot) &&
             dimensionsRoot.ValueKind == JsonValueKind.Object)
         {
+            applied = true;
             var dimensions = new PreviewCustomDimensions();
 
             if (dimensionsRoot.TryGetProperty("Width", out var widthElement) &&
@@ -193,6 +205,8 @@ public static class CropOffsetSettingsLoader
         if (imageRoot.TryGetProperty("PreviewDimensions", out var dimensionRoot) &&
             dimensionRoot.ValueKind == JsonValueKind.Object)
         {
+            applied = true;
+
             if (dimensionRoot.TryGetProperty("ActivePresetName", out var activeDimElement) &&
                 activeDimElement.ValueKind == JsonValueKind.String)
             {
@@ -202,6 +216,7 @@ public static class CropOffsetSettingsLoader
             if (dimensionRoot.TryGetProperty("Presets", out var dimPresetsElement) &&
                 dimPresetsElement.ValueKind == JsonValueKind.Array)
             {
+                var presets = new List<PreviewDimensionPreset>();
                 foreach (var presetElement in dimPresetsElement.EnumerateArray())
                 {
                     if (presetElement.ValueKind != JsonValueKind.Object)
@@ -229,37 +244,50 @@ public static class CropOffsetSettingsLoader
 
                     if (!string.IsNullOrWhiteSpace(preset.Name))
                     {
-                        settings.PreviewDimensionPresets.Add(preset);
+                        presets.Add(preset);
                     }
+                }
+
+                if (presets.Count > 0)
+                {
+                    settings.PreviewDimensionPresets = presets;
                 }
             }
         }
 
+        return applied;
+    }
+
+    private static void EnsureDefaults(CropOffsetSettings settings)
+    {
+        if (settings.Presets.Count == 0)
+        {
+            settings.Presets.Add(new CropOffsetPreset { Name = "default" });
+        }
+
+        settings.PreviewCustomDimensions ??= new PreviewCustomDimensions();
+
         if (settings.PreviewDimensionPresets.Count == 0)
         {
-            var defaultWidth = settings.PreviewCustomDimensions?.Width ?? 200;
-            var defaultHeight = settings.PreviewCustomDimensions?.Height ?? 300;
             settings.PreviewDimensionPresets.Add(new PreviewDimensionPreset
             {
                 Name = "default",
-                Width = defaultWidth,
-                Height = defaultHeight
+                Width = settings.PreviewCustomDimensions.Width,
+                Height = settings.PreviewCustomDimensions.Height
             });
         }
-
-        return settings;
     }
 
     private static IEnumerable<string> ResolveConfigPaths()
     {
         var candidates = new[]
         {
-            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.local.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.template.json"),
-            Path.Combine(AppContext.BaseDirectory, "appsettings.local.json"),
+            Path.Combine(AppContext.BaseDirectory, "appsettings.template.json"),
             Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
-            Path.Combine(AppContext.BaseDirectory, "appsettings.template.json")
+            Path.Combine(AppContext.BaseDirectory, "appsettings.local.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.template.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.local.json")
         };
 
         return candidates.Distinct(StringComparer.OrdinalIgnoreCase);

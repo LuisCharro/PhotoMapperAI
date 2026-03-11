@@ -75,7 +75,7 @@ public static class StringMatching
     /// <summary>
     /// Normalizes a name for comparison (removes accents, extra spaces, etc.).
     /// </summary>
-    public static string NormalizeName(string name)
+    public static string NormalizeName(string? name)
     {
         if (string.IsNullOrEmpty(name))
             return string.Empty;
@@ -83,8 +83,8 @@ public static class StringMatching
         // Treat common separators as spaces before normalization.
         name = name.Replace('-', ' ').Replace('_', ' ');
 
-        // Apply European character transliteration first (before accent removal)
-        name = NormalizeEuropeanCharacters(name);
+        // Apply all character normalizations (extensible for world competitions)
+        name = NormalizeCharacters(name);
 
         // Remove accents
         var normalized = name.Normalize(NormalizationForm.FormKD);
@@ -125,6 +125,32 @@ public static class StringMatching
     }
 
     /// <summary>
+    /// Applies all character normalizations for international name matching.
+    /// This is the main entry point for region-specific character normalization.
+    /// Add new normalizers here as needed for world competitions.
+    /// </summary>
+    private static string NormalizeCharacters(string input)
+    {
+        return NormalizeWorldCompetitionCharacters(input);
+    }
+
+    /// <summary>
+    /// Central world-competition normalization pipeline.
+    /// Keep the ordering stable so future script-specific transliteration rules are predictable.
+    /// </summary>
+    private static string NormalizeWorldCompetitionCharacters(string input)
+    {
+        var result = input;
+
+        result = NormalizeEuropeanCharacters(result);
+        result = NormalizeAsianCharacters(result);
+        result = NormalizeAfricanCharacters(result);
+        result = NormalizeMiddleEastCharacters(result);
+
+        return result;
+    }
+
+    /// <summary>
     /// Normalizes European character variants to ASCII equivalents.
     /// Handles German umlauts, Scandinavian characters, and French special characters.
     /// </summary>
@@ -138,6 +164,140 @@ public static class StringMatching
         {
             result.Append(NormalizeEuropeanChar(c));
         }
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Placeholder for future Asian-script normalization and transliteration.
+    /// Intended for CJK, Hangul, kana/romaji variants, and similar competition datasets.
+    /// </summary>
+    private static string NormalizeAsianCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var normalized = input.Normalize(NormalizationForm.FormKC);
+        var result = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            result.Append(c switch
+            {
+                '\u3000' => ' ', // Ideographic space
+                '\u30FB' => ' ', // Katakana middle dot
+                '\uFF65' => ' ', // Halfwidth katakana middle dot
+                '\u00B7' => ' ', // Middle dot
+                '\u0387' => ' ', // Greek ano teleia, sometimes used as separator
+                '\u200B' => '\0', // Zero width space
+                '\u200C' => '\0', // Zero width non-joiner
+                '\u200D' => '\0', // Zero width joiner
+                '\uFEFF' => '\0', // Zero width no-break space / BOM
+                _ => c
+            });
+        }
+
+        return result.ToString().Replace("\0", string.Empty);
+    }
+
+    /// <summary>
+    /// Placeholder for future African-language normalization.
+    /// Intended for additional Latin variants, digraphs, and region-specific transliteration rules.
+    /// </summary>
+    private static string NormalizeAfricanCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = new StringBuilder(input.Length);
+        foreach (var c in input)
+        {
+            result.Append(c switch
+            {
+                'ɛ' => "e",
+                'Ɛ' => "E",
+                'ɔ' => "o",
+                'Ɔ' => "O",
+                'ə' => "e",
+                'Ə' => "E",
+                'ɓ' => "b",
+                'Ɓ' => "B",
+                'ɗ' => "d",
+                'Ɗ' => "D",
+                'ŋ' => "ng",
+                'Ŋ' => "Ng",
+                _ => c.ToString()
+            });
+        }
+
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Placeholder for future Middle Eastern script normalization and transliteration.
+    /// Intended for Arabic, Hebrew, Persian, and competition-specific Latin renderings.
+    /// </summary>
+    private static string NormalizeMiddleEastCharacters(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var result = new StringBuilder(input.Length);
+        foreach (var c in input)
+        {
+            result.Append(c switch
+            {
+                // Strip Arabic shaping and directional helpers that should not affect matching.
+                '\u0640' => "", // Tatweel
+                '\u200B' => "",
+                '\u200C' => "",
+                '\u200D' => "",
+                '\u200E' => "",
+                '\u200F' => "",
+                '\u061C' => "",
+
+                // Unify alef variants.
+                'أ' => "ا",
+                'إ' => "ا",
+                'آ' => "ا",
+                'ٱ' => "ا",
+
+                // Unify yeh / alef maqsura variants.
+                'ى' => "ي",
+                'ی' => "ي",
+                'ئ' => "ي",
+
+                // Unify kaf variants.
+                'ک' => "ك",
+
+                // Normalize ta marbuta into heh for comparison.
+                'ة' => "ه",
+
+                // Arabic and Eastern Arabic-Indic digits to ASCII.
+                '٠' => "0",
+                '١' => "1",
+                '٢' => "2",
+                '٣' => "3",
+                '٤' => "4",
+                '٥' => "5",
+                '٦' => "6",
+                '٧' => "7",
+                '٨' => "8",
+                '٩' => "9",
+                '۰' => "0",
+                '۱' => "1",
+                '۲' => "2",
+                '۳' => "3",
+                '۴' => "4",
+                '۵' => "5",
+                '۶' => "6",
+                '۷' => "7",
+                '۸' => "8",
+                '۹' => "9",
+
+                _ => c.ToString()
+            });
+        }
+
         return result.ToString();
     }
 
@@ -167,6 +327,18 @@ public static class StringMatching
             'Ø' => "Oe",
             'å' => "aa",
             'Å' => "Aa",
+
+            // South Slavic latin letters
+            'đ' => "dj",
+            'Đ' => "Dj",
+
+            // Turkish
+            'ı' => "i",
+            'İ' => "I",
+
+            // Polish
+            'ł' => "l",
+            'Ł' => "L",
 
             // French special characters
             'œ' => "oe",
@@ -199,7 +371,7 @@ public static class StringMatching
     /// <summary>
     /// Compares two names using multiple strategies and returns best confidence score.
     /// </summary>
-    public static double CompareNames(string name1, string name2)
+    public static double CompareNames(string? name1, string? name2)
     {
         var norm1 = NormalizeName(name1);
         var norm2 = NormalizeName(name2);
@@ -234,6 +406,28 @@ public static class StringMatching
         // Strategy 5: Contains check
         if (norm1.Contains(norm2) || norm2.Contains(norm1))
             return 0.95;
+
+        // Strategy 5b: Token substring matching (handles nicknames like "Rodri" for "Rodrigo")
+        // If one token is a significant substring of another (min length 4, covers 50%+ of longer token)
+        var allTokens1 = norm1.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var allTokens2 = norm2.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
+        foreach (var token1 in allTokens1)
+        {
+            foreach (var token2 in allTokens2)
+            {
+                // Skip short tokens
+                if (token1.Length < 4 || token2.Length < 4)
+                    continue;
+                    
+                // Check if one token contains the other significantly
+                if (token1.Contains(token2) && token2.Length >= token1.Length * 0.5)
+                    return 0.90; // High confidence for nickname/substring match
+                    
+                if (token2.Contains(token1) && token1.Length >= token2.Length * 0.5)
+                    return 0.90;
+            }
+        }
 
         // Strategy 6: Levenshtein similarity
         var similarity = CalculateSimilarity(norm1, norm2);

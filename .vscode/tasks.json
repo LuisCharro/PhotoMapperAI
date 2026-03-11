@@ -7,7 +7,8 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/PhotoMapperAI.sln"
+        "${workspaceFolder}/PhotoMapperAI.sln",
+        "-p:UseAppHost=false"
       ],
       "problemMatcher": "$msCompile",
       "group": {
@@ -21,7 +22,8 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj"
+        "${workspaceFolder}/src/PhotoMapperAI/PhotoMapperAI.csproj",
+        "-p:UseAppHost=false"
       ],
       "problemMatcher": "$msCompile",
       "group": "build"
@@ -32,7 +34,8 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj"
+        "${workspaceFolder}/src/PhotoMapperAI.UI/PhotoMapperAI.UI.csproj",
+        "-p:UseAppHost=false"
       ],
       "problemMatcher": "$msCompile",
       "group": "build"

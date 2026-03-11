@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace PhotoMapperAI.Services.AI;
 
 /// <summary>
@@ -25,8 +27,32 @@ public static class FaceDetectionServiceFactory
             return new FallbackFaceDetectionService(normalized);
 
         var lowered = normalized.ToLowerInvariant();
+
+        if (IsAppleVisionModel(lowered))
+        {
+            if (!IsMacOS())
+            {
+                throw new PlatformNotSupportedException(
+                    "Apple Vision face detection is only supported on macOS.");
+            }
+
+            return new AppleVisionFaceDetectionService();
+        }
+
+        // Check platform compatibility for OpenCV models
+        if (IsOpenCVModel(lowered) && IsMacOS())
+        {
+            throw new PlatformNotSupportedException(
+                "OpenCV face detection models (opencv-yunet, opencv-dnn, yolov8-face, haar-cascade) are not supported on macOS due to native library dependency issues. " +
+                $"Use 'apple-vision', 'center', 'llava:7b', or 'qwen3-vl' instead. Example: photomapperai generatephotos -d apple-vision"
+            );
+        }
+
         return lowered switch
         {
+            "opencv-yunet" or "yunet" => OpenCVYuNetFaceDetectionService.IsYuNetAvailable()
+                ? new OpenCVYuNetFaceDetectionService()
+                : CreateYuNetFallback(),
             "opencv-dnn" => new OpenCVDNNFaceDetectionService(),
             "yolov8-face" => new OpenCVDNNFaceDetectionService(),
             "haar-cascade" or "haar" => new HaarCascadeFaceDetectionService(),
@@ -39,11 +65,32 @@ public static class FaceDetectionServiceFactory
         };
     }
 
+    private static bool IsOpenCVModel(string model)
+    {
+        return model is "opencv-dnn" or "opencv-yunet" or "yunet" or "yolov8-face" or "haar-cascade" or "haar";
+    }
+
+    private static bool IsAppleVisionModel(string model)
+    {
+        return model is "apple-vision" or "vision";
+    }
+
+    private static bool IsMacOS()
+    {
+        return RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+    }
+
     private static string NormalizeOllamaAlias(string model)
     {
         if (string.Equals(model, "qwen3-vl", StringComparison.OrdinalIgnoreCase))
             return "qwen3-vl:latest";
 
         return model;
+    }
+
+    private static IFaceDetectionService CreateYuNetFallback()
+    {
+        Console.WriteLine("[FaceDetection] YuNet is not available in the current OpenCvSharp runtime. Falling back to opencv-dnn.");
+        return new OpenCVDNNFaceDetectionService();
     }
 }

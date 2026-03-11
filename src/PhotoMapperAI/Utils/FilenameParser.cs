@@ -39,7 +39,15 @@ public class FilenameParser
 
         // Pattern 7: {id}.jpg (simple ID naming)
         new Regex(@"^(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
-                  RegexOptions.IgnoreCase)
+                  RegexOptions.IgnoreCase),
+
+        // Pattern 8: _{first}_{last}_{id}.jpg (underscore-prefixed Euro format)
+        new Regex(@"^_+(?<sur>[^_]+)_(?<family>[^_]+)_(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
+              RegexOptions.IgnoreCase),
+
+        // Pattern 9: _{name}_{id}.jpg (underscore prefix/suffix format like _Joselu_250005193.jpg)
+        new Regex(@"^_?(?<sur>[^_]+)_?(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
+              RegexOptions.IgnoreCase)
     };
 
     /// <summary>

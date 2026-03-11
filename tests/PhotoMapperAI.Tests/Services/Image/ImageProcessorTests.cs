@@ -36,6 +36,59 @@ public class ImageProcessorTests
     }
 
     [Fact]
+    public async Task CropPortraitAsync_ShouldKeepDetectedEyesNearThirtyFivePercentFromTop()
+    {
+        var processor = new ImageProcessor();
+        using var source = new Image<Rgba32>(1200, 2000, new Rgba32(255, 255, 255, 255));
+
+        var leftEye = new PhotoMapperAI.Models.Point(520, 670);
+        var rightEye = new PhotoMapperAI.Models.Point(640, 670);
+        PaintSquare(source, leftEye.X, leftEye.Y, 20, new Rgba32(255, 0, 0, 255));
+        PaintSquare(source, rightEye.X, rightEye.Y, 20, new Rgba32(255, 0, 0, 255));
+
+        var landmarks = new FaceLandmarks
+        {
+            FaceDetected = true,
+            BothEyesDetected = true,
+            FaceRect = new PhotoMapperAI.Models.Rectangle(450, 550, 260, 320),
+            LeftEye = leftEye,
+            RightEye = rightEye
+        };
+
+        using var portrait = await processor.CropPortraitAsync(source, landmarks, 200, 300);
+        using var portraitRgb = portrait.CloneAs<Rgb24>();
+
+        var eyeCenterY = FindRedBandCenterY(portraitRgb);
+
+        Assert.InRange(eyeCenterY, 96, 114);
+    }
+
+    [Fact]
+    public async Task CropPortraitAsync_ShouldKeepEstimatedEyeLineNearThirtyFivePercentFromTop()
+    {
+        var processor = new ImageProcessor();
+        using var source = new Image<Rgba32>(1200, 2000, new Rgba32(255, 255, 255, 255));
+
+        var estimatedEyeY = 550 + (int)(320 * 0.40);
+        PaintSquare(source, 520, estimatedEyeY, 20, new Rgba32(255, 0, 0, 255));
+        PaintSquare(source, 640, estimatedEyeY, 20, new Rgba32(255, 0, 0, 255));
+
+        var landmarks = new FaceLandmarks
+        {
+            FaceDetected = true,
+            BothEyesDetected = false,
+            FaceRect = new PhotoMapperAI.Models.Rectangle(450, 550, 260, 320)
+        };
+
+        using var portrait = await processor.CropPortraitAsync(source, landmarks, 200, 300);
+        using var portraitRgb = portrait.CloneAs<Rgb24>();
+
+        var eyeCenterY = FindRedBandCenterY(portraitRgb);
+
+        Assert.InRange(eyeCenterY, 96, 114);
+    }
+
+    [Fact]
     public async Task SaveImageAsync_ShouldHonorPngFormat()
     {
         // Arrange
@@ -325,6 +378,45 @@ public class ImageProcessorTests
         {
             // Best-effort cleanup; don't fail the test if the OS temporarily locks the file.
         }
+    }
+
+    private static void PaintSquare(Image<Rgba32> image, int centerX, int centerY, int size, Rgba32 color)
+    {
+        var radius = size / 2;
+        var startX = Math.Max(0, centerX - radius);
+        var endX = Math.Min(image.Width - 1, centerX + radius);
+        var startY = Math.Max(0, centerY - radius);
+        var endY = Math.Min(image.Height - 1, centerY + radius);
+
+        for (int y = startY; y <= endY; y++)
+        {
+            for (int x = startX; x <= endX; x++)
+            {
+                image[x, y] = color;
+            }
+        }
+    }
+
+    private static int FindRedBandCenterY(Image<Rgb24> image)
+    {
+        var sumY = 0;
+        var count = 0;
+
+        for (int y = 0; y < image.Height; y++)
+        {
+            for (int x = 0; x < image.Width; x++)
+            {
+                var pixel = image[x, y];
+                if (pixel.R > 180 && pixel.G < 100 && pixel.B < 100)
+                {
+                    sumY += y;
+                    count++;
+                }
+            }
+        }
+
+        Assert.True(count > 0, "Expected to find highlighted eye pixels in the cropped portrait.");
+        return sumY / count;
     }
 
     private static (int R, int G, int B) GetAverageRgb(Image<Rgb24> img, int startX, int startY, int width, int height)

@@ -55,7 +55,7 @@ public class OllamaFaceDetectionService : IFaceDetectionService
                 var prompt = BuildFaceDetectionPrompt(width, height);
 
                 // Call Ollama Vision API with timeout
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
                 var response = await _client.VisionAsync(_modelName, imagePath, prompt, cts.Token);
 
                 // Parse response

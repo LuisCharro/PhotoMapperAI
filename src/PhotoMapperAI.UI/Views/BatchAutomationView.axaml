@@ -85,19 +85,6 @@
 
             <Grid ColumnDefinitions="*,*,*" Margin="0,4,0,0">
               <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,6,0">
-                <TextBlock Text="CSV Output Directory" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBox Grid.Column="0" Text="{Binding BaseCsvDirectory}" 
-                           Watermark="CSV output..."
-                           IsReadOnly="True" Height="28" FontSize="11"
-                           Background="{DynamicResource InputBackgroundBrush}"
-                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-                  <Button Grid.Column="1" Content="..." 
-                          Click="BrowseCsvDir_Click"
-                          Margin="4,0,0,0" Padding="10,5" FontSize="11"/>
-                </Grid>
-              </StackPanel>
-              <StackPanel Grid.Column="1" Spacing="4" Margin="3,0">
                 <TextBlock Text="Photos Directory" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBox Grid.Column="0" Text="{Binding BasePhotoDirectory}" 
@@ -110,8 +97,21 @@
                           Margin="4,0,0,0" Padding="10,5" FontSize="11"/>
                 </Grid>
               </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="4" Margin="3,0">
+                <TextBlock Text="CSV Output Directory" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Grid.Column="0" Text="{Binding BaseCsvDirectory}" 
+                           Watermark="CSV output..."
+                           IsReadOnly="True" Height="28" FontSize="11"
+                           Background="{DynamicResource InputBackgroundBrush}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <Button Grid.Column="1" Content="..." 
+                          Click="BrowseCsvDir_Click"
+                          Margin="4,0,0,0" Padding="10,5" FontSize="11"/>
+                </Grid>
+              </StackPanel>
               <StackPanel Grid.Column="2" Spacing="4" Margin="6,0,0,0">
-                <TextBlock Text="Output Directory" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBlock Text="Portrait Output Directory" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBox Grid.Column="0" Text="{Binding BaseOutputDirectory}" 
                            Watermark="Portrait output..."
@@ -141,6 +141,84 @@
               <TextBlock Text="Processing Settings" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
             </StackPanel>
 
+            <!-- Photo Filename Parsing -->
+            <Expander Header="Photo Filename Parsing"
+                      IsExpanded="False"
+                      HorizontalAlignment="Stretch"
+                      Background="{DynamicResource BackgroundBrush}">
+              <Border CornerRadius="6"
+                      Padding="10"
+                      Margin="0,6,0,0"
+                      HorizontalAlignment="Stretch">
+                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+                  <TextBlock Text="How photos are matched to players"
+                             FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <TextBlock Text="The system extracts player ID and name from photo filenames. Auto-detection works for common patterns."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+
+                  <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="8" Margin="0,4,0,0">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="• 123_Smith_John.png  →  ID=123, Family=Smith, SurName=John" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Text="• Maria-Garcia-789.jpg  →  SurName=Maria, Family=Garcia, ID=789" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Text="• 456.jpg  →  ID=456 (simple ID-only naming)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    </StackPanel>
+                  </Border>
+
+                  <TextBlock Text="Custom Filename Pattern" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,8,0,0"/>
+                  <TextBlock Text="Override auto-detection for non-standard naming. Leave empty for auto-detect."
+                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+
+                  <ComboBox ItemsSource="{Binding FilenamePatternPresets}"
+                            SelectedItem="{Binding SelectedFilenamePatternPreset}"
+                            Height="28"
+                            Margin="0,4,0,0"
+                            HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+
+                  <TextBox Text="{Binding FilenamePattern}"
+                           Watermark="e.g., {id}_{family}_{sur}.png"
+                           Height="28" Margin="0,4,0,0"
+                           HorizontalAlignment="Stretch"
+                           Background="{DynamicResource InputBackgroundBrush}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <TextBlock Text="Placeholders: {id} = player ID, {first} = first name, {last} = last name"
+                             FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"/>
+
+                  <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <Button Content="Save Preset" Command="{Binding SaveFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"/>
+                    <Button Content="New" Command="{Binding NewFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"
+                            ToolTip.Tip="Create a new preset with current pattern"/>
+                  </StackPanel>
+                  <TextBlock Text="{Binding FilenamePatternStatus}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
+
+                  <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
+
+                  <CheckBox Content="Use Photo Manifest File (JSON with explicit photo metadata)"
+                            IsChecked="{Binding UsePhotoManifest}"
+                            FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  <Grid ColumnDefinitions="*,Auto"
+                        IsEnabled="{Binding UsePhotoManifest}"
+                        Margin="0,4,0,0"
+                        HorizontalAlignment="Stretch">
+                    <TextBox Grid.Column="0" Text="{Binding PhotoManifestPath}"
+                             Watermark="Path to photo manifest JSON..."
+                             IsReadOnly="True" Height="28"
+                             HorizontalAlignment="Stretch"
+                             Background="{DynamicResource InputBackgroundBrush}"
+                             Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    <Button Grid.Column="1" Content="Browse"
+                            Click="BrowsePhotoManifest_Click"
+                            Margin="6,0,0,0" Padding="12,5" FontSize="10"/>
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </Expander>
+
             <!-- Confidence Threshold Slider -->
             <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
               <StackPanel Spacing="4">
@@ -167,34 +245,62 @@
                   <CheckBox Content="Use AI for unmatched" IsChecked="{Binding UseAiMapping}" FontSize="11"/>
                   <CheckBox Content="AI-only (skip deterministic)" IsChecked="{Binding AiOnly}" FontSize="11"/>
                   <CheckBox Content="AI Second Pass" IsChecked="{Binding AiSecondPass}" FontSize="11"/>
+                  <CheckBox Content="AI Trace" IsChecked="{Binding AiTrace}" FontSize="11"/>
                 </StackPanel>
 
-                <TabControl SelectedIndex="{Binding SelectedModelTierIndex}" Margin="0,6,0,0">
-                  <TabItem Header="Free Tier (Cloud)">
-                    <StackPanel Spacing="4" Margin="0,6,0,0">
-                      <TextBlock Text="Free cloud models (quota-limited)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <ComboBox ItemsSource="{Binding FreeTierNameModels}"
-                                SelectedItem="{Binding NameMatchingModel, Mode=TwoWay}"
-                                HorizontalAlignment="Stretch" Height="28"/>
-                    </StackPanel>
-                  </TabItem>
-                  <TabItem Header="Local (Ollama)">
-                    <StackPanel Spacing="4" Margin="0,6,0,0">
-                      <TextBlock Text="Runs locally through Ollama" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <ComboBox ItemsSource="{Binding LocalNameModels}"
-                                SelectedItem="{Binding NameMatchingModel, Mode=TwoWay}"
-                                HorizontalAlignment="Stretch" Height="28"/>
-                    </StackPanel>
-                  </TabItem>
-                  <TabItem Header="Paid (API)">
-                    <StackPanel Spacing="4" Margin="0,6,0,0">
-                      <TextBlock Text="Requires API key (GUI field or environment variable)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <ComboBox ItemsSource="{Binding PaidNameModels}"
-                                SelectedItem="{Binding NameMatchingModel, Mode=TwoWay}"
-                                HorizontalAlignment="Stretch" Height="28"/>
-                    </StackPanel>
-                  </TabItem>
-                </TabControl>
+                <!-- Model Selection - 3 Horizontal Containers -->
+                
+                <!-- Free Tier (Cloud) Container -->
+                <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,6,0,0">
+                  <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox Grid.Column="0" Content="Free (Cloud)"
+                              IsChecked="{Binding IsFreeTierSelected}"
+                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ComboBox Grid.Column="1" 
+                              ItemsSource="{Binding FreeTierNameModels}"
+                              SelectedItem="{Binding SelectedFreeTierModel}"
+                              HorizontalAlignment="Stretch" Height="28"
+                              IsEnabled="{Binding IsFreeTierSelected}"/>
+                  </Grid>
+                </Border>
+
+                <!-- Local (Ollama) Container -->
+                <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,4,0,0">
+                  <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox Grid.Column="0" Content="Local (Ollama)"
+                              IsChecked="{Binding IsLocalSelected}"
+                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ComboBox Grid.Column="1" 
+                              ItemsSource="{Binding LocalNameModels}"
+                              SelectedItem="{Binding SelectedLocalModel}"
+                              HorizontalAlignment="Stretch" Height="28"
+                              IsEnabled="{Binding IsLocalSelected}"/>
+                  </Grid>
+                </Border>
+
+                <!-- Paid API Container -->
+                <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,4,0,0">
+                  <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="Auto,*">
+                      <CheckBox Grid.Column="0" Content="Paid API"
+                                IsChecked="{Binding IsPaidSelected}"
+                                VerticalAlignment="Center" Margin="0,0,10,0"/>
+                      <ComboBox Grid.Column="1" 
+                                ItemsSource="{Binding PaidNameModels}"
+                                SelectedItem="{Binding SelectedPaidModel}"
+                                HorizontalAlignment="Stretch" Height="28"
+                                IsEnabled="{Binding IsPaidSelected}"/>
+                    </Grid>
+                    <!-- Unified API Key for all paid providers -->
+                    <TextBox Text="{Binding ApiKey}"
+                             Watermark="API key for selected provider (OpenAI, Anthropic, Z.AI, or MiniMax)"
+                             PasswordChar="•"
+                             IsVisible="{Binding ShowPaidApiKeyInput}"
+                             Height="28"
+                             Background="{DynamicResource InputBackgroundBrush}"
+                             Foreground="{DynamicResource PrimaryTextBrush}"/>
+                  </StackPanel>
+                </Border>
 
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
                   <Button Content="Refresh Models" Command="{Binding RefreshNameModelsCommand}" Padding="10,5" FontSize="10"/>
@@ -206,22 +312,6 @@
 
                 <TextBlock Text="{Binding ModelDiagnosticStatus}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
                            TextWrapping="Wrap" IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-
-                <!-- API Keys (visible for paid models) -->
-                <TextBox Text="{Binding OpenAiApiKey}"
-                         Watermark="OpenAI API key (not saved to disk)"
-                         PasswordChar="•"
-                         IsVisible="{Binding ShowOpenAiApiKeyInput}"
-                         Height="32"
-                         Background="{DynamicResource InputBackgroundBrush}"
-                         Foreground="{DynamicResource PrimaryTextBrush}"/>
-                <TextBox Text="{Binding AnthropicApiKey}"
-                         Watermark="Anthropic API key (not saved to disk)"
-                         PasswordChar="•"
-                         IsVisible="{Binding ShowAnthropicApiKeyInput}"
-                         Height="32"
-                         Background="{DynamicResource InputBackgroundBrush}"
-                         Foreground="{DynamicResource PrimaryTextBrush}"/>
               </StackPanel>
             </Border>
 
@@ -272,7 +362,7 @@
 
         <!-- STEP 4: Team List -->
         <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
-          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+          <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
             <!-- Header -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
               <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
@@ -317,19 +407,30 @@
               <Button Content="Deselect All" 
                       Command="{Binding DeselectAllTeamsCommand}"
                       Padding="8,4" FontSize="10"/>
+              <Button Content="{Binding ManualMappingButtonText}"
+                      Command="{Binding OpenManualMappingCommand}"
+                      Padding="8,4" FontSize="10"
+                      IsEnabled="{Binding CanOpenSelectedTeamManualMapping}"/>
             </StackPanel>
 
-            <!-- Team Count Display -->
             <TextBlock Grid.Row="3" Text="{Binding Teams.Count, StringFormat='Teams count: {0}'}" 
                        FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,4"/>
 
+            <TextBlock Grid.Row="4"
+                       Text="Selected team has unmapped players. Use Manual Fix Unmapped to write corrections back to the mapped CSV."
+                       FontSize="10"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       Margin="0,0,0,4"
+                       IsVisible="{Binding HasSelectedTeamWithUnmappedPlayers}"/>
+
             <!-- Simple test to verify binding works -->
-            <TextBlock Grid.Row="4" Text="Team List:" FontSize="11" FontWeight="Bold" 
+            <TextBlock Grid.Row="5" Text="Team List:" FontSize="11" FontWeight="Bold" 
                        Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,4"/>
 
             <!-- DataGrid with explicit binding -->
-            <DataGrid Grid.Row="5"
+            <DataGrid Grid.Row="6"
                       ItemsSource="{Binding Teams}"
+                      SelectedItem="{Binding SelectedTeam, Mode=TwoWay}"
                       AutoGenerateColumns="False"
                       Height="250"
                       GridLinesVisibility="All"
@@ -447,9 +548,15 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Spacing="6">
-                      <TextBlock Text="Custom Dimensions" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <CheckBox Content="Use custom dimensions (overrides profile)"
+                      <TextBlock Text="Crop Frame" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBlock Text="Adjust the framing window while keeping the final output size from the batch size settings."
+                                 FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                      <CheckBox Content="Use custom crop frame"
                                 IsChecked="{Binding UseCustomPreviewDimensions}"
+                                FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                      <CheckBox Content="Lock proportions"
+                                IsChecked="{Binding LockCropFrameProportions}"
+                                IsEnabled="{Binding UseCustomPreviewDimensions}"
                                 FontSize="10" Foreground="{DynamicResource PrimaryTextBrush}"/>
 
                       <ComboBox ItemsSource="{Binding PreviewDimensionPresets}"
@@ -476,7 +583,7 @@
 
                       <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0"
                             IsEnabled="{Binding UseCustomPreviewDimensions}">
-                        <TextBlock Grid.Column="0" Text="Width:" VerticalAlignment="Center" FontSize="10"
+                        <TextBlock Grid.Column="0" Text="Frame width:" VerticalAlignment="Center" FontSize="10"
                                    Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
                         <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomWidthCommand}"
                                 Width="24" Height="24" Padding="0" FontSize="12"/>
@@ -491,7 +598,7 @@
 
                       <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,2,0,0"
                             IsEnabled="{Binding UseCustomPreviewDimensions}">
-                        <TextBlock Grid.Column="0" Text="Height:" VerticalAlignment="Center" FontSize="10"
+                        <TextBlock Grid.Column="0" Text="Frame height:" VerticalAlignment="Center" FontSize="10"
                                    Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,4,0"/>
                         <Button Grid.Column="1" Content="−" Command="{Binding DecrementCustomHeightCommand}"
                                 Width="24" Height="24" Padding="0" FontSize="12"/>
@@ -552,8 +659,9 @@
                     <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="6"
                             MinHeight="150" VerticalAlignment="Stretch" HorizontalAlignment="Center">
                       <Image Source="{Binding PreviewImage}"
-                             MaxHeight="180"
-                             Stretch="Uniform"
+                             Width="{Binding PreviewDisplayWidth}"
+                             Height="{Binding PreviewDisplayHeight}"
+                             Stretch="Fill"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center"/>
                     </Border>
@@ -563,111 +671,78 @@
               </Grid>
             </Border>
 
-            <!-- Photo Filename Parsing -->
-            <Expander Header="Photo Filename Parsing" IsExpanded="False"
-                      Background="{DynamicResource BackgroundBrush}">
-              <Border CornerRadius="6" Padding="10" Margin="0,6,0,0">
-                <StackPanel Spacing="6">
-                  <TextBlock Text="How photos are matched to players"
-                             FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                  <TextBlock Text="The system extracts player ID and name from photo filenames. Auto-detection works for common patterns."
-                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
-                  
-                  <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="8" Margin="0,4,0,0">
-                    <StackPanel Spacing="2">
-                      <TextBlock Text="• 123_Smith_John.png  →  ID=123, Family=Smith, SurName=John" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <TextBlock Text="• Maria-Garcia-789.jpg  →  SurName=Maria, Family=Garcia, ID=789" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                      <TextBlock Text="• 456.jpg  →  ID=456 (simple ID-only naming)" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-                    </StackPanel>
+            <!-- STEP 6: Batch Execution -->
+            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="12">
+              <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="4" Padding="6,2">
+                    <TextBlock Text="6" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource HeaderTextBrush}"/>
                   </Border>
-
-                  <TextBlock Text="Custom Filename Pattern" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,8,0,0"/>
-                  <TextBlock Text="Override auto-detection for non-standard naming. Leave empty for auto-detect."
-                             FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
-                  
-                  <ComboBox ItemsSource="{Binding FilenamePatternPresets}"
-                            SelectedItem="{Binding SelectedFilenamePatternPreset}"
-                            Height="28" Margin="0,4,0,0">
-                    <ComboBox.ItemTemplate>
-                      <DataTemplate>
-                        <TextBlock Text="{Binding Name}"/>
-                      </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                  </ComboBox>
-                  
-                  <TextBox Text="{Binding FilenamePattern}" 
-                           Watermark="e.g., {id}_{family}_{sur}.png"
-                           Height="28" Margin="0,4,0,0"
-                           HorizontalAlignment="Stretch"
-                           Background="{DynamicResource InputBackgroundBrush}"
-                           Foreground="{DynamicResource PrimaryTextBrush}"/>
-                  <TextBlock Text="Placeholders: {id} = player ID, {first} = first name, {last} = last name"
-                             FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" FontStyle="Italic"/>
-                  
-                  <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
-                    <Button Content="Save Preset" Command="{Binding SaveFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"/>
-                    <Button Content="New" Command="{Binding NewFilenamePatternPresetCommand}" Padding="10,5" FontSize="10"
-                            ToolTip.Tip="Create a new preset with current pattern"/>
-                  </StackPanel>
-                  <TextBlock Text="{Binding FilenamePatternStatus}" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"/>
-
-                  <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
-
-                  <CheckBox Content="Use Photo Manifest File (JSON with explicit photo metadata)" 
-                            IsChecked="{Binding UsePhotoManifest}"
-                            FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                  <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding UsePhotoManifest}" Margin="0,4,0,0">
-                    <TextBox Grid.Column="0" Text="{Binding PhotoManifestPath}" 
-                             Watermark="Path to photo manifest JSON..."
-                             IsReadOnly="True" Height="28"
-                             Background="{DynamicResource InputBackgroundBrush}"
-                             Foreground="{DynamicResource PrimaryTextBrush}"/>
-                    <Button Grid.Column="1" Content="Browse" 
-                            Click="BrowsePhotoManifest_Click"
-                            Margin="6,0,0,0" Padding="12,5" FontSize="10"/>
-                  </Grid>
+                  <TextBlock Text="Batch Execution &amp; Resume" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
-              </Border>
-            </Expander>
-          </StackPanel>
-        </Border>
 
-        <!-- Execute Buttons and Progress -->
-        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-          <Button Content="▶ Start Batch Processing" 
-                  Command="{Binding StartBatchCommand}"
-                  IsEnabled="{Binding CanStart}"
-                  Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}"
-                  FontSize="14" Padding="20,8"/>
-          <Button Content="■ Cancel"
-                  Command="{Binding CancelBatchCommand}"
-                  IsVisible="{Binding IsProcessing}"
-                  Background="{DynamicResource ErrorBrush}" Foreground="{DynamicResource HeaderTextBrush}"
-                  FontSize="14" Padding="20,8"/>
-        </StackPanel>
+                <!-- Skip Existing Options -->
+                <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="Resume Interrupted Batch" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="Skip steps that already have output files from a previous run" FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
 
-        <!-- Progress -->
-        <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="12" 
-                IsVisible="{Binding IsProcessing}">
-          <StackPanel Spacing="6">
-            <TextBlock Text="{Binding ProcessingStatus}" 
-                       FontSize="13" TextWrapping="Wrap"
-                       Foreground="{DynamicResource PrimaryTextBrush}"/>
-            <ProgressBar Value="{Binding Progress}" Maximum="100" Height="6"/>
-            <StackPanel Orientation="Horizontal" Spacing="16">
-              <TextBlock FontSize="11" Foreground="{DynamicResource SuccessBrush}">
-                <Run Text="Completed: "/>
-                <Run Text="{Binding TeamsCompleted}"/>
-              </TextBlock>
-              <TextBlock FontSize="11" Foreground="{DynamicResource ErrorBrush}">
-                <Run Text="Failed: "/>
-                <Run Text="{Binding TeamsFailed}"/>
-              </TextBlock>
-              <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}">
-                <Run Text="Skipped: "/>
-                <Run Text="{Binding TeamsSkipped}"/>
-              </TextBlock>
-            </StackPanel>
+                    <StackPanel Spacing="4" Margin="0,6,0,0">
+                      <CheckBox Content="Skip existing steps (resume interrupted batch)"
+                                IsChecked="{Binding SkipExistingSteps}"
+                                FontSize="11" FontWeight="SemiBold"/>
+                      <TextBlock Text="When enabled, checks for existing outputs and skips the corresponding steps"
+                                 FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="24,0,0,0"/>
+                      <StackPanel Orientation="Horizontal" Spacing="16" Margin="24,6,0,0">
+                        <CheckBox Content="Skip Extract" IsChecked="{Binding SkipExtractStep}" FontSize="10"/>
+                        <CheckBox Content="Skip Map" IsChecked="{Binding SkipMapStep}" FontSize="10"/>
+                        <CheckBox Content="Skip Generate" IsChecked="{Binding SkipGenerateStep}" FontSize="10"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <!-- Execute Buttons -->
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                  <Button Content="▶ Start Batch Processing"
+                          Command="{Binding StartBatchCommand}"
+                          IsEnabled="{Binding CanStart}"
+                          Background="{DynamicResource SuccessBrush}" Foreground="{DynamicResource HeaderTextBrush}"
+                          FontSize="14" Padding="20,8"/>
+                  <Button Content="■ Cancel"
+                          Command="{Binding CancelBatchCommand}"
+                          IsVisible="{Binding IsProcessing}"
+                          Background="{DynamicResource ErrorBrush}" Foreground="{DynamicResource HeaderTextBrush}"
+                          FontSize="14" Padding="20,8"/>
+                </StackPanel>
+
+                <!-- Progress -->
+                <Border Background="{DynamicResource InfoBackgroundBrush}" CornerRadius="8" Padding="12"
+                        IsVisible="{Binding IsProcessing}">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding ProcessingStatus}"
+                               FontSize="13" TextWrapping="Wrap"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
+                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="6"/>
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                      <TextBlock FontSize="11" Foreground="{DynamicResource SuccessBrush}">
+                        <Run Text="Completed: "/>
+                        <Run Text="{Binding TeamsCompleted}"/>
+                      </TextBlock>
+                      <TextBlock FontSize="11" Foreground="{DynamicResource ErrorBrush}">
+                        <Run Text="Failed: "/>
+                        <Run Text="{Binding TeamsFailed}"/>
+                      </TextBlock>
+                      <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}">
+                        <Run Text="Skipped: "/>
+                        <Run Text="{Binding TeamsSkipped}"/>
+                      </TextBlock>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+
           </StackPanel>
         </Border>
 

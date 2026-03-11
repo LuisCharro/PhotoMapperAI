@@ -10,6 +10,12 @@ public class FaceDetectionServiceFactoryTests
     [Fact]
     public void Create_WithOpenCvModel_ReturnsOpenCvService()
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            Assert.Throws<PlatformNotSupportedException>(() => FaceDetectionServiceFactory.Create("opencv-dnn"));
+            return;
+        }
+
         var service = FaceDetectionServiceFactory.Create("opencv-dnn");
 
         Assert.IsType<OpenCVDNNFaceDetectionService>(service);
@@ -18,9 +24,28 @@ public class FaceDetectionServiceFactoryTests
     [Fact]
     public void Create_WithHaarModel_ReturnsHaarService()
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            Assert.Throws<PlatformNotSupportedException>(() => FaceDetectionServiceFactory.Create("haar-cascade"));
+            return;
+        }
+
         var service = FaceDetectionServiceFactory.Create("haar-cascade");
 
         Assert.IsType<HaarCascadeFaceDetectionService>(service);
+    }
+
+    [Fact]
+    public void Create_WithAppleVisionModel_UsesPlatformSpecificBehavior()
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            var service = FaceDetectionServiceFactory.Create("apple-vision");
+            Assert.IsType<AppleVisionFaceDetectionService>(service);
+            return;
+        }
+
+        Assert.Throws<PlatformNotSupportedException>(() => FaceDetectionServiceFactory.Create("apple-vision"));
     }
 
     [Fact]

@@ -79,7 +79,6 @@ tests/Data/*
 
 # App settings with local paths
 appsettings.local.json
-appsettings.json
 
 # Allow default size_profiles.json to be tracked (but not local overrides)
 !size_profiles.json

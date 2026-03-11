@@ -4,15 +4,50 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.Input;
 using Avalonia.Platform.Storage;
+using PhotoMapperAI.UI.Models;
+using PhotoMapperAI.UI.Services;
 using PhotoMapperAI.UI.ViewModels;
+using System.IO;
 
 namespace PhotoMapperAI.UI.Views;
 
 public partial class MapStepView : UserControl
 {
+    private readonly ManualMappingWorkflowService _manualMappingWorkflow = new();
+    private MapStepViewModel? _boundViewModel;
+
     public MapStepView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested -= OpenManualMappingAsync;
+        }
+
+        _boundViewModel = DataContext as MapStepViewModel;
+        if (_boundViewModel != null)
+        {
+            _boundViewModel.ManualMappingRequested += OpenManualMappingAsync;
+        }
+    }
+
+    private async Task<ManualMappingWorkflowResult> OpenManualMappingAsync(ManualMappingWorkflowRequest request)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner == null)
+        {
+            return new ManualMappingWorkflowResult
+            {
+                ErrorMessage = "Unable to open manual mapping window."
+            };
+        }
+
+        return await _manualMappingWorkflow.OpenAsync(owner, request);
     }
 
     private async void BrowseCsvFile_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

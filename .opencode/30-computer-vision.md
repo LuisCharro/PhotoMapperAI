@@ -1,0 +1,1 @@
+../.kilocode/rules/30-computer-vision.md

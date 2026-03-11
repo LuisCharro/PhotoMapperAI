@@ -1,0 +1,1 @@
+../.kilocode/rules/70-dotnet10-photomapperai-rules.md

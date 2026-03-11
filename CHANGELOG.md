@@ -1,272 +1,64 @@
 # Changelog
 
-All notable changes to PhotoMapperAI will be documented in this file.
+All notable changes to PhotoMapperAI are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-11
+
 ### Added
 
-- **BatchAutomationView** - New GUI view for processing multiple teams in one run
-  - Combined Extract → Map → Generate workflow
-  - Team list management with CSV/Database import
-  - Progress tracking across all teams
-  - Session state persistence for batch runs
-  - Select/deselect teams for processing
-  - Photo directory validation with refresh button
+- Manual unmapped-player mapping dialog for both map and batch flows.
+- Apple Vision face-detection support for macOS environments.
+- Preview crop-frame presets and auto-preview support in generate and batch views.
+- Batch automation improvements for multi-team processing and persisted batch session state.
+- Filename pattern preset management in the UI.
+- Expanded model tier lists for local, free-tier, and paid mapping providers.
 
-- **Filename Pattern Preset System**
-  - Save and reuse filename patterns
-  - New placeholders: `{first}`, `{last}`, `{id}`
-  - Backward compatible with legacy `{sur}`, `{family}` placeholders
-  - Presets stored in `appsettings.local.json`
-  - Default presets: Auto-detect, FirstName_LastName_ID, ID_FirstName_LastName, FirstName-LastName-ID, ID only
+### Changed
 
-- **AI Model Selection Tiers** (MapStepView and BatchAutomationView)
-  - Free Tier (Cloud) - quota-limited cloud models
-  - Local (Ollama) - local models via Ollama
-  - Paid (API) - OpenAI and Anthropic models
-  - Refresh Models button to discover available models
-  - Check Model button to verify model availability
-
-- **Face Detection Model Tiers** (BatchAutomationView)
-  - Recommended - opencv-dnn (fast, good accuracy)
-  - Local Vision - llava:7b, qwen3-vl (for challenging angles)
-  - Advanced - yolov8-face, haar-cascade, center
-
-- **Crop Offset Settings** (BatchAutomationView)
-  - Adjustable horizontal/vertical offset with sliders
-  - Preset selection for common offsets
-  - Settings persist to `appsettings.local.json`
-
-- **Photo Filename Parsing** improvements (MapStepView)
-  - Renamed from "Advanced Options" to "Photo Filename Parsing"
-  - Clearer explanation of auto-detection
-  - Example filenames that work automatically
-  - Pattern preset dropdown with Save/New buttons
-
-- **VS Code publish tasks** - One-click publishing from Visual Studio Code
-  - Added `publish-windows` task (CLI + GUI for Windows x64)
-  - Added `publish-macos` task (CLI + GUI for macOS ARM64)
-  - Added `publish-linux` task (CLI + GUI for Linux x64)
-  - Each task publishes both applications to the same output folder
-  - Accessible via `Ctrl+Shift+P` → "Tasks: Run Task"
+- GUI preview now uses the shared generation logic in-process for better parity and lower latency.
+- UI generate and batch flows now resolve size profiles and output profiles more consistently.
+- Platform defaults for face detection are now platform-aware:
+  - macOS: `apple-vision`
+  - Windows/Linux: `opencv-yunet`
 
 ### Fixed
 
-- **DataGrid not displaying teams** - Fixed DataGrid rendering in BatchAutomationView
-  - Added DataGrid Fluent theme styles
-  - Fixed grid row definition (* to Auto)
-  - Added explicit column definitions
-  - Added DataGridCheckBoxColumn for team selection
+- Multiple GUI progress, cancellation, and result-reporting issues in map and generate flows.
+- Several manual-mapping dialog build/wiring issues.
+- Windows face-detection default selection in the UI.
+- Obsolete Apple Vision CI integration test is now skipped.
 
-- **GUI generation result handling** - Generate step now uses command result metrics (`PortraitsGenerated`, `PortraitsFailed`) correctly
-- **GUI progress reporting** - Determinate progress updates added for map and generate workflows
-- **GUI cancellation support** - Added cancel actions for long-running map/generate operations with command-level cancellation propagation
-- **Session management wiring** - Save/Load session actions are now implemented (default app-data location)
-- **Map result model duplication** - Removed duplicate `MapResult` in UI layer; uses shared command result model
-
+[1.3.0]: https://github.com/LuisCharro/PhotoMapperAI/releases/tag/v1.3.0
 ## [1.0.1] - 2026-02-12
 
 ### Added
 
-- **Desktop GUI application** using Avalonia UI framework
-  - Step-by-step wizard interface (Extract → Map → Generate)
-  - Visual file browsers for all path parameters
-  - Real-time progress indicators and status updates
-  - All CLI parameters accessible via friendly UI controls
-  - Cross-platform support (Windows, macOS, Linux)
-  - ViewModels: MainWindowViewModel, ExtractStepViewModel, MapStepViewModel, GenerateStepViewModel
+- Avalonia desktop UI for Extract, Map, and Generate workflows.
+- Early session persistence and model diagnostics in the UI.
+- Updated documentation for the GUI entry point and workflow.
 
 ### Fixed
 
-- **GUI layout issue** - Separated header and step indicator into separate Grid rows
-  - Fixed overlapping "Save Session" and "Load Session" buttons
-  - Increased window width from 1000 to 1100px for better spacing
-- **Map command result type** - Added MapResult class for detailed statistics
-  - Returns PlayersProcessed, PlayersMatched, DirectIdMatches, StringMatches, AiMatches
-  - Enables GUI to display detailed mapping statistics
-- **Avalonia Font loading** - Commented out Inter font styles due to package loading issue
-
-### Documentation
-
-- Added GUIDE.md - Complete documentation for desktop GUI application
-- Updated README.md to mention GUI option and link to GUIDE.md
-- Updated project structure to include PhotoMapperAI.UI project
-- Added GUI to feature list
-
-### Known Issues (GUI v1.0.1)
-
-- **GenerateStepViewModel** - Result properties not properly assigned after generation
-- **Progress reporting** - Progress bar not updated during processing
-- **Duplicate MapResult** - Class defined in both MapStepViewModel.cs and core project
-- **No cancellation** - Long-running operations cannot be cancelled
+- Initial layout and result-model issues in the first GUI release.
 
 ## [1.0.0] - 2026-02-11
 
 ### Added
 
-#### Core Features
-- Database-agnostic data extraction from any SQL database
-- AI-powered name matching using local Ollama LLMs
-- Flexible face detection with multiple approaches (OpenCV DNN, YOLOv8-Face, Ollama Vision)
-- Automated portrait generation with configurable dimensions (default: 200x300px)
-- Filename pattern detection for automatic photo metadata extraction
-- Photo manifest file support for flexible metadata mapping
-- Benchmarking capabilities with comparison reports
-- Rich CLI experience with color-coded console output
-
-#### Data Extraction
-- `extract` command for exporting player data via SQL queries
-- Support for multiple SQL dialects (MySQL, PostgreSQL, SQL Server, SQLite)
-- Team-based filtering with `-teamId` parameter
-- Custom CSV output naming with `-outputName` parameter
-- Automatic column mapping with External_Player_ID and Valid_Mapping placeholders
-
-#### Name Mapping
-- `map` command for mapping photos to player records
-- Direct ID matching for exact matches
-- Fuzzy name matching using Ollama LLMs
-- Confidence-based validation (default threshold: 0.9)
-- Automatic pattern detection for filename-based metadata
-- Photo manifest support for custom metadata mappings
-- Progress tracking with detailed console output
-- Unmatched players and unused photos reporting
-
-#### Portrait Generation
-- `generatePhotos` command for portrait cropping
-- Multiple face detection approaches:
-  - OpenCV DNN (traditional computer vision)
-  - YOLOv8-Face (deep learning)
-  - Ollama Vision (LLaVA, Qwen3-VL models)
-  - Center crop (fastest, no AI)
-- Portrait-only mode for reusing existing face detections
-- Configurable portrait dimensions (default: 200x300px)
-- Multiple output formats (jpg, png)
-- Progress indicators with detailed processing status
-- Automatic fallback to alternative detection methods
-
-#### Cross-Platform Support
-- Full macOS support with bash/zsh scripts
-- Full Windows support with PowerShell 7+ scripts
-- Full Linux support with bash scripts
-- Cross-platform .NET 10.0 runtime
-- Consistent CLI experience across all platforms
-
-#### Documentation
-- Comprehensive README.md with getting started guide
-- ARCHITECTURE_DECISIONS.md with technical decisions
-- WORKFLOW.md with detailed workflow documentation
-- Sample SQL queries for all major database systems
-- Connection string templates
-- Inline help for all commands (`--help`)
-
-### Phase 1: Git Cleanup
-- Removed 49 temporary test photos from temp_mapping_photos/
-- Removed test_output_spain/ and test_output_switzerland/ directories
-- Removed test_photos_extended/ directory
-- Removed test CSV files and test manifests
-- Updated .gitignore with test_output_* pattern
-- Clean repository ready for production release
-
-### Phase 2: Data Workflow
-- Successfully processed 49 players (24 Spain + 25 Switzerland)
-- 100% mapping success rate with confidence scores
-- Validated name matching accuracy with real player data
-- Tested workflow with competition photo naming convention
-- Confirmed database-agnostic extraction from multiple sources
-
-### Phase 3: Portrait Generation
-- Generated all 49 portraits with consistent 200x300px dimensions
-- Tested and validated multiple face detection approaches:
-  - OpenCV DNN for traditional computer vision
-  - YOLOv8-Face for deep learning-based detection
-  - LLaVA and Qwen3-VL for AI-powered detection
-- Implemented portrait-only mode for reusing detections
-- Added center crop option for fast processing
-- Improved face detection accuracy with fallback mechanisms
-
-### Phase 4: PowerShell Scripts
-- Created PowerShell scripts for all operations
-- Full Windows compatibility with PowerShell 7+
-- Cross-platform documentation and examples
-- Tested on macOS, Windows, and Linux
-- Consistent behavior across all platforms
-
-### Performance Improvements
-- Optimized name matching with local LLMs (Ollama)
-- Fast face detection with GPU acceleration (when available)
-- Multi-threaded processing for batch operations
-- Efficient memory usage for large photo sets
-- Caching mechanisms for repeated face detections
-
-### Testing
-- Validated all 49 players with 100% success rate
-- Tested face detection on multiple photo types
-- Benchmarking framework for model comparison
-- Integration tests for all commands
-- Cross-platform compatibility tests
-
-### Documentation Updates
-- Added comprehensive README.md
-- Created ARCHITECTURE_DECISIONS.md
-- Added WORKFLOW.md with detailed examples
-- Created samples/ with SQL templates
-- Added inline help for all CLI commands
-
-### Configuration
-- appsettings.template.json for configuration template
-- Multiple SQL examples in samples/sql-examples/
-- Connection string templates
-- Configurable confidence thresholds
-- Configurable portrait dimensions
-
-## Technical Details
-
-### Dependencies
-- .NET 8.0 SDK
-- Ollama (for AI features)
-- OpenCV (for computer vision)
-- YOLOv8-Face models
-- PowerShell 7+ (Windows)
-
-### Build System
-- .NET solution file (PhotoMapperAI.sln)
-- Project references properly configured
-- NuGet packages for dependencies
-- Cross-platform build support
-
-### Code Quality
-- Clean code structure with proper separation of concerns
-- Comprehensive error handling
-- Detailed logging and progress reporting
-- Modular design for easy extension
-
-## Migration Notes
-
-No migration required - this is the initial stable release.
-
-## Upgrade Path
-
-No upgrade path needed - this is version 1.0.0.
-
----
-
-## [Unreleased]
-
-### Planned Features
-- Web UI for non-technical users
-- Batch processing for multiple teams
-- Cloud LLM support (OpenAI, Anthropic)
-- Additional face detection models
-- Custom portrait dimensions
-- Watermarking support
-- Docker container support
-- Automated testing pipeline
-
----
+- Initial stable CLI release with:
+  - `extract`
+  - `map`
+  - `generatephotos`
+  - `benchmark`
+- SQL-driven database extraction into CSV.
+- Deterministic and AI-assisted name mapping.
+- Portrait generation with multiple face-detection strategies.
+- Sample SQL/templates and supporting documentation.
 
 [1.0.1]: https://github.com/LuisCharro/PhotoMapperAI/releases/tag/v1.0.1
 [1.0.0]: https://github.com/LuisCharro/PhotoMapperAI/releases/tag/v1.0.0

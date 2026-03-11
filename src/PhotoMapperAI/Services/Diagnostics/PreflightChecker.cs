@@ -33,7 +33,7 @@ public sealed class PreflightResult
 
         if (MissingOpenCvFiles.Count > 0)
         {
-            lines.Add("Missing OpenCV DNN files:");
+            lines.Add("Missing OpenCV model files:");
             lines.AddRange(MissingOpenCvFiles.Select(f => $"- {f}"));
         }
 
@@ -61,7 +61,7 @@ public sealed class PreflightResult
 
         if (MissingOpenCvFiles.Count > 0)
         {
-            lines.Add("Missing OpenCV DNN files:");
+            lines.Add("Missing OpenCV model files:");
             lines.AddRange(MissingOpenCvFiles.Select(f => $"- {f}"));
         }
 
@@ -81,7 +81,9 @@ public static class PreflightChecker
         bool useAi,
         string nameModel,
         string? openAiApiKey = null,
-        string? anthropicApiKey = null)
+        string? anthropicApiKey = null,
+        string? zaiApiKey = null,
+        string? minimaxApiKey = null)
     {
         var result = new PreflightResult();
 
@@ -89,6 +91,23 @@ public static class PreflightChecker
             return result;
 
         var (provider, model) = ParseProviderAndModel(nameModel);
+
+        if (provider == "minimax")
+        {
+            var key = minimaxApiKey ?? Environment.GetEnvironmentVariable("MINIMAX_API_KEY");
+            if (string.IsNullOrWhiteSpace(key))
+                result.Errors.Add("MINIMAX_API_KEY is missing for MiniMax name model.");
+            return result;
+        }
+
+        if (provider == "zai")
+        {
+            var key = zaiApiKey ?? Environment.GetEnvironmentVariable("ZAI_API_KEY");
+            if (string.IsNullOrWhiteSpace(key))
+                result.Errors.Add("ZAI_API_KEY is missing for Z.AI name model.");
+            return result;
+        }
+
         if (provider == "openai")
         {
             var key = openAiApiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
@@ -149,6 +168,28 @@ public static class PreflightChecker
                 continue;
             }
 
+            if (IsAppleVisionModel(model))
+            {
+                if (OperatingSystem.IsMacOS())
+                {
+                    var service = new AppleVisionFaceDetectionService();
+                    if (await service.IsAvailableAsync())
+                    {
+                        availableCount++;
+                    }
+                    else
+                    {
+                        result.Warnings.Add("Apple Vision face detection is not available on this macOS environment.");
+                    }
+                }
+                else
+                {
+                    result.Warnings.Add($"Apple Vision model '{model}' is only available on macOS.");
+                }
+
+                continue;
+            }
+
             if (IsOpenCvDnnModel(model))
             {
                 var baseModelsPath = Path.Combine(AppContext.BaseDirectory, "models");
@@ -193,6 +234,50 @@ public static class PreflightChecker
                     }
 
                     result.Warnings.Add($"OpenCV DNN files missing for model '{model}' (models path: {modelsPath}).");
+                }
+
+                continue;
+            }
+
+            if (IsOpenCvYuNetModel(model))
+            {
+                var baseModelsPath = Path.Combine(AppContext.BaseDirectory, "models");
+                var (modelsPath, modelPath) = OpenCVYuNetFaceDetectionService.GetResolvedModelPaths(baseModelsPath);
+                var missingFiles = new List<string>();
+
+                if (!File.Exists(modelPath))
+                    missingFiles.Add(modelPath);
+
+                if (missingFiles.Count > 0 && downloadOpenCvModels)
+                {
+                    var download = await OpenCvModelDownloader.EnsureYuNetModelAsync(modelsPath);
+                    if (!download.Success)
+                    {
+                        result.Warnings.Add($"Failed to download OpenCV YuNet model: {download.Error}");
+                    }
+                    else if (download.Downloaded.Count > 0)
+                    {
+                        result.Warnings.Add("Downloaded missing OpenCV YuNet model.");
+                    }
+
+                    missingFiles = new List<string>();
+                    if (!File.Exists(modelPath))
+                        missingFiles.Add(modelPath);
+                }
+
+                if (missingFiles.Count == 0)
+                {
+                    availableCount++;
+                }
+                else
+                {
+                    foreach (var file in missingFiles)
+                    {
+                        if (!result.MissingOpenCvFiles.Contains(file, StringComparer.OrdinalIgnoreCase))
+                            result.MissingOpenCvFiles.Add(file);
+                    }
+
+                    result.Warnings.Add($"OpenCV YuNet model missing for '{model}' (models path: {modelsPath}).");
                 }
 
                 continue;
@@ -245,11 +330,23 @@ public static class PreflightChecker
             || string.Equals(model, "yolov8-face", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsOpenCvYuNetModel(string model)
+    {
+        return string.Equals(model, "opencv-yunet", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(model, "yunet", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsCenterOrHaar(string model)
     {
         return string.Equals(model, "center", StringComparison.OrdinalIgnoreCase)
             || string.Equals(model, "haar", StringComparison.OrdinalIgnoreCase)
             || string.Equals(model, "haar-cascade", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAppleVisionModel(string model)
+    {
+        return string.Equals(model, "apple-vision", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(model, "vision", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsOllamaModel(string model)
@@ -308,7 +405,9 @@ public static class PreflightChecker
             "ollama",
             "openai",
             "anthropic",
-            "claude"
+            "claude",
+            "zai",
+            "minimax"
         };
 
         if (!knownProviders.Contains(possibleProvider))

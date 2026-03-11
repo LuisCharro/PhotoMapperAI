@@ -1,0 +1,1 @@
+../.kilocode/rules/60-avalonia-mvvm.md

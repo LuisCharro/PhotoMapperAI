@@ -44,7 +44,7 @@ public class SessionState
     public string? GeneratePhotosDirectory { get; set; }
     public string? OutputDirectory { get; set; }
     public string? ImageFormat { get; set; } = "jpg";
-    public string? FaceDetectionModel { get; set; } = "llava:7b";
+    public string? FaceDetectionModel { get; set; } = "opencv-yunet";
     public int PortraitWidth { get; set; } = 200;
     public int PortraitHeight { get; set; } = 300;
     public string? SizeProfilePath { get; set; }

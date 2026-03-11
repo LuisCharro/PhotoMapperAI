@@ -32,7 +32,7 @@ public class BatchSessionState
     public bool AiSecondPass { get; set; }
     
     // Face Detection Settings
-    public string? FaceDetectionModel { get; set; } = "opencv-dnn";
+    public string? FaceDetectionModel { get; set; } = "opencv-yunet";
     public bool DownloadOpenCvModels { get; set; }
     
     // Size Settings
@@ -47,6 +47,7 @@ public class BatchSessionState
     
     // Results
     public List<BatchTeamResult> TeamResults { get; set; } = new();
+    public List<string> CommandsExecuted { get; set; } = new();
     public int TotalTeams { get; set; }
     public int TeamsCompleted { get; set; }
     public int TeamsFailed { get; set; }
@@ -96,6 +97,12 @@ public class BatchTeamResult
     public string? StatusMessage { get; set; }
     public int PlayersExtracted { get; set; }
     public int PlayersMapped { get; set; }
+    public int PlayersMappedDirectId { get; set; }
+    public int PlayersMappedDeterministic { get; set; }
+    public int PlayersMappedFirstRound { get; set; }
+    public int PlayersMappedAiPass1 { get; set; }
+    public int PlayersMappedAiPass2 { get; set; }
+    public int PlayersMappedAiTotal { get; set; }
     public int PhotosGenerated { get; set; }
     public string? CsvPath { get; set; }
     public string? MappedCsvPath { get; set; }

@@ -31,13 +31,14 @@ echo ""
 
 # Ask user which models to download
 echo "Which models do you want to download?"
-echo "1) OpenCV DNN (Caffe) - Recommended (good speed/accuracy)"
-echo "2) Haar Cascades - Fastest, lower accuracy (includes eye detection)"
-echo "3) YOLOv8-Face - Best accuracy, slower"
-echo "4) All of the above"
-echo "5) Exit"
+echo "1) OpenCV DNN (Caffe) - Legacy (good speed/accuracy)"
+echo "2) OpenCV YuNet (ONNX) - Recommended (face + eye landmarks)"
+echo "3) Haar Cascades - Fastest, lower accuracy (includes eye detection)"
+echo "4) YOLOv8-Face - Best accuracy, slower"
+echo "5) All of the above"
+echo "6) Exit"
 echo ""
-read -p "Enter your choice (1-5): " choice
+read -p "Enter your choice (1-6): " choice
 
 case $choice in
     1)
@@ -60,6 +61,19 @@ case $choice in
         ;;
 
     2)
+        echo ""
+        echo -e "${GREEN}Downloading OpenCV YuNet model...${NC}"
+        echo ""
+
+        echo "Downloading face_detection_yunet_2023mar.onnx..."
+        curl -L -O https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+
+        echo ""
+        echo -e "${GREEN}✓ OpenCV YuNet model downloaded successfully!${NC}"
+        echo ""
+        ;;
+
+    3)
         echo ""
         echo -e "${GREEN}Downloading Haar Cascade models...${NC}"
         echo ""
@@ -85,7 +99,7 @@ case $choice in
         ls -lh haarcascade_*.xml
         ;;
 
-    3)
+    4)
         echo ""
         echo -e "${YELLOW}YOLOv8-Face model${NC}"
         echo ""
@@ -96,7 +110,7 @@ case $choice in
         echo "After downloading, place the .onnx file in: $MODELS_DIR"
         ;;
 
-    4)
+    5)
         echo ""
         echo -e "${GREEN}Downloading ALL models...${NC}"
         echo ""
@@ -105,6 +119,10 @@ case $choice in
         echo "Downloading OpenCV DNN models..."
         curl -L -O https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_ssd_deploy.prototxt
         curl -L -O https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
+
+        echo ""
+        echo "Downloading OpenCV YuNet model..."
+        curl -L -O https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 
         echo ""
         echo "Downloading Haar Cascade models..."
@@ -123,7 +141,7 @@ case $choice in
         ls -lh
         ;;
 
-    5)
+    6)
         echo -e "${YELLOW}Exiting...${NC}"
         exit 0
         ;;
