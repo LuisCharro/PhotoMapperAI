@@ -172,6 +172,8 @@ Examples:
   photomapperai map -inputCsvPath players.csv -photosDir ./photos
   photomapperai map -inputCsvPath players.csv -photosDir ./photos -filenamePattern '{id}_{family}_{sur}.png'
   photomapperai map -inputCsvPath players.csv -photosDir ./photos -photoManifest manifest.json
+  photomapperai map -inputCsvPath players.csv -photosDir ./photos -useAI -aiSecondPass -nameModel qwen2.5:7b
+  photomapperai map -inputCsvPath players.csv -photosDir ./photos -useAI -nameModel openai:gpt-5-mini
 ")]
 public class MapCommand
 {
@@ -188,7 +190,7 @@ public class MapCommand
     [Option(ShortName = "m", LongName = "photoManifest", Description = "Path to photo manifest JSON file")]
     public string? PhotoManifest { get; set; }
 
-    [Option(ShortName = "n", LongName = "nameModel", Description = "Name matching model identifier (e.g., qwen2.5:7b, ollama:qwen2.5:7b, openai:gpt-4o-mini, anthropic:claude-3-5-sonnet)")]
+    [Option(ShortName = "n", LongName = "nameModel", Description = "Name matching model identifier (e.g., qwen2.5:7b, ollama:qwen2.5:7b, openai:gpt-5-mini, anthropic:claude-3-5-sonnet)")]
     public string NameModel { get; set; } = "qwen2.5:7b";
 
     [Option(ShortName = "t", LongName = "confidenceThreshold", Description = "Minimum confidence for valid match (default: 0.8)")]
