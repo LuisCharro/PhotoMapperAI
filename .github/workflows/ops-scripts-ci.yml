@@ -21,6 +21,7 @@ on:
       - 'scripts/ops/**'
       - 'docs/PARITY_*.md'
       - '.github/workflows/ops-scripts-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
