@@ -2,11 +2,14 @@
 """Generate statistics for validation results."""
 import csv
 import json
+import os
 from pathlib import Path
 from collections import defaultdict
 
 # Read validation aggregate
-validation_dir = Path("/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/Validation_Run")
+validation_dir = Path(
+    os.environ.get("PHOTOMAPPER_VALIDATION_RUN_DIR", "./Validation_Run")
+).expanduser().resolve()
 aggregate_file = validation_dir / "validation_aggregate.csv"
 
 stats = {

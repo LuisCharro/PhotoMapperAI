@@ -19,7 +19,7 @@ Phase 3 (Portrait generation with Ollama Vision) was attempted but **incomplete*
 
 ### 1. Expected Outputs (Reference)
 
-**Location:** `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Generated/`
+**Location:** `sample-data/Generated/`
 
 **Spain:**
 - Count: 24 portraits
@@ -37,7 +37,7 @@ Phase 3 (Portrait generation with Ollama Vision) was attempted but **incomplete*
 
 ### 2. Actual Outputs (Generated)
 
-**Location:** `/Users/luis/Repos/PhotoMapperAI/portraits_final_ai/`
+**Location:** `portraits_final_ai/`
 
 **Generated Portraits:**
 - Count: **10 portraits only** (20.4% of expected)

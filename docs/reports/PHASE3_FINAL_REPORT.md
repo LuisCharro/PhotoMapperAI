@@ -45,8 +45,8 @@ Phase 3 (Portrait generation) has been successfully fixed and validated. All 49 
 - **Status:** 49 entries cached and valid.
 
 ## Team Output Folders
-- `/Users/luis/Repos/PhotoMapperAI/test_output_spain/`
-- `/Users/luis/Repos/PhotoMapperAI/test_output_switzerland/`
+- `test_output_spain/`
+- `test_output_switzerland/`
 
 ## Conclusion
 

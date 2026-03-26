@@ -1,6 +1,6 @@
 {
-  "repoRoot": "/Users/luis/Repos/PhotoMapperAI",
-  "outputRoot": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/Validation_Run",
+  "repoRoot": "/absolute/path/to/PhotoMapperAI",
+  "outputRoot": "/absolute/path/to/external-validation/Validation_Run",
   "mapTimeoutSec": 600,
   "generateTimeoutSec": 1200,
   "continueOnError": true,
@@ -17,15 +17,15 @@
   "teams": [
     {
       "name": "Spain",
-      "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/DataPrep/03_transformed_with_map_data/Spain.csv",
-      "inputPhotosDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/inputs/Spain",
-      "expectedPortraitsDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/expected/portraits/Spain"
+      "sourcePlayersCsvPath": "/absolute/path/to/external-validation/DataPrep/03_transformed_with_map_data/Spain.csv",
+      "inputPhotosDir": "/absolute/path/to/external-validation/inputs/Spain",
+      "expectedPortraitsDir": "/absolute/path/to/external-validation/expected/portraits/Spain"
     },
     {
       "name": "Switzerland",
-      "sourcePlayersCsvPath": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/DataPrep/03_transformed_with_map_data/Switzerland.csv",
-      "inputPhotosDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/inputs/Switzerland",
-      "expectedPortraitsDir": "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/expected/portraits/Switzerland"
+      "sourcePlayersCsvPath": "/absolute/path/to/external-validation/DataPrep/03_transformed_with_map_data/Switzerland.csv",
+      "inputPhotosDir": "/absolute/path/to/external-validation/inputs/Switzerland",
+      "expectedPortraitsDir": "/absolute/path/to/external-validation/expected/portraits/Switzerland"
     }
   ]
 }

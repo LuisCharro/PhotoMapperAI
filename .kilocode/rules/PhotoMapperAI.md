@@ -143,16 +143,12 @@ The map command produces CSV with:
 
 ### External Validation
 ```bash
-cd /Users/luis/Repos/PhotoMapperAI_ExternalData_Test
+cd /path/to/external-validation-data
 python3 validate_map_output.py \
     --output /path/to/mapped_players.csv \
     --reference Competition2024/Csvs/mapped_players.csv
 ```
 
-## Server Info
-- Dev machine: 192.168.1.208
-- Build: .NET 10
-
 ## External Data
-- Private test data: `~/Repos/PhotoMapperAI_ExternalData_Test/`
-- Not committed to git
+- External validation data should live outside this repository.
+- Do not commit real player data, private database dumps, or private validation assets.
