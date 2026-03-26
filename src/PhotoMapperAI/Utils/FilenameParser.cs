@@ -45,8 +45,12 @@ public class FilenameParser
         new Regex(@"^_+(?<sur>[^_]+)_(?<family>[^_]+)_(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
               RegexOptions.IgnoreCase),
 
-        // Pattern 9: _{name}_{id}.jpg (underscore prefix/suffix format like _Joselu_250005193.jpg)
-        new Regex(@"^_?(?<sur>[^_]+)_?(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
+          // Pattern 9: {last} {first};{id}.png (e.g., RIVERA Mateo;741258.png)
+          new Regex(@"^(?<family>[^;\s]+)\s+(?<sur>[^;\s]+)\s*;\s*(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
+              RegexOptions.IgnoreCase),
+
+          // Pattern 10: _{name}_{id}.jpg (underscore prefix/suffix format like _Joselu_250005193.jpg)
+          new Regex(@"^_?(?<sur>[^_]+)_?(?<id>\d+)\.(png|jpg|jpeg|bmp)$",
               RegexOptions.IgnoreCase)
     };
 

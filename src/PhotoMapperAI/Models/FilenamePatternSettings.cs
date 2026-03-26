@@ -60,6 +60,12 @@ public sealed class FilenamePatternSettings
                     Pattern = "{first}-{last}-{id}.jpg",
                     Description = "Dani-Carvajal-250024448.jpg"
                 },
+                new FilenamePatternPreset
+                {
+                    Name = "LastName FirstName;ID",
+                    Pattern = "{last} {first};{id}.png",
+                    Description = "RIVERA Mateo;741258.png"
+                },
                 new FilenamePatternPreset 
                 { 
                     Name = "ID only", 
