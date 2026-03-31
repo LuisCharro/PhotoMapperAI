@@ -5,9 +5,15 @@ _shared/repo-bootstrap-check.SKILL.md
 _shared/question-context-scope.SKILL.md
 _shared/commit-message-quality.SKILL.md
 _shared/problem-shaping.SKILL.md
+_shared/research-before-build.SKILL.md
+_shared/git-worktree-workflow.SKILL.md
+_shared/implementation-plan-writing.SKILL.md
+_shared/subagent-task-orchestration.SKILL.md
 _shared/ai-code-review.SKILL.md
 _shared/quality-gate-checklist.md
 _shared/bug-triage-handoff.SKILL.md
+_shared/error-detective/SKILL.md
+_shared/changed-code-review.SKILL.md
 desktop/avalonia/avalonia-mvvm-boundaries.SKILL.md
 desktop/avalonia/avalonia-compiled-bindings.SKILL.md
 desktop/avalonia/avalonia-xaml-performance-hygiene.SKILL.md
