@@ -139,7 +139,7 @@ This autonomous testing session verified the status of Phase 3 (Portrait generat
 - Synthetic database: players_test.csv (49 players)
 
 **Reference Data Location:**
-`/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/`
+`sample-data/`
 
 ## Test Artifacts Generated
 

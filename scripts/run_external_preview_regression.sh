@@ -5,7 +5,12 @@ set -euo pipefail
 # Verifies deterministic output for one known player using --expectedOutput.
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-EXTERNAL_ROOT="${1:-/Users/luis/Repos/PhotoMapperAI_ExternalData_Test}"
+EXTERNAL_ROOT="${1:-${PHOTOMAPPER_EXTERNAL_VALIDATION_ROOT:-}}"
+
+if [[ -z "$EXTERNAL_ROOT" ]]; then
+  echo "Set PHOTOMAPPER_EXTERNAL_VALIDATION_ROOT or pass the external validation root as the first argument." >&2
+  exit 1
+fi
 
 MAPPED_CSV="$EXTERNAL_ROOT/Competition2024/Csvs/mapped_players_7548_Spanien.csv"
 PHOTOS_DIR="$EXTERNAL_ROOT/Competition2024/Images/Spain"

@@ -7,6 +7,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-31
+
+### Added
+
+- Semicolon-delimited filename mapping format (`{last} {first};{id}.ext`) in auto-detect mode.
+- Filename pattern preset for the new semicolon profile.
+
+### Changed
+
+- Public contribution guidelines and sanitized docs.
+
+[1.3.1]: https://github.com/LuisCharro/PhotoMapperAI/releases/tag/v1.3.1
+
 ## [1.3.0] - 2026-03-11
 
 ### Added

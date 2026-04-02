@@ -1,0 +1,6 @@
+# Skills copied from the shared skills repo.
+# One relative path per line. Files and directories are both allowed.
+
+_shared/
+desktop/avalonia/
+backend/computer-vision-pipeline-review.SKILL.md
