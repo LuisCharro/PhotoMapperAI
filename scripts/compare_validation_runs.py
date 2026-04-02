@@ -77,11 +77,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--base-dir",
-        default="/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation",
+        default="./ValidationData",
     )
     parser.add_argument(
         "--output",
-        default="/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/validation_runs_comparison.md",
+        default="./ValidationData/validation_runs_comparison.md",
     )
     args = parser.parse_args()
 

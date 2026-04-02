@@ -7,13 +7,13 @@
 ## Test Data Structure
 
 ### Input Photos
-- Spain: `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Spain/` (24 photos)
-- Switzerland: `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Switzerland/` (25 photos)
+- Spain: `sample-data/Spain/` (24 photos)
+- Switzerland: `sample-data/Switzerland/` (25 photos)
 - Pattern: `FirstName_LastName_PlayerID.jpg`
 - Count: 49 total photos
 
 ### Synthetic Database (Generated)
-- File: `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/players_test.csv`
+- File: `sample-data/players_test.csv`
 - Players: 49 (24 Spain + 25 Switzerland)
 - Internal IDs: Random 5-7 digits (matches real patterns)
 - External IDs: 9-digit competition IDs from filenames
@@ -202,10 +202,10 @@
 - `PHASE3_VALIDATION_REPORT.md` - Detailed validation report
 
 **Reference Data:**
-- `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Spain/` (24 photos)
-- `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Switzerland/` (25 photos)
-- `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Generated/Spain/` (24 reference portraits)
-- `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Generated/Switzerland/` (26 reference portraits)
+- `sample-data/Spain/` (24 photos)
+- `sample-data/Switzerland/` (25 photos)
+- `sample-data/Generated/Spain/` (24 reference portraits)
+- `sample-data/Generated/Switzerland/` (26 reference portraits)
 
 ---
 
@@ -219,17 +219,17 @@ git status
 git log --oneline -10
 
 # Find portrait folders
-find /Users/luis/Repos/PhotoMapperAI -type d -name "*portraits*"
+find . -type d -name "*portraits*"
 
 # Count portraits
-ls /Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Generated/Spain/*.jpg | wc -l
+ls sample-data/Generated/Spain/*.jpg | wc -l
 
 # Check image dimensions
-file /Users/luis/Repos/PhotoMapperAI/portraits_final_ai/*.jpg
-sips -g all /Users/luis/Repos/PhotoMapperAI/portraits_final_ai/86298.jpg
+file portraits_final_ai/*.jpg
+sips -g all portraits_final_ai/86298.jpg
 
 # Check face detection cache
-cat /Users/luis/Repos/PhotoMapperAI/.face-detection-cache-ai.json
+cat .face-detection-cache-ai.json
 
 # Validate PowerShell script
 Get-Content scripts/download-opencv-models.ps1

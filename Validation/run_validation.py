@@ -301,9 +301,14 @@ class PhotoMapperValidator:
 
 def main():
     """Main entry point."""
-    base_dir = "/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation"
-    photomapper_ai_dir = "/Users/luis/Repos/PhotoMapperAI"
-    output_dir = Path("/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation/Validation_Run")
+    base_dir = os.environ.get("PHOTOMAPPER_VALIDATION_BASE_DIR", "./ValidationData")
+    photomapper_ai_dir = os.environ.get("PHOTOMAPPER_REPO_ROOT", ".")
+    output_dir = Path(
+        os.environ.get(
+            "PHOTOMAPPER_VALIDATION_OUTPUT_DIR",
+            str(Path(base_dir) / "Validation_Run"),
+        )
+    )
 
     print("="*60)
     print("PhotoMapperAI Validation Script")

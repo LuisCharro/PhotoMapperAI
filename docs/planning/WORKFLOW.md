@@ -181,7 +181,7 @@ Cron jobs will automatically check progress and continue work:
 
 **Cron Schedule:**
 ```
-*/15 * * * * cd /Users/luis/.openclaw/workspace && ~/check-progress.sh
+*/15 * * * * cd /path/to/agent-workspace && ./check-progress.sh
 ```
 
 ### Progress Tracking
@@ -197,7 +197,7 @@ Create `WORKFLOW.md` in repo root:
 
 ```bash
 # check-progress.sh
-cd /Users/luis/Repos/PhotoMapperAI
+cd /path/to/PhotoMapperAI
 
 # Read last commit
 LAST_COMMIT=$(git log -1 --pretty=format:"%h %s")
@@ -239,7 +239,7 @@ Format: `[type](scope): description`
 
 ### Stage 1 (Extract)
 - Synthetic database with Teams and Players tables
-- SQLite test database in `/Users/luis/Repos/FakeData_PhotoMapperAI/DataExtraction/`
+- SQLite test database in a local non-committed validation directory
 - 3 teams (small, medium, large)
 
 ### Stage 2 (Map)

@@ -1,5 +1,25 @@
 # PhotoMapperAI Release Notes
 
+## v1.3.1
+
+Released: 2026-03-31
+
+## Highlights
+
+- New semicolon-delimited filename mapping format (`{last} {first};{id}.ext`) supported in auto-detect mode.
+- Filename pattern preset for the new semicolon profile.
+- Public contribution guidelines and sanitized docs.
+
+## User-Visible Improvements
+
+### Filename Mapping
+
+- Added a dedicated regex pattern for semicolon-delimited names and numeric ID.
+- Reordered pattern evaluation so the new format is checked before a broader fallback pattern.
+- Added a default filename pattern preset for the new profile.
+
+---
+
 ## v1.3.0
 
 Released: 2026-03-11

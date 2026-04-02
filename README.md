@@ -166,3 +166,4 @@ scripts/                   Validation and operational helpers
 ## License
 
 [MIT](LICENSE)
+![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)

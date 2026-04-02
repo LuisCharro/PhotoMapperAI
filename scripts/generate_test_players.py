@@ -6,6 +6,7 @@ Matches the SQL schema expected by the extract command.
 
 import random
 import csv
+import os
 from pathlib import Path
 
 def parse_filename(filename):
@@ -62,7 +63,9 @@ def generate_team_id(team_name):
     return team_ids.get(team_name, 1)
 
 def main():
-    base_dir = Path('/Users/luis/Repos/PhotoMapperAI_ExternalData/RealDataValidation')
+    base_dir = Path(
+        os.environ.get("PHOTOMAPPER_VALIDATION_BASE_DIR", "./ValidationData")
+    ).expanduser().resolve()
 
     # Photo directories
     spain_dir = base_dir / 'inputs' / 'Spain'

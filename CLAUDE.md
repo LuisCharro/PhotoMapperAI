@@ -55,6 +55,6 @@ See `.kilocode/rules/`:
 
 ## Validation
 ```bash
-python3 ../PhotoMapperAI_ExternalData_Test/validate_map_output.py \
+python3 /path/to/validation/validate_map_output.py \
     --output mapped.csv --reference reference.csv
 ```

@@ -5,7 +5,7 @@
 **Problem:** When using `--faceDetection center`, generated portraits showed too much body:
 - Included chest + beginning of legs
 - Expected: head + neck + bit of chest only
-- Comparison: `/Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Generated/Switzerland/1133408.jpg` (expected) vs. `Output_Portraits/9741690.jpg` (actual)
+- Comparison: `sample-data/Generated/Switzerland/1133408.jpg` (expected) vs. `Output_Portraits/9741690.jpg` (actual)
 
 ## Root Cause
 
@@ -66,11 +66,11 @@ Result: Head + neck + bit of chest (correct)
 
 ### Command to Test
 ```bash
-cd /Users/luis/Repos/PhotoMapperAI/src/PhotoMapperAI
+cd src/PhotoMapperAI
 dotnet run -- generatePhotos \
-  --inputCsvPath /Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/players_test.csv \
-  --photosDir /Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Spain \
-  --processedPhotosOutputPath /Users/luis/Repos/FakeData_PhotoMapperAI/NewDataExample/Output_Portraits \
+  --inputCsvPath ../../sample-data/players_test.csv \
+  --photosDir ../../sample-data/Spain \
+  --processedPhotosOutputPath ../../sample-data/Output_Portraits \
   --format jpg \
   --faceDetection center \
   --noCache

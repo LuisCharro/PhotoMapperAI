@@ -552,5 +552,19 @@ public class FilenameParserTests : IDisposable
         Assert.Equal("999999", result.External_Player_ID);
     }
 
+    [Fact]
+    public void ParseAutoDetect_Pattern10_LastFirstSemicolonId_ParsesCorrectly()
+    {
+        // Arrange & Act
+        var result = FilenameParser.ParseAutoDetect("RIVERA Mateo;741258.png");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("741258", result.External_Player_ID);
+        Assert.Equal("RIVERA", result.FamilyName);
+        Assert.Equal("Mateo", result.SurName);
+        Assert.Equal("RIVERA Mateo", result.FullName);
+    }
+
     #endregion
 }

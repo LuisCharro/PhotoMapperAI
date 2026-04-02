@@ -126,3 +126,7 @@ publish/
 scripts/dev/*.log
 scripts/dev/*.tmp
 scripts/dev/*.bak
+
+.agent-local/
+
+agent/.shared-skills-source
