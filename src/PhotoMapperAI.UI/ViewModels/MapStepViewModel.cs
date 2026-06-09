@@ -70,6 +70,11 @@ public partial class MapStepViewModel : ViewModelBase
     [ObservableProperty]
     private string _filenamePattern = string.Empty;
 
+    // When true, photos are matched to players by shirt number (2026 World Cup
+    // photos, whose filenames carry no name). When false, name matching is used.
+    [ObservableProperty]
+    private bool _useShirtNumberMapping;
+
     [ObservableProperty]
     private FilenamePatternPreset? _selectedFilenamePatternPreset;
 
@@ -428,7 +433,8 @@ public partial class MapStepViewModel : ViewModelBase
                 IsMiniMaxModel(effectiveNameModel) ? usedApiKey : null,
                 _cancellationTokenSource.Token,
                 log,
-                uiProgress);
+                uiProgress,
+                matchBy: UseShirtNumberMapping ? "shirt" : "name");
 
             if (result.ExitCode != 0)
             {

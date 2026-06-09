@@ -43,7 +43,8 @@ public sealed class ExternalMapCliRunner
         string? minimaxApiKey,
         CancellationToken cancellationToken,
         IProgress<string>? log,
-        IProgress<(int processed, int total, string current)>? uiProgress = null)
+        IProgress<(int processed, int total, string current)>? uiProgress = null,
+        string matchBy = "name")
     {
         _ = projectRootDirectory;
 
@@ -71,7 +72,8 @@ public sealed class ExternalMapCliRunner
             cancellationToken: cancellationToken,
             aiTrace: aiTrace,
             aiOnly: aiOnly,
-            log: log);
+            log: log,
+            matchBy: matchBy);
 
         return new MapCliResult
         {
