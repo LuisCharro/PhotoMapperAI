@@ -133,3 +133,6 @@ agent/.shared-skills-source
 
 # Kilo agent-manager local tooling/session state (not .kilocode/, which is tracked)
 .kilo/
+
+# Local working context / scratch notes for AI sessions (private, may reference local paths/creds)
+.claude-context.md
