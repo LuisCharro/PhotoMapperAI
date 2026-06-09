@@ -187,6 +187,9 @@ public class MapCommand
     [Option(ShortName = "f", LongName = "filenamePattern", Description = "Filename pattern template (e.g., '{id}_{family}_{sur}.png')")]
     public string? FilenamePattern { get; set; }
 
+    [Option(ShortName = "mb", LongName = "matchBy", Description = "Matching strategy: 'name' (default) or 'shirt' (shirt-number matching for 2026 WC photos)")]
+    public string MatchBy { get; set; } = "name";
+
     [Option(ShortName = "m", LongName = "photoManifest", Description = "Path to photo manifest JSON file")]
     public string? PhotoManifest { get; set; }
 
@@ -222,6 +225,15 @@ public class MapCommand
 
     public async Task<int> OnExecuteAsync()
     {
+        if (!string.Equals(MatchBy, "name", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(MatchBy, "shirt", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Invalid --matchBy value '{MatchBy}'. Use 'name' or 'shirt'.");
+            Console.ResetColor();
+            return 1;
+        }
+
         if (AiOnly && !UseAi)
         {
             Console.WriteLine("AI-only mode enables AI matching automatically.");
@@ -285,7 +297,8 @@ public class MapCommand
             UseAi && AiSecondPass,
             aiTrace: AiTrace,
             aiOnly: AiOnly,
-            log: null
+            log: null,
+            matchBy: MatchBy
         );
 
         return 0;
