@@ -326,28 +326,42 @@ public class MapCommandLogic
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"✓ Matched {totalMatched} / {results.Count} players");
-            Console.WriteLine($"✓ First round mapped (ID + String): {firstRoundMapped} (ID: {directIdMatches}, String: {stringMatches})");
-            Console.WriteLine($"✓ AI round mapped: {aiMatches} (Pass 1: {aiFirstPassMatches}, Pass 2: {aiSecondPassMatches})");
-            Console.WriteLine($"✓ AI evaluated: {aiTotalPlayersEvaluated} players (Pass 1: {aiFirstPassPlayersEvaluated}, Pass 2: {aiSecondPassPlayersEvaluated}), {aiTotalComparisons} model comparisons (Pass 1: {aiFirstPassComparisons}, Pass 2: {aiSecondPassComparisons})");
-            if (aiTotalUsageCalls > 0 || aiTotalTokens > 0)
+            if (shirtMode)
             {
-                Console.WriteLine(
-                    $"✓ AI usage: {aiTotalUsageCalls} billable calls, {aiTotalPromptTokens} prompt/input tokens, " +
-                    $"{aiTotalCompletionTokens} completion/output tokens, {aiTotalTokens} total tokens " +
-                    $"(Pass 1 calls/tokens: {aiFirstPassUsageCalls}/{aiFirstPassTotalTokens}, Pass 2 calls/tokens: {aiSecondPassUsageCalls}/{aiSecondPassTotalTokens})");
+                Console.WriteLine($"✓ Shirt-number matched: {shirtMatches}");
+            }
+            else
+            {
+                Console.WriteLine($"✓ First round mapped (ID + String): {firstRoundMapped} (ID: {directIdMatches}, String: {stringMatches})");
+                Console.WriteLine($"✓ AI round mapped: {aiMatches} (Pass 1: {aiFirstPassMatches}, Pass 2: {aiSecondPassMatches})");
+                Console.WriteLine($"✓ AI evaluated: {aiTotalPlayersEvaluated} players (Pass 1: {aiFirstPassPlayersEvaluated}, Pass 2: {aiSecondPassPlayersEvaluated}), {aiTotalComparisons} model comparisons (Pass 1: {aiFirstPassComparisons}, Pass 2: {aiSecondPassComparisons})");
+                if (aiTotalUsageCalls > 0 || aiTotalTokens > 0)
+                {
+                    Console.WriteLine(
+                        $"✓ AI usage: {aiTotalUsageCalls} billable calls, {aiTotalPromptTokens} prompt/input tokens, " +
+                        $"{aiTotalCompletionTokens} completion/output tokens, {aiTotalTokens} total tokens " +
+                        $"(Pass 1 calls/tokens: {aiFirstPassUsageCalls}/{aiFirstPassTotalTokens}, Pass 2 calls/tokens: {aiSecondPassUsageCalls}/{aiSecondPassTotalTokens})");
+                }
             }
             Console.WriteLine($"✓ Left unmapped: {unmappedCount}");
             Console.ResetColor();
             log?.Report($"✓ Matched {totalMatched} / {results.Count} players");
-            log?.Report($"✓ First round mapped (ID + String): {firstRoundMapped} (ID: {directIdMatches}, String: {stringMatches})");
-            log?.Report($"✓ AI round mapped: {aiMatches} (Pass 1: {aiFirstPassMatches}, Pass 2: {aiSecondPassMatches})");
-            log?.Report($"✓ AI evaluated: {aiTotalPlayersEvaluated} players (Pass 1: {aiFirstPassPlayersEvaluated}, Pass 2: {aiSecondPassPlayersEvaluated}), {aiTotalComparisons} model comparisons (Pass 1: {aiFirstPassComparisons}, Pass 2: {aiSecondPassComparisons})");
-            if (aiTotalUsageCalls > 0 || aiTotalTokens > 0)
+            if (shirtMode)
             {
-                log?.Report(
-                    $"✓ AI usage: {aiTotalUsageCalls} billable calls, {aiTotalPromptTokens} prompt/input tokens, " +
-                    $"{aiTotalCompletionTokens} completion/output tokens, {aiTotalTokens} total tokens " +
-                    $"(Pass 1 calls/tokens: {aiFirstPassUsageCalls}/{aiFirstPassTotalTokens}, Pass 2 calls/tokens: {aiSecondPassUsageCalls}/{aiSecondPassTotalTokens})");
+                log?.Report($"✓ Shirt-number matched: {shirtMatches}");
+            }
+            else
+            {
+                log?.Report($"✓ First round mapped (ID + String): {firstRoundMapped} (ID: {directIdMatches}, String: {stringMatches})");
+                log?.Report($"✓ AI round mapped: {aiMatches} (Pass 1: {aiFirstPassMatches}, Pass 2: {aiSecondPassMatches})");
+                log?.Report($"✓ AI evaluated: {aiTotalPlayersEvaluated} players (Pass 1: {aiFirstPassPlayersEvaluated}, Pass 2: {aiSecondPassPlayersEvaluated}), {aiTotalComparisons} model comparisons (Pass 1: {aiFirstPassComparisons}, Pass 2: {aiSecondPassComparisons})");
+                if (aiTotalUsageCalls > 0 || aiTotalTokens > 0)
+                {
+                    log?.Report(
+                        $"✓ AI usage: {aiTotalUsageCalls} billable calls, {aiTotalPromptTokens} prompt/input tokens, " +
+                        $"{aiTotalCompletionTokens} completion/output tokens, {aiTotalTokens} total tokens " +
+                        $"(Pass 1 calls/tokens: {aiFirstPassUsageCalls}/{aiFirstPassTotalTokens}, Pass 2 calls/tokens: {aiSecondPassUsageCalls}/{aiSecondPassTotalTokens})");
+                }
             }
             log?.Report($"✓ Left unmapped: {unmappedCount}");
 
