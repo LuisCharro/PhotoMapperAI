@@ -266,6 +266,30 @@ public class FilenameParserTests : IDisposable
 
     #endregion
 
+    #region ParseAutoDetect - WC FIFA Pattern
+
+    [Fact]
+    public void ParseAutoDetect_WcPattern_Numbered_ParsesShirtAndFifaId()
+    {
+        var result = FilenameParser.ParseAutoDetect("BRA-H-01-M1-PPROFILE-308370-MK.png");
+
+        Assert.NotNull(result);
+        Assert.Equal("01", result!.ShirtCode);
+        Assert.Equal("308370", result.External_Player_ID);
+    }
+
+    [Fact]
+    public void ParseAutoDetect_WcPattern_Coach_ParsesHcAndFifaId()
+    {
+        var result = FilenameParser.ParseAutoDetect("BRA-H-HC-M1-PPROFILE-174348-MK.png");
+
+        Assert.NotNull(result);
+        Assert.Equal("HC", result!.ShirtCode);
+        Assert.Equal("174348", result.External_Player_ID);
+    }
+
+    #endregion
+
     #region ParseWithTemplate
 
     [Fact]

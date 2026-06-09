@@ -13,6 +13,12 @@ public class FilenameParser
     // User-facing placeholders are {first}, {last}, {id}
     private static readonly Regex[] _patterns =
     {
+        // Pattern 0: WC FIFA format {team}-{g}-{shirt}-{variant}-PPROFILE-{id}-{suffix}.png
+        // e.g. BRA-H-01-M1-PPROFILE-308370-MK.png ; coach uses HC instead of a number.
+        // {shirt} captures 01..26 or HC; {id} is the FIFA player id.
+        new Regex(@"^(?<team>[A-Za-z]+)-(?<g>[A-Za-z]+)-(?<shirt>[A-Za-z0-9]{1,3})-(?<variant>[A-Za-z0-9]+)-PPROFILE-(?<id>\d+)-(?<suffix>[A-Za-z0-9]+)\.(png|jpg|jpeg|bmp)$",
+                  RegexOptions.IgnoreCase),
+
         // Pattern 1: {id}_{last}_{first}.png (ID_LastName_FirstName)
         new Regex(@"^(?<id>\d+)_(?<family>[^_]+)_(?<sur>[^\.]+)\.(png|jpg|jpeg|bmp)$",
                   RegexOptions.IgnoreCase),
@@ -166,6 +172,7 @@ public class FilenameParser
             FamilyName = familyName,
             SurName = surName,
             FullName = $"{familyName} {surName}".Trim(),
+            ShirtCode = match.Groups["shirt"].Success ? match.Groups["shirt"].Value : null,
             Source = source,
             PatternUsed = patternUsed
         };

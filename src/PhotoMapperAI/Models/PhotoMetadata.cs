@@ -36,6 +36,12 @@ public class PhotoMetadata
     public string? SurName { get; set; }
 
     /// <summary>
+    /// Raw shirt/code field parsed from the filename (e.g. "01".."26" or "HC").
+    /// Null when the filename pattern carries no shirt code.
+    /// </summary>
+    public string? ShirtCode { get; set; }
+
+    /// <summary>
     /// Source of the metadata (filename, manifest, auto-detect)
     /// </summary>
     public MetadataSource Source { get; set; }
