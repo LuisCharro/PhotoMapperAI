@@ -230,6 +230,8 @@ public class DatabaseExtractor
                     FamilyName = record.FamilyName ?? string.Empty,
                     SurName = record.SurName ?? string.Empty,
                     External_Player_ID = record.External_Player_ID,
+                    ShirtNumber = record.ShirtNumber,
+                    Function = record.Function,
                     ValidMapping = !string.IsNullOrEmpty(record.External_Player_ID),
                     Confidence = !string.IsNullOrEmpty(record.External_Player_ID) ? 1.0 : 0.0
                 });
@@ -275,6 +277,8 @@ public class DatabaseExtractor
                     FamilyName = record.FamilyName ?? string.Empty,
                     SurName = record.SurName ?? string.Empty,
                     External_Player_ID = record.External_Player_ID,
+                    ShirtNumber = record.ShirtNumber,
+                    Function = record.Function,
                     // Preserve the exact values from the existing mapped file
                     ValidMapping = record.ValidMapping,
                     Confidence = record.Confidence
@@ -322,6 +326,8 @@ public class DatabaseExtractor
                     FamilyName = record.FamilyName ?? string.Empty,
                     SurName = record.SurName ?? string.Empty,
                     External_Player_ID = record.External_Player_ID,
+                    ShirtNumber = record.ShirtNumber,
+                    Function = record.Function,
                     ValidMapping = record.ValidMapping,
                     Confidence = record.Confidence
                 });
@@ -437,6 +443,10 @@ public class DatabaseExtractor
         public string? SurName { get; set; }
         [Name("External_Player_ID", "ExternalId")]
         public string? External_Player_ID { get; set; }
+        [Optional]
+        public string? ShirtNumber { get; set; }
+        [Optional]
+        public string? Function { get; set; }
     }
 
     /// <summary>
@@ -450,6 +460,10 @@ public class DatabaseExtractor
         public string? SurName { get; set; }
         [Name("External_Player_ID", "ExternalId")]
         public string? External_Player_ID { get; set; }
+        [Optional]
+        public string? ShirtNumber { get; set; }
+        [Optional]
+        public string? Function { get; set; }
         public bool ValidMapping { get; set; }
         public double Confidence { get; set; }
     }

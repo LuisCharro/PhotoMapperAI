@@ -32,6 +32,18 @@ public class PlayerRecord
     public string? External_Player_ID { get; set; }
 
     /// <summary>
+    /// Shirt number from the source competition data. Empty/null when unknown
+    /// (e.g. the coach, or before the squad shirt data is released).
+    /// </summary>
+    public string? ShirtNumber { get; set; }
+
+    /// <summary>
+    /// Function/role from the source competition data (e.g. FootballForward,
+    /// FootballKeeper, FootballCoach). Null for sources that do not provide it.
+    /// </summary>
+    public string? Function { get; set; }
+
+    /// <summary>
     /// Valid mapping flag (true if confident match found)
     /// </summary>
     public bool ValidMapping { get; set; }
