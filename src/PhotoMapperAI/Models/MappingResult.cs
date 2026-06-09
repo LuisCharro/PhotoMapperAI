@@ -68,6 +68,11 @@ public enum MatchMethod
     DirectIdMatch,
 
     /// <summary>
+    /// Exact shirt-number match (filename shirt code == player shirt number)
+    /// </summary>
+    ShirtNumberMatch,
+
+    /// <summary>
     /// AI-powered fuzzy name matching
     /// </summary>
     AiNameMatching,

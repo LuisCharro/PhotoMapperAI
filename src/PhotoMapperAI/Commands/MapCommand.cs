@@ -15,6 +15,7 @@ public class MapResult
     public int PlayersMatched { get; set; }
     public int DirectIdMatches { get; set; }
     public int StringMatches { get; set; }
+    public int ShirtMatches { get; set; }
     public int FirstRoundMatches { get; set; }
     public int AiFirstPassMatches { get; set; }
     public int AiSecondPassMatches { get; set; }
@@ -60,7 +61,8 @@ public class MapCommandLogic
         CancellationToken cancellationToken = default,
         bool aiTrace = false,
         bool aiOnly = false,
-        IProgress<string>? log = null)
+        IProgress<string>? log = null,
+        string matchBy = "name")
     {
         void LogLine(string message)
         {
@@ -78,6 +80,8 @@ public class MapCommandLogic
         LogLine($"AI Second Pass: {aiSecondPass}");
         LogLine($"AI Trace: {aiTrace}");
         LogLine($"AI Only: {aiOnly}");
+        var shirtMode = string.Equals(matchBy, "shirt", StringComparison.OrdinalIgnoreCase);
+        LogLine($"Match By: {(shirtMode ? "shirt" : "name")}");
         LogLine(string.Empty);
 
         try
@@ -125,6 +129,7 @@ public class MapCommandLogic
             var processedCount = 0;
             var directIdMatches = 0;
             var stringMatches = 0;
+            var shirtMatches = 0;
             var aiFirstPassMatches = 0;
             var aiSecondPassMatches = 0;
             var aiFirstPassPlayersEvaluated = 0;
@@ -183,8 +188,20 @@ public class MapCommandLogic
 
             progress.Complete();
 
+            // Phase 1b: shirt-number matching (opt-in via --matchBy shirt)
+            if (shirtMode)
+            {
+                shirtMatches = ApplyShirtNumberMatches(
+                    unmatchedPlayers,
+                    remainingCandidates,
+                    remainingByExternal_Player_ID,
+                    confidenceThreshold,
+                    results);
+                LogLine($"Shirt-number matched: {shirtMatches}");
+            }
+
             // Phase 2: deterministic global assignment (optional)
-            if (!aiOnly)
+            if (!aiOnly && !shirtMode)
             {
                 stringMatches = ApplyDeterministicGlobalMatches(
                     unmatchedPlayers,
@@ -195,7 +212,7 @@ public class MapCommandLogic
             }
 
             // Phase 3: AI fallback passes
-            if (useAi)
+            if (useAi && !shirtMode)
             {
                 if (unmatchedPlayers.Count == 0)
                 {
@@ -215,7 +232,7 @@ public class MapCommandLogic
                 LogLine("AI matching is disabled (Use AI Mapping is off).");
             }
 
-            if (useAi && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
+            if (useAi && !shirtMode && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
             {
                 try
                 {
@@ -403,6 +420,7 @@ public class MapCommandLogic
                 PlayersMatched = results.Count(r => r.IsValidMatch),
                 DirectIdMatches = directIdMatches,
                 StringMatches = stringMatches,
+                ShirtMatches = shirtMatches,
                 FirstRoundMatches = firstRoundMapped,
                 AiFirstPassMatches = aiFirstPassMatches,
                 AiSecondPassMatches = aiSecondPassMatches,
@@ -618,6 +636,57 @@ public class MapCommandLogic
         }
 
         return applied;
+    }
+
+    private int ApplyShirtNumberMatches(
+        List<PlayerRecord> unmatchedPlayers,
+        List<PhotoCandidate> remainingCandidates,
+        Dictionary<string, PhotoCandidate> remainingByExternal_Player_ID,
+        double confidenceThreshold,
+        List<MappingResult> results)
+    {
+        // Index remaining candidates by normalized numeric shirt code from the filename.
+        // Non-numeric codes (e.g. "HC") and empty codes are skipped.
+        var candidatesByShirt = new Dictionary<int, PhotoCandidate>();
+        foreach (var candidate in remainingCandidates)
+        {
+            if (TryNormalizeShirt(candidate.Metadata.ShirtCode, out var shirt) && !candidatesByShirt.ContainsKey(shirt))
+            {
+                candidatesByShirt[shirt] = candidate;
+            }
+        }
+
+        var applied = 0;
+        foreach (var player in unmatchedPlayers.ToList())
+        {
+            if (!TryNormalizeShirt(player.ShirtNumber, out var shirt))
+                continue;
+            if (!candidatesByShirt.TryGetValue(shirt, out var candidate))
+                continue;
+            if (!remainingCandidates.Contains(candidate))
+                continue;
+
+            ApplyMatch(player, candidate, confidenceThreshold, 1.0, out var result);
+            result.Method = MatchMethod.ShirtNumberMatch;
+            result.ModelUsed = "ShirtNumberMatch";
+            result.Metadata["shirt"] = shirt.ToString(CultureInfo.InvariantCulture);
+            results.Add(result);
+
+            RemoveCandidate(candidate, remainingCandidates, remainingByExternal_Player_ID);
+            unmatchedPlayers.Remove(player);
+            candidatesByShirt.Remove(shirt);
+            applied++;
+        }
+
+        return applied;
+    }
+
+    private static bool TryNormalizeShirt(string? value, out int shirt)
+    {
+        shirt = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        return int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out shirt);
     }
 
     private async Task<AiPassResult> ApplyAiGlobalMatchesAsync(

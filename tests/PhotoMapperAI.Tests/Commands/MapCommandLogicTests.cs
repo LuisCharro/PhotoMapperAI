@@ -334,6 +334,53 @@ public class MapCommandLogicTests
         Assert.Equal("8961", steve.External_Player_ID);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_ShirtMode_MatchesByShirtNumber_LeavesCoachUnmapped()
+    {
+        using var temp = new TestWorkspace();
+
+        var inputCsvPath = temp.WriteFile(
+            "players_8437_Brasilien.csv",
+            "PlayerId,TeamId,FamilyName,SurName,External_Player_ID,ShirtNumber,Function\n" +
+            "83725,8437,Becker,Alisson,,1,FootballKeeper\n" +
+            "59452,8437,Neymar,,,10,FootballForward\n" +
+            "29213,8437,Ancelotti,Carlo,,,FootballCoach\n");
+
+        var photosDir = temp.CreateDirectory("photos");
+        temp.WriteFile(Path.Combine("photos", "BRA-H-01-M1-PPROFILE-308370-MK.png"), "p1");
+        temp.WriteFile(Path.Combine("photos", "BRA-H-10-M1-PPROFILE-314197-MK.png"), "p2");
+        temp.WriteFile(Path.Combine("photos", "BRA-H-HC-M1-PPROFILE-174348-MK.png"), "coach");
+
+        var map = new MapCommandLogic(new NoOpNameMatchingService(), new ImageProcessor());
+
+        var result = await map.ExecuteAsync(
+            inputCsvPath,
+            photosDir,
+            filenamePattern: null,
+            photoManifest: null,
+            outputDirectory: temp.Root,
+            nameModel: "test-model",
+            confidenceThreshold: 0.8,
+            useAi: false,
+            aiSecondPass: false,
+            matchBy: "shirt");
+
+        Assert.Equal(3, result.PlayersProcessed);
+        Assert.Equal(2, result.ShirtMatches);
+        Assert.Equal(2, result.PlayersMatched);
+
+        var extractor = new DatabaseExtractor();
+        var outputPlayers = await extractor.ReadCsvAsync(result.OutputPath);
+        var becker = outputPlayers.Single(p => p.PlayerId == 83725);
+        var neymar = outputPlayers.Single(p => p.PlayerId == 59452);
+        var coach = outputPlayers.Single(p => p.PlayerId == 29213);
+
+        Assert.Equal("308370", becker.External_Player_ID);
+        Assert.Equal("314197", neymar.External_Player_ID);
+        Assert.True(string.IsNullOrEmpty(coach.External_Player_ID));
+        Assert.False(coach.ValidMapping);
+    }
+
     private sealed class NoOpNameMatchingService : INameMatchingService
     {
         public string ModelName => "noop";
