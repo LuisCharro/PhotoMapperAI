@@ -161,6 +161,8 @@ public class DatabaseExtractor
                 var familyName = reader["FamilyName"] as string ?? string.Empty;
                 var surName = reader["SurName"] as string ?? string.Empty;
                 var External_Player_ID = GetOptionalString(reader, "External_Player_ID", "ExternalId");
+                var shirtNumber = GetOptionalString(reader, "ShirtNumber");
+                var function = GetOptionalString(reader, "Function");
 
                 var player = new PlayerRecord
                 {
@@ -168,7 +170,9 @@ public class DatabaseExtractor
                     TeamId = teamId,
                     FamilyName = familyName,
                     SurName = surName,
-                    External_Player_ID = External_Player_ID
+                    External_Player_ID = External_Player_ID,
+                    ShirtNumber = shirtNumber,
+                    Function = function
                 };
 
                 player.ValidMapping = !string.IsNullOrEmpty(player.External_Player_ID);
