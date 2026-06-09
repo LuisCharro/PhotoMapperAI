@@ -90,8 +90,10 @@ correct 27-row squad. This query has been validated.
 
 ### 1. Extract (enrich the CSV)
 
-- Add a new WC SQL template (under `samples/`, mirrored into
-  `C:\FIFA_Images\2026_WC`) based on `CompetitorContestData`:
+- A new WC SQL template has been created and validated at
+  `C:\FIFA_Images\2026_WC\CesimSquadWithShirtFromCompetition_PhotoMapper_2026_WC_men.sql`
+  (a copy/equivalent should also live under `samples/` in the repo). It is based
+  on `CompetitorContestData`:
 
   ```sql
   -- Parameters: @TeamId. Contest is the WC men's competition (5193).
