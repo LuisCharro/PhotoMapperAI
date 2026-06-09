@@ -229,7 +229,9 @@ public class MapCommandLogic
             }
             else
             {
-                LogLine("AI matching is disabled (Use AI Mapping is off).");
+                LogLine(shirtMode
+                    ? "AI matching is disabled (shirt-number mode active)."
+                    : "AI matching is disabled (Use AI Mapping is off).");
             }
 
             if (useAi && !shirtMode && unmatchedPlayers.Count > 0 && remainingCandidates.Count > 0)
