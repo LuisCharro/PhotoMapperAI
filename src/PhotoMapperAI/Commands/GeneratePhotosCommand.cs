@@ -424,7 +424,7 @@ public class GeneratePhotosCommandLogic
     );
 
 
-    private static List<string> FindPlayerPhotoFiles(string photosDir, string? External_Player_ID)
+    internal static List<string> FindPlayerPhotoFiles(string photosDir, string? External_Player_ID)
     {
         if (string.IsNullOrWhiteSpace(External_Player_ID))
         {
@@ -442,6 +442,16 @@ public class GeneratePhotosCommandLogic
             // Filename pattern: FirstName_LastName_PlayerID.jpg
             var pattern = $"*_{safeExternal_Player_ID}.*";
             photoFiles = Directory.GetFiles(photosDir, pattern, SearchOption.AllDirectories)
+                .Where(f => IsSupportedImageFormat(f))
+                .ToList();
+        }
+
+        if (photoFiles.Count == 0)
+        {
+            // Try matching an ID delimited by hyphens anywhere in the filename
+            // (e.g. 2026 World Cup FIFA pattern BRA-H-01-M1-PPROFILE-308370-MK.png).
+            var hyphenPattern = $"*-{safeExternal_Player_ID}-*.*";
+            photoFiles = Directory.GetFiles(photosDir, hyphenPattern, SearchOption.AllDirectories)
                 .Where(f => IsSupportedImageFormat(f))
                 .ToList();
         }

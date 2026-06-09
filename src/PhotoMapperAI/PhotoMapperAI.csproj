@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="PhotoMapperAI.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Resources\**\*" />
     <Content Include="Resources/AppleVision/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
