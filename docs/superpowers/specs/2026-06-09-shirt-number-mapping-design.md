@@ -186,6 +186,19 @@ correct 27-row squad. This query has been validated.
   using the existing click-to-assign manual-repair feature.
 - Automatic `HC → coach` matching.
 - Any change to the 2024_Euro / name-based flow beyond keeping it the default.
+- UI face-detection default: the CLI `generatephotos` default detector on
+  Windows/Linux is now `opencv-dnn,opencv-yunet,center` (opencv-yunet alone
+  downscales to a fixed 320x320 and misses ~58% of faces in 1920x1080 photos).
+  The Avalonia UI/batch Windows default (currently `opencv-yunet`) should be
+  updated to the same chain when the UI work is done.
+
+## Portrait generation notes (added during end-to-end verification)
+
+- `generatephotos` locates each player's photo via `FindPlayerPhotoFiles`, which
+  now also matches a hyphen-delimited FIFA id (`*-{id}-*.*`) so WC filenames like
+  `BRA-H-01-M1-PPROFILE-308370-MK.png` resolve.
+- Verified on Brasilien (26 players): with the default chain, 24 faces detected
+  by opencv-dnn, 2 by opencv-yunet, 0 fell back to center, 0 undetected.
 
 ## Verification approach
 
