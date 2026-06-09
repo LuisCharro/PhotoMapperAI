@@ -164,6 +164,14 @@
                     </StackPanel>
                   </Border>
 
+                  <CheckBox Content="Map by shirt number (2026 World Cup photos — no name in filename)"
+                            IsChecked="{Binding UseShirtNumberMapping}"
+                            FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,4,0,0"/>
+                  <TextBlock Text="Applies to every team in the batch. Each team CSV must include a ShirtNumber column (WC squad-with-shirt extract). Coaches have no shirt and stay unmapped."
+                             FontSize="9" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+
+                  <Separator Margin="0,8" Background="{DynamicResource DividerBrush}"/>
+
                   <TextBlock Text="Custom Filename Pattern" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,8,0,0"/>
                   <TextBlock Text="Override auto-detection for non-standard naming. Leave empty for auto-detect."
                              FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>

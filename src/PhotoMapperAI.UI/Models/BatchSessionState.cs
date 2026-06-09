@@ -28,6 +28,7 @@ public class BatchSessionState
     public string? NameMatchingModel { get; set; } = "qwen2.5:7b";
     public double NameMatchingThreshold { get; set; } = 0.8;
     public bool UseAiMapping { get; set; }
+    public bool UseShirtNumberMapping { get; set; }
     public bool AiOnly { get; set; }
     public bool AiSecondPass { get; set; }
     

@@ -130,6 +130,11 @@ public partial class BatchAutomationViewModel : ViewModelBase
     [ObservableProperty]
     private bool _useAiMapping;
 
+    // When true, photos are matched to players by shirt number (2026 World Cup
+    // photos, whose filenames carry no name) for every team in the batch.
+    [ObservableProperty]
+    private bool _useShirtNumberMapping;
+
     [ObservableProperty]
     private bool _aiOnly;
 
@@ -569,7 +574,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                     zaiApiKey: IsZaiModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                     minimaxApiKey: IsMiniMaxModel(NameMatchingModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                     CancellationToken.None,
-                    log: null);
+                    log: null,
+                    matchBy: UseShirtNumberMapping ? "shirt" : "name");
 
                 if (mapResult.ExitCode != 0)
                 {
@@ -1048,6 +1054,7 @@ public partial class BatchAutomationViewModel : ViewModelBase
             NameMatchingModel = NameMatchingModel,
             NameMatchingThreshold = NameMatchingThreshold < MinConfidenceThreshold ? MinConfidenceThreshold : NameMatchingThreshold,
             UseAiMapping = UseAiMapping,
+            UseShirtNumberMapping = UseShirtNumberMapping,
             AiOnly = AiOnly,
             AiSecondPass = AiSecondPass,
             FaceDetectionModel = FaceDetectionModel,
@@ -1541,7 +1548,8 @@ public partial class BatchAutomationViewModel : ViewModelBase
                         zaiApiKey: IsZaiModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                         minimaxApiKey: IsMiniMaxModel(effectiveNameModel) ? (string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey) : null,
                         cancellationToken,
-                        new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")));
+                        new Progress<string>(msg => AppendLog($"[MAP] {team.TeamName}: {msg}")),
+                        matchBy: UseShirtNumberMapping ? "shirt" : "name");
 
                     if (mapResult.ExitCode != 0)
                     {
