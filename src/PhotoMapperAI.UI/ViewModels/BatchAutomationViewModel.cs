@@ -2416,10 +2416,13 @@ public partial class BatchAutomationViewModel : ViewModelBase
 
         if (isWindows)
         {
-            // Windows: OpenCV works fine
-            RecommendedFaceDetectionModels.Add("opencv-yunet");
+            // Windows: opencv-dnn is the strongest single detector on high-resolution
+            // photos; the chain falls back to yunet (which catches dnn's few misses)
+            // then center, so every face is covered. yunet alone misses many faces.
+            RecommendedFaceDetectionModels.Add("opencv-dnn,opencv-yunet,center");
             RecommendedFaceDetectionModels.Add("opencv-dnn");
-            FaceDetectionModel = "opencv-yunet";
+            RecommendedFaceDetectionModels.Add("opencv-yunet");
+            FaceDetectionModel = "opencv-dnn,opencv-yunet,center";
         }
         else if (isMacOS)
         {
@@ -2441,11 +2444,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
         }
         else if (isLinux)
         {
-            // Linux: Try OpenCV, fallback to center
-            RecommendedFaceDetectionModels.Add("opencv-yunet");
+            // Linux: same OpenCV chain as Windows, with center as the last resort.
+            RecommendedFaceDetectionModels.Add("opencv-dnn,opencv-yunet,center");
             RecommendedFaceDetectionModels.Add("opencv-dnn");
+            RecommendedFaceDetectionModels.Add("opencv-yunet");
             RecommendedFaceDetectionModels.Add("center");
-            FaceDetectionModel = "opencv-yunet";
+            FaceDetectionModel = "opencv-dnn,opencv-yunet,center";
         }
         else
         {
