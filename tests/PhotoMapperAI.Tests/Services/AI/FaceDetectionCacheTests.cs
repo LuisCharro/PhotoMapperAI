@@ -78,6 +78,22 @@ public class FaceDetectionCacheTests : IDisposable
 
     #endregion
 
+    [Fact]
+    public void CacheLandmarks_NoFaceDetectedResult_IsNotCached()
+    {
+        // Arrange: a "no face detected" result has no usable geometry.
+        CreateTestImage(1000, DateTime.UtcNow);
+        var noFace = new FaceLandmarks { FaceDetected = false, ModelUsed = "test-model" };
+        var cache = new FaceDetectionCache(_cacheFilePath);
+
+        // Act
+        cache.CacheLandmarks(_imagePath, noFace, "test-model");
+
+        // Assert: negative results must not be cached, so detection is retried next run.
+        Assert.Null(cache.GetCachedLandmarks(_imagePath, "test-model"));
+        Assert.Equal(0, cache.GetStatistics().TotalEntries);
+    }
+
     #region GetCachedLandmarks Tests
 
     [Fact]
@@ -462,6 +478,7 @@ public class FaceDetectionCacheTests : IDisposable
     {
         return new FaceLandmarks
         {
+            FaceDetected = true,
             FaceRect = new PhotoMapperAI.Models.Rectangle(x, y, 200, 200),
             LeftEye = new PhotoMapperAI.Models.Point(x + 70, y + 80),
             RightEye = new PhotoMapperAI.Models.Point(x + 130, y + 80)

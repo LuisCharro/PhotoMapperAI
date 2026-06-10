@@ -201,6 +201,14 @@ public class FaceDetectionCache
             return false;
         }
 
+        // Never reuse a "no face detected" result. It carries no usable geometry, is
+        // cheap to recompute, and a stale negative would permanently block re-detection
+        // after the detector improves (this also evicts old negatives on read/load).
+        if (!landmarks.FaceDetected)
+        {
+            return false;
+        }
+
         if (!string.IsNullOrWhiteSpace(landmarks.ModelUsed) &&
             !string.Equals(landmarks.ModelUsed, model, StringComparison.OrdinalIgnoreCase))
         {
