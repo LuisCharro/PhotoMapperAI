@@ -24,14 +24,19 @@ public class OpenCVYuNetFaceDetectionService : IFaceDetectionService, IDisposabl
     private bool _initialized;
     private int _inputWidth;
     private int _inputHeight;
-    private static readonly OpenCvSharp.Size DefaultInputSize = new(320, 320);
+
+    // Resize the image so its longer side is at most this (preserving aspect) before
+    // running YuNet. The previous fixed 320x320 squashed 16:9 photos and shrank faces
+    // ~6x, causing misses on smaller / low-contrast faces in high-resolution images.
+    private const int TargetLongSide = 960;
+    private const int MinInputSide = 320;
 
     /// <summary>
     /// Creates a new OpenCV YuNet face detection service.
     /// </summary>
     public OpenCVYuNetFaceDetectionService(
         string modelsPath = "./models",
-        float scoreThreshold = 0.9f,
+        float scoreThreshold = 0.6f,
         float nmsThreshold = 0.3f,
         int topK = 5000)
     {
@@ -130,8 +135,9 @@ public class OpenCVYuNetFaceDetectionService : IFaceDetectionService, IDisposabl
                 };
             }
 
-            SetInputSize(DefaultInputSize);
-            using var blob = CvDnn.BlobFromImage(image, 1.0, DefaultInputSize, new Scalar(), false, false);
+            var inputSize = ComputeInputSize(image.Size());
+            SetInputSize(inputSize);
+            using var blob = CvDnn.BlobFromImage(image, 1.0, inputSize, new Scalar(), false, false);
 
             var outputNames = _outputNames;
             if (outputNames == null || outputNames.Count == 0)
@@ -249,6 +255,27 @@ public class OpenCVYuNetFaceDetectionService : IFaceDetectionService, IDisposabl
     {
         _inputWidth = size.Width;
         _inputHeight = size.Height;
+    }
+
+    /// <summary>
+    /// Computes the network input size for an image: scales the longer side down to
+    /// TargetLongSide (preserving aspect), never upscaling, with both dimensions rounded
+    /// to a multiple of 32 (YuNet stride requirement) and clamped to a sensible minimum.
+    /// Per-axis back-scaling in PostProcess corrects any residual aspect difference.
+    /// </summary>
+    private static OpenCvSharp.Size ComputeInputSize(OpenCvSharp.Size imageSize)
+    {
+        var longSide = Math.Max(imageSize.Width, imageSize.Height);
+        var scale = longSide > TargetLongSide ? (double)TargetLongSide / longSide : 1.0;
+        var width = RoundToMultipleOf32((int)Math.Round(imageSize.Width * scale));
+        var height = RoundToMultipleOf32((int)Math.Round(imageSize.Height * scale));
+        return new OpenCvSharp.Size(Math.Max(width, MinInputSide), Math.Max(height, MinInputSide));
+    }
+
+    private static int RoundToMultipleOf32(int value)
+    {
+        var rounded = ((value + 16) / 32) * 32;
+        return rounded < 32 ? 32 : rounded;
     }
 
     private List<FaceCandidate> PostProcess(IReadOnlyDictionary<string, Mat> outputBlobs, OpenCvSharp.Size imageSize)
