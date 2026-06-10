@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.Commands;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Database;
 using PhotoMapperAI.Services.Diagnostics;
@@ -592,10 +593,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
                 return;
             }
 
-            var previewPlayer = await ResolvePreviewPlayerAsync(mappedCsvPath);
+            var previewPlayer = await ResolvePreviewPlayerAsync(mappedCsvPath, teamPhotoDir);
             if (previewPlayer == null || string.IsNullOrWhiteSpace(previewPlayer.External_Player_ID))
             {
-                PreviewStatus = "No eligible player with External_Player_ID found for preview.";
+                PreviewStatus = "No eligible mapped player with a photo found for preview.";
                 return;
             }
 
@@ -1788,10 +1789,16 @@ public partial class BatchAutomationViewModel : ViewModelBase
             : BasePhotoDirectory;
     }
 
-    private async Task<PlayerRecord?> ResolvePreviewPlayerAsync(string csvPath)
+    private async Task<PlayerRecord?> ResolvePreviewPlayerAsync(string csvPath, string photosDirectory)
     {
         var players = await _databaseExtractor.ReadCsvAsync(csvPath);
-        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.External_Player_ID));
+
+        // Pick the first player that is actually mapped AND has a photo on disk. The CSV
+        // can contain more players than there are photos (e.g. unmapped players), so the
+        // very first row may have no photo; preview the first usable one instead.
+        return players.FirstOrDefault(p =>
+            !string.IsNullOrWhiteSpace(p.External_Player_ID) &&
+            FindPlayerPhotoFiles(photosDirectory, p.External_Player_ID!).Count > 0);
     }
 
     private (int width, int height) ResolvePreviewDimensions()
@@ -1924,22 +1931,10 @@ public partial class BatchAutomationViewModel : ViewModelBase
         };
     }
 
+    // Delegate to the single source of truth so the preview locates photos exactly like
+    // generation does (including the 2026 WC hyphen-delimited FIFA-id filename pattern).
     private static List<string> FindPlayerPhotoFiles(string photosDirectory, string External_Player_ID)
-    {
-        var photoFiles = Directory.GetFiles(photosDirectory, $"{External_Player_ID}.*")
-            .Where(IsSupportedImageFormat)
-            .ToList();
-
-        if (photoFiles.Count == 0)
-        {
-            var pattern = $"*_{External_Player_ID}.*";
-            photoFiles = Directory.GetFiles(photosDirectory, pattern, SearchOption.AllDirectories)
-                .Where(IsSupportedImageFormat)
-                .ToList();
-        }
-
-        return photoFiles;
-    }
+        => GeneratePhotosCommandLogic.FindPlayerPhotoFiles(photosDirectory, External_Player_ID);
 
     private static bool IsSupportedImageFormat(string path)
     {

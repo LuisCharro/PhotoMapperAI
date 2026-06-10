@@ -424,7 +424,7 @@ public class GeneratePhotosCommandLogic
     );
 
 
-    internal static List<string> FindPlayerPhotoFiles(string photosDir, string? External_Player_ID)
+    public static List<string> FindPlayerPhotoFiles(string photosDir, string? External_Player_ID)
     {
         if (string.IsNullOrWhiteSpace(External_Player_ID))
         {

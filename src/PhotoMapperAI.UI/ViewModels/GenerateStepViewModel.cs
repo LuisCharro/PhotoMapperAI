@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PhotoMapperAI.Commands;
 using PhotoMapperAI.Models;
 using PhotoMapperAI.Services.AI;
 using PhotoMapperAI.Services.Database;
@@ -1570,7 +1571,12 @@ public partial class GenerateStepViewModel : ViewModelBase
             return match;
         }
 
-        return players.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.External_Player_ID));
+        // Pick the first player that is actually mapped AND has a photo on disk. The CSV
+        // can contain more players than there are photos (e.g. unmapped players), so the
+        // very first row may have no photo; preview the first usable one instead.
+        return players.FirstOrDefault(p =>
+            !string.IsNullOrWhiteSpace(p.External_Player_ID) &&
+            FindPlayerPhotoFiles(p.External_Player_ID!).Count > 0);
     }
 
     private (int width, int height, string? placeholderPath) ResolvePreviewVariant()
@@ -1655,22 +1661,10 @@ public partial class GenerateStepViewModel : ViewModelBase
         return photoFiles.FirstOrDefault();
     }
 
+    // Delegate to the single source of truth so the preview locates photos exactly like
+    // generation does (including the 2026 WC hyphen-delimited FIFA-id filename pattern).
     private List<string> FindPlayerPhotoFiles(string External_Player_ID)
-    {
-        var photoFiles = Directory.GetFiles(PhotosDirectory, $"{External_Player_ID}.*")
-            .Where(IsSupportedImageFormat)
-            .ToList();
-
-        if (photoFiles.Count == 0)
-        {
-            var pattern = $"*_{External_Player_ID}.*";
-            photoFiles = Directory.GetFiles(PhotosDirectory, pattern, SearchOption.AllDirectories)
-                .Where(IsSupportedImageFormat)
-                .ToList();
-        }
-
-        return photoFiles;
-    }
+        => GeneratePhotosCommandLogic.FindPlayerPhotoFiles(PhotosDirectory, External_Player_ID);
 
     private static bool IsSupportedImageFormat(string path)
     {
