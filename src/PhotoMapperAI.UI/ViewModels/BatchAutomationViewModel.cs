@@ -134,7 +134,12 @@ public partial class BatchAutomationViewModel : ViewModelBase
     // When true, photos are matched to players by shirt number (2026 World Cup
     // photos, whose filenames carry no name) for every team in the batch.
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowNameMatchingOptions))]
     private bool _useShirtNumberMapping;
+
+    // Shirt-number matching is exclusive: it skips name/AI matching entirely, so those
+    // options are hidden when it is on.
+    public bool ShowNameMatchingOptions => !UseShirtNumberMapping;
 
     [ObservableProperty]
     private bool _aiOnly;

@@ -159,6 +159,8 @@
             </Border>
           </Expander>
 
+          <!-- Name-matching options (hidden when mapping by shirt number) -->
+          <StackPanel Spacing="10" IsVisible="{Binding ShowNameMatchingOptions}">
           <!-- Matching Flow Explanation -->
           <Border Background="{DynamicResource CardBrush}" CornerRadius="6" Padding="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
             <StackPanel Spacing="2">
@@ -277,6 +279,7 @@
             <CheckBox Content="AI-only mode (skip deterministic matching)"
                       IsChecked="{Binding AiOnly}"
                       FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}"/>
+          </StackPanel>
           </StackPanel>
         </StackPanel>
       </Border>

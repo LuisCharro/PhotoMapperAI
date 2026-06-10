@@ -227,6 +227,8 @@
               </Border>
             </Expander>
 
+            <!-- Name-matching options (hidden when mapping by shirt number) -->
+            <StackPanel Spacing="8" IsVisible="{Binding ShowNameMatchingOptions}">
             <!-- Confidence Threshold Slider -->
             <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="6" Padding="10">
               <StackPanel Spacing="4">
@@ -322,6 +324,7 @@
                            TextWrapping="Wrap" IsVisible="{Binding ModelDiagnosticStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
               </StackPanel>
             </Border>
+            </StackPanel>
 
             <!-- Face Detection -->
             <Grid ColumnDefinitions="*" Margin="0,4,0,0">

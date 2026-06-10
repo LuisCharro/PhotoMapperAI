@@ -73,7 +73,12 @@ public partial class MapStepViewModel : ViewModelBase
     // When true, photos are matched to players by shirt number (2026 World Cup
     // photos, whose filenames carry no name). When false, name matching is used.
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowNameMatchingOptions))]
     private bool _useShirtNumberMapping;
+
+    // Shirt-number matching is exclusive: it skips name/AI matching entirely, so those
+    // options are hidden when it is on.
+    public bool ShowNameMatchingOptions => !UseShirtNumberMapping;
 
     [ObservableProperty]
     private FilenamePatternPreset? _selectedFilenamePatternPreset;
