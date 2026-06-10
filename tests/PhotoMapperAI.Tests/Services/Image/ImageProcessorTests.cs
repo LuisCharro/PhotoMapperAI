@@ -36,6 +36,35 @@ public class ImageProcessorTests
     }
 
     [Fact]
+    public async Task SaveImageAsync_TransparentImageToJpg_FillsWhiteNotBlack()
+    {
+        // Rgba64 is a transparency-bearing pixel format that the old type-specific
+        // detection did not recognize, so a transparent image exported to JPEG came out
+        // black. JPEG cannot store alpha, so the background must flatten to white.
+        var processor = new ImageProcessor();
+        using var source = new Image<Rgba64>(64, 64, new Rgba64(0, 0, 0, 0));
+        var outputPath = Path.Combine(Path.GetTempPath(), $"transp-{Guid.NewGuid():N}.jpg");
+
+        try
+        {
+            await processor.SaveImageAsync(source, outputPath, "jpg");
+
+            using var saved = SixLabors.ImageSharp.Image.Load<Rgba32>(outputPath);
+            var corner = saved[2, 2];
+            Assert.True(
+                corner.R > 240 && corner.G > 240 && corner.B > 240,
+                $"Expected white background, got R{corner.R} G{corner.G} B{corner.B}");
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task CropPortraitAsync_ShouldKeepDetectedEyesNearThirtyFivePercentFromTop()
     {
         var processor = new ImageProcessor();
