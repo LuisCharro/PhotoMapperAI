@@ -377,9 +377,22 @@ public partial class BatchAutomationViewModel : ViewModelBase
     public bool CanStart => !IsProcessing && Teams.Count > 0;
     public bool HasSelectedTeamWithUnmappedPlayers => GetSelectedTeamUnmappedCount() > 0;
     public bool CanOpenSelectedTeamManualMapping => !IsProcessing && SelectedTeam != null;
-    public string ManualMappingButtonText => HasSelectedTeamWithUnmappedPlayers
-        ? "Manual Fix Unmapped"
-        : "Manual Map Selected Team";
+    public string ManualMappingButtonText
+    {
+        get
+        {
+            // Surface the actually-targeted team so it is obvious which row the
+            // button acts on (it uses the highlighted row, not the Run checkboxes).
+            if (SelectedTeam == null)
+            {
+                return "Select a team row first";
+            }
+
+            return HasSelectedTeamWithUnmappedPlayers
+                ? $"Manual Fix Unmapped: {SelectedTeam.TeamName} ({GetSelectedTeamUnmappedCount()})"
+                : $"Manual Map: {SelectedTeam.TeamName}";
+        }
+    }
 
     public bool CanRenameMissingPhotoFolder =>
         !IsProcessing &&
